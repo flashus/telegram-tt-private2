@@ -2,6 +2,7 @@ import type { ApiFormattedText } from '../../../../api/types';
 import { ApiMessageEntityTypes } from '../../../../api/types';
 
 import parseHtmlAsFormattedText from '../../../../util/parseHtmlAsFormattedText';
+import { preparePastedHtml } from '../../composer/helpers/cleanHtml';
 
 const div = document.createElement('div');
 const ALLOWED_QUOTE_ENTITIES = new Set([
@@ -15,7 +16,8 @@ const ALLOWED_QUOTE_ENTITIES = new Set([
 
 export function getSelectionAsFormattedText(range: Range) {
   const html = getSelectionAsHtml(range);
-  const formattedText = parseHtmlAsFormattedText(html, false, true);
+  const cleanedHtml = preparePastedHtml(html);
+  const formattedText = parseHtmlAsFormattedText(cleanedHtml);
 
   return stripEntitiesForQuote(formattedText);
 }

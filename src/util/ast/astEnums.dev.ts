@@ -1,0 +1,41 @@
+export enum NodeType {
+  TEXT = 'textNode',
+  BOLD = 'boldNode',
+  ITALIC = 'italicNode',
+  STRIKE = 'strikeNode',
+  CODE = 'codeNode',
+  CODE_BLOCK = 'codeBlockNode',
+  LINK = 'linkNode',
+  URL_START = 'urlStartNode',
+  URL_END = 'urlEndNode',
+  NEWLINE = 'newlineNode',
+  EOF = 'eofNode',
+  SPOILER = 'spoilerNode',
+  QUOTE = 'quoteNode',
+  UNDERLINE = 'underlineNode',
+  QUOTEMARK = 'quotemarkNode',
+  // html and custom emoji handling
+  HTML_TAG = 'htmlTagNode',
+  DOCUMENT = 'documentNode',
+}
+
+export enum TokenType {
+  TEXT = 'TEXT',
+  BOLD_MARKER = 'BOLD_MARKER',
+  ITALIC_MARKER = 'ITALIC_MARKER',
+  STRIKE_MARKER = 'STRIKE_MARKER',
+  CODE_MARKER = 'CODE_MARKER',
+  CODE_BLOCK = 'CODE_BLOCK',
+  LINK_START = 'LINK_START',
+  LINK_END = 'LINK_END',
+  URL_START = 'URL_START',
+  URL_END = 'URL_END',
+  NEWLINE = 'NEWLINE',
+  EOF = 'EOF',
+  SPOILER_MARKER = 'SPOILER_MARKER',
+  QUOTE_MARKER = 'QUOTE_MARKER',
+  UNDERLINE_MARKER = 'UNDERLINE_MARKER',
+  QUOTEMARK_MARKER = 'QUOTEMARK_MARKER',
+  // html and custom emoji handling
+  HTML_TAG = 'HTML_TAG',
+}

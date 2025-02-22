@@ -177,7 +177,8 @@ function getCleanDocument(dirty: HTMLElement): HTMLElement {
 
 export default function cleanDocsHtml(clipboardContent: string): string {
   if (!clipboardContent.match(GDOCS_ELEMENT_ID_REGEXP)) {
-    return parseHtml(clipboardContent.replace(/(\r\n|\n|\r)/, '')).innerHTML;
+    // return parseHtml(clipboardContent.replace(/(\r\n|\n|\r)/, '')).innerHTML;
+    return parseHtml(clipboardContent).innerHTML;
   }
 
   return getCleanDocument(parseHtml(clipboardContent.replace(/(\r\n|\n|\r)/, ''))).innerHTML;
