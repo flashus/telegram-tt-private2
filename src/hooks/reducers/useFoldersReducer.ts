@@ -109,14 +109,14 @@ export type FoldersState = {
   error?: string;
   folderId?: number;
   chatFilter: string;
-  folder: Omit<ApiChatFolder, 'id' | 'description' | 'emoticon'>;
+  folder: ApiChatFolder | Omit<ApiChatFolder, 'id' | 'description'>;
   includeFilters?: FolderIncludeFilters;
   excludeFilters?: FolderExcludeFilters;
 };
 export type FoldersActions = (
-  'setTitle' | 'saveFilters' | 'editFolder' | 'reset' | 'setChatFilter' | 'setIsLoading' | 'setError' |
-  'editIncludeFilters' | 'editExcludeFilters' | 'setIncludeFilters' | 'setExcludeFilters' | 'setIsTouched' |
-  'setFolderId' | 'setIsChatlist'
+  'setTitle' | 'saveFilters' | 'editFolder' | 'reset' | 'setChatFilter' | 'setIsLoading' |
+  'setError' | 'editIncludeFilters' | 'editExcludeFilters' | 'setIncludeFilters' |
+  'setExcludeFilters' | 'setIsTouched' | 'setFolderId' | 'setIsChatlist' | 'patchFolder'
   );
 export type FolderEditDispatch = Dispatch<FoldersState, FoldersActions>;
 
@@ -247,6 +247,15 @@ const foldersReducer: StateReducer<FoldersState, FoldersActions> = (
           ...state.folder,
           isChatList: action.payload,
         },
+      };
+    case 'patchFolder':
+      return {
+        ...state,
+        folder: {
+          ...state.folder,
+          ...action.payload,
+        },
+        isTouched: true,
       };
     case 'reset':
       return INITIAL_STATE;

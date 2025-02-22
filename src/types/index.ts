@@ -63,7 +63,7 @@ export type PerformanceTypeKey = (
   'pageTransitions' | 'messageSendingAnimations' | 'mediaViewerAnimations'
   | 'messageComposerAnimations' | 'contextMenuAnimations' | 'contextMenuBlur' | 'rightColumnAnimations'
   | 'animatedEmoji' | 'loopAnimatedStickers' | 'reactionEffects' | 'stickerEffects' | 'autoplayGifs' | 'autoplayVideos'
-  | 'storyRibbonAnimations' | 'snapEffect'
+  | 'storyRibbonAnimations' | 'snapEffect' | 'wallpaperRotation'
 );
 export type PerformanceType = {
   [key in PerformanceTypeKey]: boolean;
@@ -139,6 +139,7 @@ export interface ISettings extends NotifySettings, Record<string, any> {
   shouldDebugExportedSenders?: boolean;
   shouldWarnAboutSvg?: boolean;
   shouldSkipWebAppCloseConfirmation: boolean;
+  isChatFolderListOnLeft?: boolean;
 }
 
 export type IAnchorPosition = {
@@ -516,6 +517,10 @@ export type MessageListType =
   'thread'
   | 'pinned'
   | 'scheduled';
+
+export type PreviewMessageListType =
+  'reply'
+  | 'forward';
 
 export type ChatListType = 'active' | 'archived' | 'saved';
 

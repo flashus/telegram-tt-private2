@@ -30,6 +30,7 @@ export type OwnProps = {
   headerClassName?: string;
   isOpen?: boolean;
   header?: TeactNode;
+  footer?: TeactNode;
   isSlim?: boolean;
   hasCloseButton?: boolean;
   hasAbsoluteCloseButton?: boolean;
@@ -57,6 +58,7 @@ const Modal: FC<OwnProps> = ({
   isOpen,
   isSlim,
   header,
+  footer,
   hasCloseButton,
   hasAbsoluteCloseButton,
   absoluteCloseButtonColor = 'translucent',
@@ -185,6 +187,7 @@ const Modal: FC<OwnProps> = ({
             <div className={buildClassName('modal-content custom-scroll', contentClassName)} style={style}>
               {children}
             </div>
+            {footer}
           </div>
         </div>
       </div>

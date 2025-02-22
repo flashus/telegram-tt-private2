@@ -1,0 +1,27 @@
+.SvgIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--border-radius-messages-small);
+  cursor: var(--custom-cursor, pointer);
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  color: var(--color-text-secondary);
+
+  .mac-os-fix & {
+    line-height: inherit;
+  }
+
+  &.focus,
+  &:hover {
+    background-color: var(--color-background-selected);
+  }
+
+  & > i {
+    width: 2rem;
+    height: 2rem;
+    margin: 0;
+  }
+}

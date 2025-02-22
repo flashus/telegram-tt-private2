@@ -759,4 +759,9 @@ export type TabState = {
 
   isWaitingForStarGiftUpgrade?: true;
   isWaitingForStarGiftTransfer?: true;
+
+  previewMessageListModal?: {
+    chatId: string;
+    threadId: ThreadId;
+  };
 };

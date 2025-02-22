@@ -5,6 +5,7 @@ import React, {
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiChatFolder } from '../../../../api/types';
+import type { IRadioOption } from '../../../ui/RadioGroup';
 
 import { ALL_FOLDER_ID, STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
 import { getFolderDescriptionText } from '../../../../global/helpers';
@@ -21,12 +22,13 @@ import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useOldLang from '../../../../hooks/useOldLang';
 import usePreviousDeprecated from '../../../../hooks/usePreviousDeprecated';
 
-import AnimatedIconWithPreview from '../../../common/AnimatedIconWithPreview';
+import AnimatedIcon from '../../../common/AnimatedIcon';
 import Icon from '../../../common/icons/Icon';
 import Button from '../../../ui/Button';
 import Draggable from '../../../ui/Draggable';
 import ListItem from '../../../ui/ListItem';
 import Loading from '../../../ui/Loading';
+import RadioGroup from '../../../ui/RadioGroup';
 
 type OwnProps = {
   isActive?: boolean;
@@ -41,6 +43,7 @@ type StateProps = {
   recommendedChatFolders?: ApiChatFolder[];
   maxFolders: number;
   isPremium?: boolean;
+  isChatFolderListOnLeft?: boolean;
 };
 
 type SortState = {
@@ -60,6 +63,7 @@ const SettingsFoldersMain: FC<OwnProps & StateProps> = ({
   folderIds,
   foldersById,
   isPremium,
+  isChatFolderListOnLeft,
   recommendedChatFolders,
   maxFolders,
 }) => {
@@ -69,6 +73,7 @@ const SettingsFoldersMain: FC<OwnProps & StateProps> = ({
     openLimitReachedModal,
     openDeleteChatFolderModal,
     sortChatFolders,
+    setSettingOption,
   } = getActions();
 
   const [state, setState] = useState<SortState>({
@@ -195,10 +200,22 @@ const SettingsFoldersMain: FC<OwnProps & StateProps> = ({
     return !isPremium || Object.keys(foldersById).length < maxFolders - 1;
   }, [foldersById, isPremium, maxFolders]);
 
+  const tabsViewOptions: IRadioOption[] = [{
+    label: lang('ChatList.Filter.TabBar.OnTheLeft'),
+    value: 'left',
+  }, {
+    label: lang('ChatList.Filter.TabBar.OnTheTop'),
+    value: 'top',
+  }];
+
+  const handleTabsViewChange = useCallback((value: string) => {
+    setSettingOption({ isChatFolderListOnLeft: value === 'left' });
+  }, [setSettingOption]);
+
   return (
     <div className="settings-content no-border custom-scroll">
       <div className="settings-content-header">
-        <AnimatedIconWithPreview
+        <AnimatedIcon
           size={STICKER_SIZE_FOLDER_SETTINGS}
           tgsUrl={LOCAL_TGS_URLS.FoldersAll}
           className="settings-content-icon"
@@ -367,6 +384,18 @@ const SettingsFoldersMain: FC<OwnProps & StateProps> = ({
           ))}
         </div>
       )}
+
+      <div className="settings-item pt-3">
+        <h4 className="settings-item-header mb-3" dir={lang.isRtl ? 'rtl' : undefined}>
+          {lang('lng_filters_view_subtitle')}
+        </h4>
+        <RadioGroup
+          name="tabsview"
+          options={tabsViewOptions}
+          selected={isChatFolderListOnLeft ? 'left' : 'top'}
+          onChange={handleTabsViewChange}
+        />
+      </div>
     </div>
   );
 };
@@ -378,6 +407,7 @@ export default memo(withGlobal<OwnProps>(
       byId: foldersById,
       recommended: recommendedChatFolders,
     } = global.chatFolders;
+    const { isChatFolderListOnLeft } = global.settings.byKey;
 
     return {
       folderIds,
@@ -385,6 +415,7 @@ export default memo(withGlobal<OwnProps>(
       isPremium: selectIsCurrentUserPremium(global),
       recommendedChatFolders,
       maxFolders: selectCurrentLimit(global, 'dialogFilters'),
+      isChatFolderListOnLeft,
     };
   },
 )(SettingsFoldersMain));

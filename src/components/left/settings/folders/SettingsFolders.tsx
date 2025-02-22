@@ -18,6 +18,7 @@ import './SettingsFolders.scss';
 const TRANSITION_DURATION = 200;
 
 export type OwnProps = {
+  isMobile?: boolean;
   currentScreen: SettingsScreens;
   shownScreen: SettingsScreens;
   state: FoldersState;
@@ -28,6 +29,7 @@ export type OwnProps = {
 };
 
 const SettingsFolders: FC<OwnProps> = ({
+  isMobile,
   currentScreen,
   shownScreen,
   state,
@@ -173,6 +175,7 @@ const SettingsFolders: FC<OwnProps> = ({
     case SettingsScreens.FoldersEditFolderInvites:
       return (
         <SettingsFoldersEdit
+          isMobile={isMobile}
           state={state}
           dispatch={dispatch}
           onAddIncludedChats={handleAddIncludedChats}

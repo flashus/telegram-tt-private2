@@ -20,7 +20,7 @@
     background-size: cover;
   }
 
-  :global(html.theme-light) &:not(.customBgImage)::before {
+  :global(html.theme-light) &:not(.customBgImage):not(.animatedBg)::before {
     background-image: url('../../assets/chat-bg-br.png');
   }
 
@@ -76,7 +76,7 @@
     transition: transform var(--layer-transition);
   }
 
-  &:not(.customBgImage):not(.customBgColor)::after {
+  &:not(.customBgImage):not(.customBgColor):not(.animatedBg)::after {
     content: "";
     position: absolute;
     top: 0;
@@ -92,6 +92,72 @@
     :global(html.theme-dark) & {
       background-image: url('../../assets/chat-bg-pattern-dark.png');
       mix-blend-mode: unset;
+    }
+  }
+}
+
+.backgroundCanvas {
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+
+  :global(html.theme-dark) & {
+    -webkit-mask: center repeat;
+    mask: center repeat;
+    -webkit-mask-size: 510px auto;
+    mask-size: 510px auto;
+    -webkit-mask-image: url('../../assets/chat-bg-astronaut_cats.svg');
+    mask-image: url('../../assets/chat-bg-astronaut_cats.svg');
+    opacity: 0.3;
+  }
+}
+
+.backgroundPattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  mix-blend-mode: soft-light;
+  background: center repeat;
+  background-size: 510px auto;
+  background-image: url('../../assets/chat-bg-astronaut_cats.svg');
+  opacity: 0.5;
+
+  :global(html.theme-dark) & {
+    background-image: none;
+    opacity: initial;
+    filter: none;
+  }
+}
+
+.backgroundCanvas,
+.backgroundPattern {
+  &.hidden {
+    display: none;
+  }
+
+  @media screen and (min-width: 1276px) {
+    :global(body:not(.no-page-transitions)) &:not(.customBgImage) {
+      overflow: hidden;
+      transform: scale(1);
+      transform-origin: left center;
+    }
+  }
+
+  :global(html.theme-light body:not(.no-page-transitions)) &:not(.customBgImage).withRightColumn {
+    @media screen and (min-width: 1276px) {
+      transform: scaleX(0.73) !important;
+    }
+
+    @media screen and (min-width: 1921px) {
+      transform: scaleX(0.8) !important;
+    }
+
+    @media screen and (min-width: 2600px) {
+      transform: scaleX(0.95) !important;
     }
   }
 }

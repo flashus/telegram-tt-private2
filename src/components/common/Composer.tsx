@@ -40,6 +40,7 @@ import type {
   MessageListType,
   ThreadId,
 } from '../../types';
+import type { TwallpaperWebGL } from '../../util/twallpaper-webgl';
 import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
@@ -107,7 +108,6 @@ import { processMessageInputForCustomEmoji } from '../../util/emoji/customEmojiM
 import focusEditableElement from '../../util/focusEditableElement';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import parseHtmlAsFormattedText from '../../util/parseHtmlAsFormattedText';
-import { insertHtmlInSelection } from '../../util/selection';
 import { getServerTime } from '../../util/serverTime';
 import { IS_IOS, IS_VOICE_RECORDING_SUPPORTED } from '../../util/windowEnvironment';
 import windowSize from '../../util/windowSize';
@@ -145,6 +145,7 @@ import useInlineBotTooltip from '../middle/composer/hooks/useInlineBotTooltip';
 import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
 import useVoiceRecording from '../middle/composer/hooks/useVoiceRecording';
+import { useUndoRedo } from './hooks/useUndoRedo';
 
 import AttachmentModal from '../middle/composer/AttachmentModal.async';
 import AttachMenu from '../middle/composer/AttachMenu';
@@ -192,6 +193,7 @@ type OwnProps = {
   editableInputId: string;
   className?: string;
   inputPlaceholder?: string;
+  twallpaperAnimator?: TwallpaperWebGL;
   onDropHide?: NoneToVoidFunction;
   onForward?: NoneToVoidFunction;
   onFocus?: NoneToVoidFunction;
@@ -272,6 +274,7 @@ type StateProps =
     canPlayEffect?: boolean;
     shouldPlayEffect?: boolean;
     maxMessageLength: number;
+    wallpaperRotation?: boolean;
   };
 
 enum MainButtonState {
@@ -386,6 +389,8 @@ const Composer: FC<OwnProps & StateProps> = ({
   canPlayEffect,
   shouldPlayEffect,
   maxMessageLength,
+  twallpaperAnimator,
+  wallpaperRotation,
 }) => {
   const {
     sendMessage,
@@ -423,6 +428,8 @@ const Composer: FC<OwnProps & StateProps> = ({
   const storyReactionRef = useRef<HTMLButtonElement>(null);
 
   const [getHtml, setHtml] = useSignal('');
+  const { flushHistory, clearHistory } = useUndoRedo(getHtml, setHtml, editableInputId);
+
   const [isMounted, setIsMounted] = useState(false);
   const getSelectionRange = useGetSelectionRange(editableInputCssSelector);
   const lastMessageSendTimeSeconds = useRef<number>();
@@ -516,6 +523,8 @@ const Composer: FC<OwnProps & StateProps> = ({
   const insertHtmlAndUpdateCursor = useLastCallback((newHtml: string, inInputId: string = editableInputId) => {
     if (inInputId === editableInputId && isComposerBlocked) return;
     const selection = window.getSelection()!;
+    if (!selection || selection.rangeCount === 0) return;
+
     let messageInput: HTMLDivElement;
     if (inInputId === editableInputId) {
       messageInput = document.querySelector<HTMLDivElement>(editableInputCssSelector)!;
@@ -523,19 +532,36 @@ const Composer: FC<OwnProps & StateProps> = ({
       messageInput = document.getElementById(inInputId) as HTMLDivElement;
     }
 
-    if (selection.rangeCount) {
-      const selectionRange = selection.getRangeAt(0);
-      if (isSelectionInsideInput(selectionRange, inInputId)) {
-        insertHtmlInSelection(newHtml);
-        messageInput.dispatchEvent(new Event('input', { bubbles: true }));
-        return;
-      }
+    // Focus the input element
+    messageInput.focus();
+
+    // Use the Range API to insert HTML
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newHtml;
+    const frag = document.createDocumentFragment();
+    let node: Node | null;
+    // eslint-disable-next-line no-cond-assign
+    while ((node = tempDiv.firstChild)) {
+      frag.appendChild(node);
     }
+    range.insertNode(frag);
+    selection.collapseToEnd();
 
-    setHtml(`${getHtml()}${newHtml}`);
+    // Capture the updated content and update state
+    const updatedHtml = messageInput.innerHTML;
+    setHtml(updatedHtml);
 
-    // If selection is outside of input, set cursor at the end of input
-    requestNextMutation(() => {
+    // Dispatch an input event (if needed) to trigger any additional listeners
+    messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Flush the undo history immediately so that the pasted content is recorded.
+    flushHistory();
+
+    // Ensure the cursor is at the end
+    requestAnimationFrame(() => {
       focusEditableElement(messageInput);
     });
   });
@@ -944,6 +970,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
 
     const { text, entities } = parseHtmlAsFormattedText(getHtml());
+
     if (!text && !attachmentsToSend.length) {
       return;
     }
@@ -983,6 +1010,12 @@ const Composer: FC<OwnProps & StateProps> = ({
     });
   });
 
+  const handleWallpaperAnimation = () => {
+    if (wallpaperRotation && twallpaperAnimator && twallpaperAnimator.isInitialized) {
+      twallpaperAnimator.playAnimation();
+    }
+  };
+
   const handleSendAttachmentsFromModal = useLastCallback((
     sendCompressed: boolean,
     sendGrouped: boolean,
@@ -994,6 +1027,7 @@ const Composer: FC<OwnProps & StateProps> = ({
       sendGrouped,
       isInvertedMedia,
     });
+    handleWallpaperAnimation();
   });
 
   const handleSendAttachments = useLastCallback((
@@ -1011,6 +1045,7 @@ const Composer: FC<OwnProps & StateProps> = ({
       scheduledAt,
       isInvertedMedia,
     });
+    handleWallpaperAnimation();
   });
 
   const handleSend = useLastCallback(async (isSilent = false, scheduledAt?: number) => {
@@ -1034,6 +1069,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
 
     const { text, entities } = parseHtmlAsFormattedText(getHtml());
+    clearHistory();
 
     if (currentAttachments.length) {
       sendAttachments({
@@ -1095,6 +1131,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     requestMeasure(() => {
       resetComposer();
     });
+    handleWallpaperAnimation();
   });
 
   const handleClickBotMenu = useLastCallback(() => {
@@ -1414,7 +1451,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   const isComposerHasFocus = isBotKeyboardOpen || isSymbolMenuOpen || isEmojiTooltipOpen || isSendAsMenuOpen
     || isMentionTooltipOpen || isInlineBotTooltipOpen || isBotCommandMenuOpen || isAttachMenuOpen
     || isStickerTooltipOpen || isChatCommandTooltipOpen || isCustomEmojiTooltipOpen || isBotMenuButtonOpen
-  || isCustomSendMenuOpen || Boolean(activeVoiceRecording) || attachments.length > 0 || isInputHasFocus;
+    || isCustomSendMenuOpen || Boolean(activeVoiceRecording) || attachments.length > 0 || isInputHasFocus;
   const isReactionSelectorOpen = isComposerHasFocus && !isReactionPickerOpen && isInStoryViewer && !isAttachMenuOpen
     && !isSymbolMenuOpen;
   const placeholderForForumAsMessages = chat?.isForum && chat?.isForumAsMessages && threadId === MAIN_THREAD_ID
@@ -1591,7 +1628,7 @@ const Composer: FC<OwnProps & StateProps> = ({
 
   const handleRemoveEffect = useLastCallback(() => { saveEffectInDraft({ chatId, threadId, effectId: undefined }); });
 
-  const handleStopEffect = useLastCallback(() => { hideEffectInComposer({ }); });
+  const handleStopEffect = useLastCallback(() => { hideEffectInComposer({}); });
 
   const onSend = useMemo(() => {
     switch (mainButtonState) {
@@ -2140,7 +2177,7 @@ export default memo(withGlobal<OwnProps>(
     const noWebPage = selectNoWebPage(global, chatId, threadId);
 
     const areEffectsSupported = isChatWithUser && !isChatWithBot
-    && !isInScheduledList && !isChatWithSelf && type !== 'story' && chatId !== SERVICE_NOTIFICATIONS_USER_ID;
+      && !isInScheduledList && !isChatWithSelf && type !== 'story' && chatId !== SERVICE_NOTIFICATIONS_USER_ID;
     const canPlayEffect = selectPerformanceSettingsValue(global, 'stickerEffects');
     const shouldPlayEffect = tabState.shouldPlayEffectInComposer;
     const effectId = areEffectsSupported && draft?.effectId;
@@ -2225,6 +2262,7 @@ export default memo(withGlobal<OwnProps>(
       canPlayEffect,
       shouldPlayEffect,
       maxMessageLength,
+      wallpaperRotation: global.settings.performance.wallpaperRotation,
     };
   },
 )(Composer));

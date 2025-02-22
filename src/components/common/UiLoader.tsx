@@ -48,6 +48,7 @@ type OwnProps = {
 type StateProps = Pick<TabState, 'uiReadyState' | 'shouldSkipHistoryAnimations'> & {
   isRightColumnShown?: boolean;
   leftColumnWidth?: number;
+  isChatFolderListOnLeft?: boolean;
 };
 
 const MAX_PRELOAD_DELAY = 700;
@@ -104,6 +105,7 @@ const UiLoader: FC<OwnProps & StateProps> = ({
   isRightColumnShown,
   shouldSkipHistoryAnimations,
   leftColumnWidth,
+  isChatFolderListOnLeft,
 }) => {
   const { setIsUiReady } = getActions();
 
@@ -152,6 +154,7 @@ const UiLoader: FC<OwnProps & StateProps> = ({
         <div className={buildClassName(styles.mask, transitionClassNames)}>
           {page === 'main' ? (
             <div className={styles.main}>
+              {isChatFolderListOnLeft && <div className={styles.mainHeaderColumn} />}
               <div
                 className={styles.left}
                 style={leftColumnWidth ? `width: ${leftColumnWidth}px` : undefined}
@@ -173,12 +176,14 @@ const UiLoader: FC<OwnProps & StateProps> = ({
 export default withGlobal<OwnProps>(
   (global, { isMobile }): StateProps => {
     const tabState = selectTabState(global);
+    const { isChatFolderListOnLeft } = global.settings.byKey;
 
     return {
       shouldSkipHistoryAnimations: tabState.shouldSkipHistoryAnimations,
       uiReadyState: tabState.uiReadyState,
       isRightColumnShown: selectIsRightColumnShown(global, isMobile),
       leftColumnWidth: global.leftColumnWidth,
+      isChatFolderListOnLeft,
     };
   },
 )(UiLoader);

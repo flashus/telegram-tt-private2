@@ -1714,6 +1714,12 @@ export interface ActionPayloads {
     shouldPreventComposerAnimation: boolean;
   } & WithTabId;
 
+  openPreviewMessageListModal: {
+    chatId: string;
+    threadId: ThreadId;
+  } & WithTabId;
+  closePreviewMessageListModal: WithTabId | undefined;
+
   // Replies
   openReplyMenu: {
     fromChatId: string;

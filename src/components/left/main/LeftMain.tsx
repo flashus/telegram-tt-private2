@@ -21,7 +21,7 @@ import Button from '../../ui/Button';
 import Transition from '../../ui/Transition';
 import NewChatButton from '../NewChatButton';
 import LeftSearch from '../search/LeftSearch.async';
-import ChatFolders from './ChatFolders';
+import ChatListContainer from './ChatListContainer';
 import ContactList from './ContactList.async';
 import ForumPanel from './ForumPanel';
 import LeftMainHeader from './LeftMainHeader';
@@ -195,7 +195,7 @@ const LeftMain: FC<OwnProps> = ({
           switch (content) {
             case LeftColumnContent.ChatList:
               return (
-                <ChatFolders
+                <ChatListContainer
                   shouldHideFolderTabs={isForumPanelVisible}
                   onSettingsScreenSelect={onSettingsScreenSelect}
                   onLeftColumnContentChange={onContentChange}

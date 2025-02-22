@@ -94,6 +94,7 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   shouldPreventComposerAnimation,
   senderChat,
   chatId,
+  threadId,
   currentUserId,
   isSenderChannel,
 }) => {
@@ -108,6 +109,7 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
     setForwardNoCaptions,
     exitForwardMode,
     setShouldPreventComposerAnimation,
+    openPreviewMessageListModal,
   } = getActions();
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -166,7 +168,13 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
     focusMessage({ chatId: message!.chatId, messageId: message!.id, noForumTopicPanel: true });
   };
   const handleMessageClick = useLastCallback((e: React.MouseEvent): void => {
-    handleContextMenu(e);
+    if (editingId) {
+      handleContextMenu(e);
+    } else if (forwardedMessagesCount) {
+      openPreviewMessageListModal({ chatId, threadId });
+    } else if (replyInfo && !shouldForceShowEditing) {
+      openPreviewMessageListModal({ chatId, threadId });
+    }
   });
 
   const handleClearClick = useLastCallback((e: React.MouseEvent<HTMLButtonElement, MouseEvent>): void => {
@@ -251,9 +259,9 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   const canReplyInSenderChat = sender && !isSenderChannel && chatId !== sender.id && sender.id !== currentUserId;
 
   return (
-    <div className={className} ref={ref} onContextMenu={handleContextMenu}>
+    <div className={className} ref={ref} onContextMenu={handleContextMenu}> {/** optionally change handleContextMenu here to highlight of a quote or replied message - as is in desktop app */}
       <div className={innerClassName}>
-        <div className="embedded-left-icon" onClick={handleContextMenu}>
+        <div className="embedded-left-icon" onClick={handleMessageClick}>
           {renderingLeftIcon && <Icon name={renderingLeftIcon} />}
           {Boolean(replyInfo?.quoteText) && (
             <Icon name="quote" className="quote-reply" />

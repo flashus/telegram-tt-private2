@@ -117,3 +117,22 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+.settings-content-header {
+  .settings-folder-name-input-wrapper {
+    position: relative;
+    width: 100%;
+
+    input {
+      width: 100%;
+    }
+
+    .settings-folder-icon {
+      position: absolute;
+      top: 50%;
+      right: 0.5rem;
+      transform: translateY(-50%);
+      color: var(--color-text-secondary);
+    }
+  }
+}

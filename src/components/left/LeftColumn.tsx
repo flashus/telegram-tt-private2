@@ -26,12 +26,14 @@ import useSyncEffect from '../../hooks/useSyncEffect';
 import Transition from '../ui/Transition';
 import ArchivedChats from './ArchivedChats.async';
 import LeftMain from './main/LeftMain';
+import MainHeaderColumn from './MainHeaderColumn';
 import NewChat from './newChat/NewChat.async';
 import Settings from './settings/Settings.async';
 
 import './LeftColumn.scss';
 
 interface OwnProps {
+  isMobile?: boolean;
   ref: RefObject<HTMLDivElement>;
 }
 
@@ -52,6 +54,7 @@ type StateProps = {
   isClosingSearch?: boolean;
   archiveSettings: GlobalState['archiveSettings'];
   isArchivedStoryRibbonShown?: boolean;
+  isChatFolderListOnLeft?: boolean;
 };
 
 enum ContentType {
@@ -69,6 +72,7 @@ const RENDER_COUNT = Object.keys(ContentType).length / 2;
 const RESET_TRANSITION_DELAY_MS = 250;
 
 function LeftColumn({
+  isMobile,
   ref,
   searchQuery,
   searchDate,
@@ -86,6 +90,7 @@ function LeftColumn({
   isClosingSearch,
   archiveSettings,
   isArchivedStoryRibbonShown,
+  isChatFolderListOnLeft,
 }: OwnProps & StateProps) {
   const {
     setGlobalSearchQuery,
@@ -492,6 +497,7 @@ function LeftColumn({
       case ContentType.Settings:
         return (
           <Settings
+            isMobile={isMobile}
             isActive={isActive}
             currentScreen={settingsScreen}
             foldersState={foldersState}
@@ -546,20 +552,27 @@ function LeftColumn({
   }
 
   return (
-    <Transition
-      ref={ref}
-      name={shouldSkipHistoryAnimations ? 'none' : LAYERS_ANIMATION_NAME}
-      renderCount={RENDER_COUNT}
-      activeKey={contentType}
-      shouldCleanup
-      cleanupExceptionKey={ContentType.Main}
-      shouldWrap
-      wrapExceptionKey={ContentType.Main}
-      id="LeftColumn"
-      withSwipeControl
-    >
-      {renderContent}
-    </Transition>
+    <div id="LeftColumn-wrapper">
+      {isChatFolderListOnLeft && (
+        <MainHeaderColumn
+          onContentChange={setContent}
+        />
+      )}
+      <Transition
+        ref={ref}
+        name={shouldSkipHistoryAnimations ? 'none' : LAYERS_ANIMATION_NAME}
+        renderCount={RENDER_COUNT}
+        activeKey={contentType}
+        shouldCleanup
+        cleanupExceptionKey={ContentType.Main}
+        shouldWrap
+        wrapExceptionKey={ContentType.Main}
+        id="LeftColumn"
+        withSwipeControl
+      >
+        {renderContent}
+      </Transition>
+    </div>
   );
 }
 
@@ -588,6 +601,7 @@ export default memo(withGlobal<OwnProps>(
       isElectronUpdateAvailable,
       archiveSettings,
     } = global;
+    const { isChatFolderListOnLeft } = global.settings.byKey;
 
     const currentChat = selectCurrentChat(global);
     const isChatOpen = Boolean(currentChat?.id);
@@ -611,6 +625,7 @@ export default memo(withGlobal<OwnProps>(
       isClosingSearch: tabState.globalSearch.isClosing,
       archiveSettings,
       isArchivedStoryRibbonShown: isArchivedRibbonShown,
+      isChatFolderListOnLeft,
     };
   },
 )(LeftColumn));

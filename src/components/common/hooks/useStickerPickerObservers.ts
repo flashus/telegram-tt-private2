@@ -92,13 +92,15 @@ export function useStickerPickerObservers(
       const stickerSetEl = document.getElementById(`${idPrefix}-${index}`)!;
       const isClose = Math.abs(currentIndex - index) === 1;
 
-      animateScroll({
-        container: containerRef.current!,
-        element: stickerSetEl,
-        position: 'start',
-        margin: FOCUS_MARGIN,
-        maxDistance: isClose ? SCROLL_MAX_DISTANCE_WHEN_CLOSE : SCROLL_MAX_DISTANCE_WHEN_FAR,
-      });
+      if (containerRef.current && stickerSetEl) {
+        animateScroll({
+          container: containerRef.current,
+          element: stickerSetEl,
+          position: 'start',
+          margin: FOCUS_MARGIN,
+          maxDistance: isClose ? SCROLL_MAX_DISTANCE_WHEN_CLOSE : SCROLL_MAX_DISTANCE_WHEN_FAR,
+        });
+      }
 
       return index;
     });

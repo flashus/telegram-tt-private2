@@ -71,5 +71,8 @@
   "--color-chat-username": ["#3C7EB0", "#E9EEF4"],
   "--color-borders-read-story": ["#C4C9CC", "#737373"],
   "--color-background-menu-separator": ["#0000001a", "#ffffff1a"],
-  "--color-hover-overlay": ["#00000006", "#ffffff06"]
+  "--color-hover-overlay": ["#00000006", "#ffffff06"],
+  "--color-background-main-header-column": ["#212121", "#161616"],
+  "--color-background-main-header-column-hover": ["#272727", "#1a1a1a"],
+  "--color-text-over-primary-bg": ["#FFFFFF", "#FFFFFF"]
 }

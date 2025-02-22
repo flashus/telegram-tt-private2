@@ -1,0 +1,25 @@
+.ChatFolderIcon {
+  font-size: 2rem;
+  color: var(--color-text-secondary);
+  position: relative;
+  height: 2rem;
+  width: 2rem;
+
+  .custom-emoji {
+    transform: translate(-0.4rem, -1.2rem);
+  }
+
+  img.emoji {
+    transform: scale(1.6) translateY(-0.4rem);
+  }
+
+  &.inside-input-correction {
+    .custom-emoji {
+      transform: translate(-0.4rem, -0.8rem);
+    }
+
+    img.emoji {
+      transform: scale(1.6) translateY(-0.3rem);
+    }
+  }
+}

@@ -7,9 +7,9 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import type { ApiInputMessageReplyInfo } from '../../../api/types';
 import type { IAnchorPosition, ISettings, ThreadId } from '../../../types';
 import type { Signal } from '../../../util/signals';
+import { type ApiInputMessageReplyInfo, ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
 import { requestForcedReflow, requestMutation } from '../../../lib/fasterdom/fasterdom';
@@ -20,11 +20,13 @@ import { getIsDirectTextInputDisabled } from '../../../util/directInputManager';
 import parseEmojiOnlyString from '../../../util/emoji/parseEmojiOnlyString';
 import focusEditableElement from '../../../util/focusEditableElement';
 import { debounce } from '../../../util/schedulers';
+import { insertHtmlInSelection } from '../../../util/selection';
 import {
   IS_ANDROID, IS_EMOJI_SUPPORTED, IS_IOS, IS_TOUCH_ENV,
 } from '../../../util/windowEnvironment';
 import renderText from '../../common/helpers/renderText';
-import { isSelectionInsideInput } from './helpers/selection';
+import { blockQuoteAllowedTags, sanitizeHTML } from './helpers/cleanHtml';
+import { getExpectedParentElementRecursive, isQuoteEnd, isSelectionInsideInput } from './helpers/selection';
 
 import useAppLayout from '../../../hooks/useAppLayout';
 import useDerivedState from '../../../hooks/useDerivedState';
@@ -392,6 +394,136 @@ const MessageInput: FC<OwnProps & StateProps> = ({
         replyToNextMessage({ targetIndexDelta });
         return;
       }
+    }
+
+    if (!isComposing && (e.key === 'Backspace' || e.key === 'Delete')) {
+      const selection = window.getSelection();
+      if (!selection) {
+        return;
+      }
+
+      const blockquoteTag = 'BLOCKQUOTE';
+      let parentElement: HTMLElement | null | undefined;
+      if (e.key === 'Delete') {
+        // if moved element is inside blockquote
+        parentElement = getExpectedParentElementRecursive(blockquoteTag, selection.anchorNode, 4);
+      } else {
+        parentElement = selection.anchorNode?.parentElement;
+      }
+      if (!parentElement) {
+        return;
+      }
+
+      // if moved element is one of allowed types
+      let currentElement: Node | ChildNode | HTMLElement | null | undefined;
+      let prevElement: Node | ChildNode | HTMLElement | null | undefined;
+      // if (blockQuoteAllowedTags.has(parentElement.tagName.toLowerCase())) {
+      if (blockQuoteAllowedTags.has(parentElement.tagName.toLowerCase())
+        || (parentElement.tagName.toLowerCase() === 'span'
+          && parentElement.getAttribute('data-entity-type') === ApiMessageEntityTypes.Spoiler)) {
+        currentElement = parentElement;
+        prevElement = parentElement?.previousSibling;
+      } else {
+        currentElement = selection.anchorNode;
+        prevElement = selection.anchorNode?.previousSibling;
+      }
+
+      const selectionRange = selection.getRangeAt(0);
+
+      // Backspace: If the previous element is a blockquote and caret is at the beginning of current element,
+      // merge the sanitized content of the current element into it.
+      if (
+        e.key === 'Backspace'
+        && selectionRange.startOffset === 0
+        && prevElement instanceof HTMLElement
+        && prevElement.tagName === blockquoteTag
+      ) {
+        e.preventDefault();
+        const content = currentElement instanceof HTMLElement ? currentElement?.outerHTML : currentElement?.textContent;
+        if (content) {
+          const cleanNodes = sanitizeHTML(content);
+
+          // Store the first text node
+          let firstTextNode: Node | undefined;
+
+          cleanNodes.forEach((node) => {
+            prevElement.appendChild(node);
+            if (!firstTextNode && node.nodeType === Node.TEXT_NODE) {
+              firstTextNode = node;
+            }
+          });
+
+          if (currentElement && 'remove' in currentElement) {
+            currentElement.remove();
+          }
+
+          // Set cursor to the beginning of the first text node
+          if (firstTextNode) {
+            const range = document.createRange();
+            range.setStart(firstTextNode, 0);
+            range.collapse(true);
+
+            const newSelection = window.getSelection();
+            newSelection?.removeAllRanges();
+            newSelection?.addRange(range);
+          }
+        }
+        return;
+      }
+
+      const nextOuterElement = parentElement.nextSibling;
+
+      // Delete: If the current element is a blockquote and the next element is not,
+      // merge the sanitized content of the next element into the blockquote.
+      if (
+        e.key === 'Delete'
+        && parentElement.tagName === blockquoteTag
+        && (!nextOuterElement
+          || !(nextOuterElement instanceof HTMLElement)
+          || nextOuterElement.tagName !== blockquoteTag)
+      ) {
+        const isAtQuoteEnd = isQuoteEnd(selectionRange, parentElement);
+        if (isAtQuoteEnd) {
+          e.preventDefault();
+          const content = nextOuterElement instanceof HTMLElement
+            ? nextOuterElement?.outerHTML
+            : nextOuterElement?.textContent;
+          if (content) {
+            const cleanNodes = sanitizeHTML(content);
+
+            cleanNodes.forEach((node) => parentElement.appendChild(node));
+            nextOuterElement?.remove();
+          }
+          return;
+        }
+      }
+    }
+
+    if (!isComposing && e.key === 'Enter' && e.shiftKey) {
+      const selection = window.getSelection();
+      if (!selection) {
+        return;
+      }
+      const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
+      // Exit if blockquote is not found
+      if (!blockquote) {
+        return;
+      }
+      const range = selection.getRangeAt(0);
+
+      const isAtQuoteEnd = isQuoteEnd(range, blockquote);
+      const isAfterBlockquoteComponent = range.endContainer?.parentElement === blockquote?.parentElement?.parentElement;
+      const isAfterBlockquoteElement = range.endContainer?.parentElement === blockquote?.parentElement;
+      if (!(isAtQuoteEnd || isAfterBlockquoteComponent || isAfterBlockquoteElement)) {
+        return;
+      }
+
+      e.preventDefault();
+
+      if (isAtQuoteEnd) {
+        range.setEndAfter(blockquote);
+      }
+      insertHtmlInSelection('\n');
     }
 
     if (!isComposing && e.key === 'Enter' && !e.shiftKey) {

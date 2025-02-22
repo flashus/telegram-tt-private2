@@ -20,6 +20,11 @@
   }
 }
 
+.mainHeaderColumn {
+  width: 5rem;
+  background-color: var(--color-background-main-header-column);
+}
+
 .left {
   flex: 1;
   background: var(--color-background);

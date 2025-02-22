@@ -1,5 +1,6 @@
 import React, {
   memo, useEffect, useMemo,
+  useRef,
   useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
@@ -61,6 +62,7 @@ import {
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import { TwallpaperWebGL } from '../../util/twallpaper-webgl';
 import {
   IS_ANDROID, IS_ELECTRON, IS_IOS, IS_SAFARI, IS_TRANSLATION_SUPPORTED, MASK_IMAGE_DISABLED,
 } from '../../util/windowEnvironment';
@@ -152,6 +154,7 @@ type StateProps = {
   canShowOpenChatButton?: boolean;
   isContactRequirePremium?: boolean;
   topics?: Record<number, ApiTopic>;
+  wallpaperRotation?: boolean;
 };
 
 function isImage(item: DataTransferItem) {
@@ -163,6 +166,8 @@ function isVideo(item: DataTransferItem) {
 }
 
 const LAYER_ANIMATION_DURATION_MS = 450 + ANIMATION_END_DELAY;
+
+const twallpaperAnimator = new TwallpaperWebGL();
 
 function MiddleColumn({
   leftColumnRef,
@@ -212,6 +217,7 @@ function MiddleColumn({
   canShowOpenChatButton,
   isContactRequirePremium,
   topics,
+  wallpaperRotation,
 }: OwnProps & StateProps) {
   const {
     openChat,
@@ -233,6 +239,9 @@ function MiddleColumn({
   const { width: windowWidth } = useWindowSize();
   const { isTablet, isDesktop } = useAppLayout();
 
+  // eslint-disable-next-line no-null/no-null
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const lang = useOldLang();
   const [dropAreaState, setDropAreaState] = useState(DropAreaState.None);
   const [isScrollDownNeeded, setIsScrollDownShown] = useState(false);
@@ -249,6 +258,7 @@ function MiddleColumn({
 
   const closeAnimationDuration = isMobile ? LAYER_ANIMATION_DURATION_MS : undefined;
 
+  const renderingBgCanvas = usePrevDuringAnimation(bgCanvasRef, closeAnimationDuration);
   const renderingChatId = usePrevDuringAnimation(chatId, closeAnimationDuration);
   const renderingThreadId = usePrevDuringAnimation(threadId, closeAnimationDuration);
   const renderingMessageListType = usePrevDuringAnimation(messageListType, closeAnimationDuration);
@@ -421,6 +431,10 @@ function MiddleColumn({
     MASK_IMAGE_DISABLED ? 'mask-image-disabled' : 'mask-image-enabled',
   );
 
+  const showMainBg = !renderingBgCanvas
+    || !wallpaperRotation || !twallpaperAnimator.isInitialized
+    || customBackground || backgroundColor;
+
   const bgClassName = buildClassName(
     styles.background,
     styles.withTransition,
@@ -429,6 +443,23 @@ function MiddleColumn({
     customBackground && isBackgroundBlurred && styles.blurred,
     isRightColumnShown && styles.withRightColumn,
     IS_ELECTRON && !(renderingChatId && renderingThreadId) && styles.draggable,
+    !showMainBg && styles.animatedBg,
+  );
+
+  const bgCanvasClassName = buildClassName(
+    styles.backgroundCanvas,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    isRightColumnShown && styles.withRightColumn,
+    showMainBg && 'hidden',
+  );
+
+  const bgPatternClassName = buildClassName(
+    styles.backgroundPattern,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    isRightColumnShown && styles.withRightColumn,
+    showMainBg && 'hidden',
   );
 
   const messagingDisabledClassName = buildClassName(
@@ -476,6 +507,8 @@ function MiddleColumn({
   );
   const withExtraShift = Boolean(isMessagingDisabled || isSelectModeActive);
 
+  twallpaperAnimator.initCanvas(bgCanvasRef.current);
+
   return (
     <div
       id="MiddleColumn"
@@ -504,7 +537,13 @@ function MiddleColumn({
       <div
         className={bgClassName}
         style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
-      />
+      >
+        <canvas
+          className={bgCanvasClassName}
+          ref={bgCanvasRef}
+        />
+        <div className={bgPatternClassName} />
+      </div>
       <div id="middle-column-portals" />
       {Boolean(renderingChatId && renderingThreadId) && (
         <>
@@ -565,6 +604,7 @@ function MiddleColumn({
                     editableInputId={EDITABLE_INPUT_ID}
                     editableInputCssSelector={EDITABLE_INPUT_CSS_SELECTOR}
                     inputId="message-input-text"
+                    twallpaperAnimator={twallpaperAnimator}
                   />
                 )}
                 {isPinnedMessageList && canUnpin && (
@@ -746,6 +786,7 @@ export default memo(withGlobal<OwnProps>(
       currentTransitionKey: Math.max(0, messageLists.length - 1),
       activeEmojiInteractions,
       leftColumnWidth,
+      wallpaperRotation: global.settings.performance.wallpaperRotation,
     };
 
     if (!currentMessageList) {

@@ -13,6 +13,7 @@ import { ensureProtocol } from '../../../util/ensureProtocol';
 import getKeyFromEvent from '../../../util/getKeyFromEvent';
 import stopEvent from '../../../util/stopEvent';
 import { INPUT_CUSTOM_EMOJI_SELECTOR } from './helpers/customEmoji';
+import { getExpectedParentElementRecursive } from './helpers/selection';
 
 import useFlag from '../../../hooks/useFlag';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -40,6 +41,7 @@ interface ISelectedTextFormats {
   strikethrough?: boolean;
   monospace?: boolean;
   spoiler?: boolean;
+  blockquote?: boolean;
 }
 
 const TEXT_FORMAT_BY_TAG_NAME: Record<string, keyof ISelectedTextFormats> = {
@@ -51,6 +53,7 @@ const TEXT_FORMAT_BY_TAG_NAME: Record<string, keyof ISelectedTextFormats> = {
   DEL: 'strikethrough',
   CODE: 'monospace',
   SPAN: 'spoiler',
+  BLOCKQUOTE: 'blockquote',
 };
 const fragmentEl = document.createElement('div');
 
@@ -103,7 +106,14 @@ const TextFormatter: FC<OwnProps> = ({
     }
 
     const selectedFormats: ISelectedTextFormats = {};
-    let { parentElement } = selectedRange.commonAncestorContainer;
+    let parentElement: HTMLElement | null;
+    if (selectedRange.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+      parentElement = selectedRange.commonAncestorContainer.parentElement;
+    } else if (selectedRange.commonAncestorContainer instanceof HTMLElement) {
+      parentElement = selectedRange.commonAncestorContainer;
+    } else {
+      return;
+    }
     while (parentElement && parentElement.id !== EDITABLE_INPUT_ID) {
       const textFormat = TEXT_FORMAT_BY_TAG_NAME[parentElement.tagName];
       if (textFormat) {
@@ -151,6 +161,10 @@ const TextFormatter: FC<OwnProps> = ({
   const getSelectedElement = useLastCallback(() => {
     if (!selectedRange) {
       return undefined;
+    }
+
+    if (selectedRange.commonAncestorContainer.nodeName === 'BLOCKQUOTE') {
+      return selectedRange.commonAncestorContainer as HTMLElement;
     }
 
     return selectedRange.commonAncestorContainer.parentElement;
@@ -204,7 +218,7 @@ const TextFormatter: FC<OwnProps> = ({
 
   const handleSpoilerText = useLastCallback(() => {
     if (selectedTextFormats.spoiler) {
-      const element = getSelectedElement();
+      const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
       if (
         !selectedRange
         || !element
@@ -268,7 +282,7 @@ const TextFormatter: FC<OwnProps> = ({
 
   const handleStrikethroughText = useLastCallback(() => {
     if (selectedTextFormats.strikethrough) {
-      const element = getSelectedElement();
+      const element = getExpectedParentElementRecursive('DEL', getSelectedElement());
       if (
         !selectedRange
         || !element
@@ -294,7 +308,7 @@ const TextFormatter: FC<OwnProps> = ({
 
   const handleMonospaceText = useLastCallback(() => {
     if (selectedTextFormats.monospace) {
-      const element = getSelectedElement();
+      const element = getExpectedParentElementRecursive('CODE', getSelectedElement());
       if (
         !selectedRange
         || !element
@@ -315,6 +329,39 @@ const TextFormatter: FC<OwnProps> = ({
 
     const text = getSelectedText(true);
     document.execCommand('insertHTML', false, `<code class="text-entity-code" dir="auto">${text}</code>`);
+    onClose();
+  });
+
+  const handleBlockquoteText = useLastCallback(() => {
+    if (selectedTextFormats.blockquote) {
+      const element = getExpectedParentElementRecursive('BLOCKQUOTE', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'BLOCKQUOTE'
+        || !element.textContent
+      ) {
+        return;
+      }
+
+      element.replaceWith(element.textContent);
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        blockquote: false,
+      }));
+
+      onClose();
+      return;
+    }
+
+    const text = getSelectedText();
+    if (text) {
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<blockquote class="blockquote" data-entity-type="${ApiMessageEntityTypes.Blockquote}">${text}</blockquote>`,
+      );
+    }
     onClose();
   });
 
@@ -353,6 +400,7 @@ const TextFormatter: FC<OwnProps> = ({
       m: handleMonospaceText,
       s: handleStrikethroughText,
       p: handleSpoilerText,
+      q: handleBlockquoteText,
     };
 
     const handler = HANDLERS_BY_KEY[getKeyFromEvent(e)];
@@ -464,6 +512,14 @@ const TextFormatter: FC<OwnProps> = ({
           onClick={handleMonospaceText}
         >
           <Icon name="monospace" />
+        </Button>
+        <Button
+          color="translucent"
+          ariaLabel="Quote text"
+          className={getFormatButtonClassName('blockquote')}
+          onClick={handleBlockquoteText}
+        >
+          <Icon name="quote-text" />
         </Button>
         <div className="TextFormatter-divider" />
         <Button color="translucent" ariaLabel={lang('TextFormat.AddLinkTitle')} onClick={openLinkControl}>

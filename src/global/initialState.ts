@@ -31,6 +31,7 @@ export const INITIAL_PERFORMANCE_STATE_MAX: PerformanceType = {
   stickerEffects: true,
   storyRibbonAnimations: true,
   snapEffect: true,
+  wallpaperRotation: true,
 };
 
 export const INITIAL_PERFORMANCE_STATE_MID: PerformanceType = {
@@ -49,6 +50,7 @@ export const INITIAL_PERFORMANCE_STATE_MID: PerformanceType = {
   stickerEffects: false,
   storyRibbonAnimations: false,
   snapEffect: false,
+  wallpaperRotation: true,
 };
 
 export const INITIAL_PERFORMANCE_STATE_MIN: PerformanceType = {
@@ -67,6 +69,7 @@ export const INITIAL_PERFORMANCE_STATE_MIN: PerformanceType = {
   stickerEffects: false,
   storyRibbonAnimations: false,
   snapEffect: false,
+  wallpaperRotation: false,
 };
 
 export const INITIAL_GLOBAL_STATE: GlobalState = {

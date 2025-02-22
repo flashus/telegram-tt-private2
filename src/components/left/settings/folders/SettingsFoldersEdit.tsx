@@ -4,26 +4,41 @@ import React, {
 } from '../../../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../../../global';
 
-import type { ApiChatlistExportedInvite } from '../../../../api/types';
+import type { ApiChatlistExportedInvite, ApiSticker } from '../../../../api/types';
 import type {
   FolderEditDispatch,
   FoldersState,
 } from '../../../../hooks/reducers/useFoldersReducer';
+import type { IconName } from '../../../../types/icons';
 
 import { STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
 import { isUserId } from '../../../../global/helpers';
 import { selectCanShareFolder } from '../../../../global/selectors';
 import { selectCurrentLimit } from '../../../../global/selectors/limits';
+import {
+  getChatFolderEmojiText,
+  getChatFolderIconName,
+  getChatFolderTitle,
+  patchChatFolderWithEmoji,
+  patchChatFolderWithSvgIcon,
+  persistChatFolderCustomEmojiEntity,
+  putChatFolderTitleText,
+  removePersistentChatFolderCustomEmojiEntity,
+} from '../../../../util/chatFolder';
 import { findIntersectionWithSet } from '../../../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
 import { CUSTOM_PEER_EXCLUDED_CHAT_TYPES, CUSTOM_PEER_INCLUDED_CHAT_TYPES } from '../../../../util/objects/customPeer';
 import { LOCAL_TGS_URLS } from '../../../common/helpers/animatedAssets';
 
-import { selectChatFilters } from '../../../../hooks/reducers/useFoldersReducer';
+import {
+  selectChatFilters,
+} from '../../../../hooks/reducers/useFoldersReducer';
+import useFlag from '../../../../hooks/useFlag';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
+import useLastCallback from '../../../../hooks/useLastCallback';
 import useOldLang from '../../../../hooks/useOldLang';
 
-import AnimatedIconWithPreview from '../../../common/AnimatedIconWithPreview';
+import AnimatedIcon from '../../../common/AnimatedIcon';
 import GroupChatInfo from '../../../common/GroupChatInfo';
 import Icon from '../../../common/icons/Icon';
 import PrivateChatInfo from '../../../common/PrivateChatInfo';
@@ -31,8 +46,11 @@ import FloatingActionButton from '../../../ui/FloatingActionButton';
 import InputText from '../../../ui/InputText';
 import ListItem from '../../../ui/ListItem';
 import Spinner from '../../../ui/Spinner';
+import ChatFolderIcon from '../../chatFolders/ChatFolderIcon';
+import SettingsFolderIconButton from './SettingsFolderIconButton';
 
 type OwnProps = {
+  isMobile?: boolean;
   state: FoldersState;
   dispatch: FolderEditDispatch;
   onAddIncludedChats: VoidFunction;
@@ -64,6 +82,7 @@ export const ERROR_NO_TITLE = 'Please provide a title for this folder.';
 export const ERROR_NO_CHATS = 'ChatList.Filter.Error.Empty';
 
 const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
+  isMobile,
   state,
   dispatch,
   onAddIncludedChats,
@@ -94,6 +113,8 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
 
   const [isIncludedChatsListExpanded, setIsIncludedChatsListExpanded] = useState(false);
   const [isExcludedChatsListExpanded, setIsExcludedChatsListExpanded] = useState(false);
+
+  const [isSymbolMenuOpen, openSymbolMenu, closeSymbolMenu] = useFlag();
 
   useEffect(() => {
     if (isRemoved) {
@@ -153,10 +174,16 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const { currentTarget } = event;
-    dispatch({ type: 'setTitle', payload: currentTarget.value.trim() });
-  }, [dispatch]);
+    const newTitleText = putChatFolderTitleText(currentTarget.value.trim(), state.folder.title);
+    dispatch({ type: 'setTitle', payload: newTitleText });
+  }, [dispatch, state.folder.title]);
 
   const handleSubmit = useCallback(() => {
+    if ((state.folder.title.entities?.length ?? 0) > 0) {
+      persistChatFolderCustomEmojiEntity(state.folder, state.folderId);
+    } else {
+      removePersistentChatFolderCustomEmojiEntity(state.folder, state.folderId);
+    }
     dispatch({ type: 'setIsLoading', payload: true });
 
     onSaveFolder(() => {
@@ -164,7 +191,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
         onReset();
       }, SUBMIT_TIMEOUT);
     });
-  }, [dispatch, onSaveFolder, onReset]);
+  }, [dispatch, onSaveFolder, onReset, state.folder, state.folderId]);
 
   const handleCreateInviteClick = useCallback(() => {
     if (!invites) {
@@ -211,6 +238,27 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
       onOpenInvite(url);
     }
   }, [onSaveFolder, onOpenInvite, state.isTouched]);
+
+  const handleSvgIconSelect = useLastCallback((iconName: IconName) => {
+    dispatch({
+      type: 'patchFolder',
+      payload: patchChatFolderWithSvgIcon(state.folder, iconName),
+    });
+  });
+
+  const handleCustomEmojiIconSelect = useLastCallback((emoji: ApiSticker) => {
+    dispatch({
+      type: 'patchFolder',
+      payload: patchChatFolderWithEmoji(state.folder, emoji.emoji, emoji.id),
+    });
+  });
+
+  const handleEmojiIconSelect = useLastCallback((emoji: string) => {
+    dispatch({
+      type: 'patchFolder',
+      payload: patchChatFolderWithEmoji(state.folder, emoji),
+    });
+  });
 
   function renderChatType(key: string, mode: 'included' | 'excluded') {
     const chatType = mode === 'included'
@@ -283,7 +331,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     <div className="settings-fab-wrapper">
       <div className="settings-content no-border custom-scroll">
         <div className="settings-content-header">
-          <AnimatedIconWithPreview
+          <AnimatedIcon
             size={STICKER_SIZE_FOLDER_SETTINGS}
             tgsUrl={LOCAL_TGS_URLS.FoldersNew}
             play={String(state.folderId)}
@@ -295,14 +343,36 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
               {lang('FilterIncludeInfo')}
             </p>
           )}
-
-          <InputText
-            className="mb-0"
-            label={lang('FilterNameHint')}
-            value={state.folder.title.text}
-            onChange={handleChange}
-            error={state.error && state.error === ERROR_NO_TITLE ? ERROR_NO_TITLE : undefined}
-          />
+          <div className="settings-folder-name-input-wrapper">
+            <InputText
+              className="settings-folder-name-input mb-0"
+              label={lang('FilterNameHint')}
+              value={getChatFolderTitle(state.folder).text}
+              onChange={handleChange}
+              error={state.error && state.error === ERROR_NO_TITLE ? ERROR_NO_TITLE : undefined}
+            />
+            <div className="settings-folder-icon">
+              <SettingsFolderIconButton
+                icon={(
+                  <ChatFolderIcon
+                    className="inside-input-correction"
+                    iconEmojiText={getChatFolderEmojiText(state.folder, state.folderId, !state.isTouched)}
+                    iconName={getChatFolderIconName(state.folder)}
+                  />
+                )}
+                isMobile={isMobile}
+                isReady
+                isSymbolMenuOpen={isSymbolMenuOpen}
+                openSymbolMenu={openSymbolMenu}
+                closeSymbolMenu={closeSymbolMenu}
+                onCustomEmojiSelect={handleCustomEmojiIconSelect}
+                onSvgIconSelect={handleSvgIconSelect}
+                onEmojiSelect={handleEmojiIconSelect}
+                inputCssSelector=".settings-folder-name-input"
+                idPrefix="settings-folder-icon"
+              />
+            </div>
+          </div>
         </div>
 
         {!isOnlyInvites && (

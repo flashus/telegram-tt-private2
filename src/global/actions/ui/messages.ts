@@ -775,7 +775,7 @@ addActionHandler('checkVersionNotification', (global, actions): ActionReturnType
     chatId: SERVICE_NOTIFICATIONS_USER_ID,
     date: getServerTime(),
     content: {
-      text: parseHtmlAsFormattedText(versionNotification, true),
+      text: parseHtmlAsFormattedText(versionNotification),
     },
     isOutgoing: false,
   };
@@ -1075,5 +1075,19 @@ addActionHandler('closeAboutAdsModal', (global, actions, payload): ActionReturnT
 
   return updateTabState(global, {
     aboutAdsModal: undefined,
+  }, tabId);
+});
+
+addActionHandler('openPreviewMessageListModal', (global, actions, payload): ActionReturnType => {
+  const { chatId, threadId, tabId = getCurrentTabId() } = payload;
+  return updateTabState(global, {
+    previewMessageListModal: { chatId, threadId },
+  }, tabId);
+});
+
+addActionHandler('closePreviewMessageListModal', (global, actions, payload): ActionReturnType => {
+  const { tabId = getCurrentTabId() } = payload || {};
+  return updateTabState(global, {
+    previewMessageListModal: undefined,
   }, tabId);
 });

@@ -20,15 +20,23 @@ import { IS_BACKDROP_BLUR_SUPPORTED, IS_SNAP_EFFECT_SUPPORTED } from '../../../u
 
 import useHistoryBack from '../../../hooks/useHistoryBack';
 import useLang from '../../../hooks/useLang';
+import useOldLang from '../../../hooks/useOldLang';
 
 import Checkbox from '../../ui/Checkbox';
 import RangeSlider from '../../ui/RangeSlider';
 
-type PerformanceSection = [RegularLangKey, PerformanceOption[]];
+type PerformanceSection = [RegularLangKey, Array<PerformanceOption | PerformanceOptionisOldLang>];
 type PerformanceOption = {
   key: PerformanceTypeKey;
   label: RegularLangKey;
   disabled?: boolean;
+  isOldLang?: undefined;
+};
+type PerformanceOptionisOldLang = {
+  key: PerformanceTypeKey;
+  label: string;
+  disabled?: boolean;
+  isOldLang: true;
 };
 
 type OwnProps = {
@@ -62,6 +70,7 @@ const PERFORMANCE_OPTIONS: PerformanceSection[] = [
     { key: 'contextMenuBlur', label: 'SettingsPerformanceContextBlur', disabled: !IS_BACKDROP_BLUR_SUPPORTED },
     { key: 'rightColumnAnimations', label: 'SettingsPerformanceRightColumn' },
     { key: 'snapEffect', label: 'SettingsPerformanceThanos' },
+    { key: 'wallpaperRotation', label: 'LiteOptionsBackground', isOldLang: true },
   ]],
   ['SettingsPerformanceStickers', [
     { key: 'animatedEmoji', label: 'SettingsPerformanceAnimatedEmoji' },
@@ -91,6 +100,7 @@ function SettingsPerformance({
   });
 
   const lang = useLang();
+  const oldLang = useOldLang();
   const [sectionExpandedStates, setSectionExpandedStates] = useState<Record<number, boolean>>({});
 
   const sectionCheckedStates = useMemo(() => {
@@ -202,14 +212,16 @@ function SettingsPerformance({
               </div>
               {Boolean(sectionExpandedStates[index]) && (
                 <div className="DropdownList DropdownList--open">
-                  {options.map(({ key, label, disabled }) => {
+                  {options.map(({
+                    key, label, disabled, isOldLang,
+                  }) => {
                     if (key === 'snapEffect' && !IS_SNAP_EFFECT_SUPPORTED) return undefined;
                     return (
                       <Checkbox
                         key={key}
                         name={key}
                         checked={performanceSettings[key]}
-                        label={lang(label)}
+                        label={isOldLang ? oldLang(label) : lang(label)}
                         disabled={disabled}
                         onChange={handlePropertyChange}
                       />
