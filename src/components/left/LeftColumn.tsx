@@ -344,6 +344,11 @@ function LeftColumn({
         case SettingsScreens.DoNotTranslate:
           setSettingsScreen(SettingsScreens.Language);
           return;
+
+        case SettingsScreens.PrivacyNoPaidMessages:
+          setSettingsScreen(SettingsScreens.PrivacyMessages);
+          return;
+
         default:
           break;
       }
