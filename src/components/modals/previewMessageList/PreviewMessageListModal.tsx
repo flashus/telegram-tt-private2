@@ -391,7 +391,7 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
   );
 
   useEffect(() => {
-    if (type === 'forward') {
+    if (type === 'forward' || modal === undefined) {
       return;
     }
 
