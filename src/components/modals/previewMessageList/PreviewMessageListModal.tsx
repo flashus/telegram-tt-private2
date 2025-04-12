@@ -396,6 +396,9 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
     }
 
     function onSelectionChange() {
+      if (modal === undefined) {
+        return;
+      }
       const selectionRange = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
       if (!selectionRange) {
         updateDraftReplyInfo({ quoteText: undefined });
@@ -415,7 +418,7 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
     return () => {
       window.document.removeEventListener('selectionchange', debouncedOnSelectionChange);
     };
-  }, [replyMessage?.content.text?.text, selection, type]);
+  }, [replyMessage?.content.text?.text, selection, type, modal]);
 
   return (
     <Modal
