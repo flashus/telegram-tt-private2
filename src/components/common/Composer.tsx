@@ -1130,6 +1130,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   const handleSendCore = useLastCallback(
     (currentAttachments: ApiAttachment[], isSilent = false, scheduledAt?: number) => {
       const { text, entities } = parseHtmlAsFormattedText(getHtml());
+      clearHistory();
 
       if (currentAttachments.length) {
         if (canSendAttachments(currentAttachments)) {
@@ -1138,8 +1139,6 @@ const Composer: FC<OwnProps & StateProps> = ({
             scheduledAt,
             isSilent,
           });
-          // TODO: check if we need animation here!
-          // handleWallpaperAnimation();
         }
         return;
       }
@@ -1176,6 +1175,14 @@ const Composer: FC<OwnProps & StateProps> = ({
         });
       }
 
+      // TODO: Check if this is needed!
+      // if (isForwarding) {
+      //   forwardMessages({
+      //     scheduledAt,
+      //     isSilent,
+      //   });
+      // }
+
       lastMessageSendTimeSeconds.current = getServerTime();
       clearDraft({
         chatId, threadId, isLocalOnly: true, shouldKeepReply: isForwarding,
@@ -1189,6 +1196,7 @@ const Composer: FC<OwnProps & StateProps> = ({
       requestMeasure(() => {
         resetComposer();
       });
+      handleWallpaperAnimation();
     },
   );
 
@@ -1214,71 +1222,6 @@ const Composer: FC<OwnProps & StateProps> = ({
       }
     }
 
-    const { text, entities } = parseHtmlAsFormattedText(getHtml());
-    clearHistory();
-
-    if (currentAttachments.length) {
-      sendAttachments({
-        attachments: currentAttachments,
-        scheduledAt,
-        isSilent,
-      });
-      return;
-    }
-
-    if (!text && !isForwarding) {
-      return;
-    }
-
-    if (!validateTextLength(text)) return;
-
-    const messageInput = document.querySelector<HTMLDivElement>(editableInputCssSelector);
-
-    const effectId = effect?.id;
-
-    if (text) {
-      if (!checkSlowMode()) return;
-
-      const isInvertedMedia = hasWebPagePreview ? attachmentSettings.isInvertedMedia : undefined;
-
-      if (areEffectsSupported) saveEffectInDraft({ chatId, threadId, effectId: undefined });
-
-      sendMessage({
-        messageList: currentMessageList,
-        text,
-        entities,
-        scheduledAt,
-        isSilent,
-        shouldUpdateStickerSetOrder,
-        isInvertedMedia,
-        effectId,
-        webPageMediaSize: attachmentSettings.webPageMediaSize,
-        webPageUrl: hasWebPagePreview ? webPagePreview!.url : undefined,
-      });
-    }
-
-    // TODO: Check if this is needed!
-    // if (isForwarding) {
-    //   forwardMessages({
-    //     scheduledAt,
-    //     isSilent,
-    //   });
-    // }
-
-    lastMessageSendTimeSeconds.current = getServerTime();
-    clearDraft({
-      chatId, threadId, isLocalOnly: true, shouldKeepReply: isForwarding,
-    });
-
-    if (IS_IOS && messageInput && messageInput === document.activeElement) {
-      applyIosAutoCapitalizationFix(messageInput);
-    }
-
-    // Wait until message animation starts
-    requestMeasure(() => {
-      resetComposer();
-    });
-    handleWallpaperAnimation();
     handleSendCore(currentAttachments, isSilent, scheduledAt);
   });
 
