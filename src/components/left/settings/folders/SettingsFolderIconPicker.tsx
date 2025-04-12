@@ -269,23 +269,13 @@ const SettingsFolderIconPicker: FC<OwnProps & StateProps> = ({
       // return [];
       return allCustomEmojiSets.map((set, index) => ({ set, index: index + 1 }));
     }
+    if (!searchQuery || !emojis) {
+      return allCustomEmojiSets.map((set, index) => ({ set, index: index + 1 }));
+    }
 
-    return allCustomEmojiSets.map((set, index) => ({
-      set: {
-        ...set,
-        stickers: set.stickers?.filter((sticker) => {
-          const emoji = emojis?.[sticker.emoji ?? ''];
-
-          if (!emoji) {
-            return false;
-          }
-
-          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
-          return displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery));
-        }),
-      },
-      index: index + 1,
-    }));
+    return allCustomEmojiSets.map((set, index) => ({ set, index: index + 1 })).filter((set) => {
+      return set.set.title.toLowerCase().includes(searchQuery);
+    });
   }, [allCustomEmojiSets, emojis, metaCategory, searchQuery]);
 
   useEffect(() => {
@@ -374,7 +364,7 @@ const SettingsFolderIconPicker: FC<OwnProps & StateProps> = ({
       setTimeout(() => setSearchQueryError(''), ERROR_SHOWN_TIME);
     }
     const newQuery = value.slice(0, MAX_EMOJI_QUERY_LENGTH);
-    setSearchQuery(newQuery);
+    setSearchQuery(newQuery.toLowerCase());
   }, [], 300, true);
 
   function renderEmojiCover() {
@@ -546,8 +536,9 @@ const SettingsFolderIconPicker: FC<OwnProps & StateProps> = ({
               allEmojis={emojis}
               observeIntersection={observeIntersection}
               shouldRender={
-                activeCategoryIndex >= indexedCategory.index - 1
-                && activeCategoryIndex <= indexedCategory.index + 1
+                (activeCategoryIndex >= indexedCategory.index - 1
+                && activeCategoryIndex <= indexedCategory.index + 1)
+                || filteredCategories.length < allCategories.length
               }
               onEmojiSelect={handleEmojiSelect}
             />
