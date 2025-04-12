@@ -1003,7 +1003,7 @@ const Composer: FC<OwnProps & StateProps> = ({
       return false;
     }
 
-    const { text } = parseHtmlAsFormattedText(getHtml());
+    const { text } = parseHtmlAsFormattedText(getHtml(), 'canSendAttachments');
     if (!text && !attachmentsToSend.length) {
       return false;
     }
@@ -1033,7 +1033,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
     isSilent = isSilent || isSilentPosting;
 
-    const { text, entities } = parseHtmlAsFormattedText(getHtml());
+    const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'sendAttachments');
 
     // TODO: merge conflict with no incoming changes!!!
     // if (!text && !attachmentsToSend.length) {
@@ -1129,7 +1129,7 @@ const Composer: FC<OwnProps & StateProps> = ({
 
   const handleSendCore = useLastCallback(
     (currentAttachments: ApiAttachment[], isSilent = false, scheduledAt?: number) => {
-      const { text, entities } = parseHtmlAsFormattedText(getHtml());
+      const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'handleSendCore');
       clearHistory();
 
       if (currentAttachments.length) {
@@ -1725,7 +1725,7 @@ const Composer: FC<OwnProps & StateProps> = ({
         showCustomEmojiPremiumNotification();
         return;
       }
-      const customEmojiMessage = parseHtmlAsFormattedText(buildCustomEmojiHtml(sticker));
+      const customEmojiMessage = parseHtmlAsFormattedText(buildCustomEmojiHtml(sticker), 'customEmoji');
       text = customEmojiMessage.text;
       entities = customEmojiMessage.entities;
     }

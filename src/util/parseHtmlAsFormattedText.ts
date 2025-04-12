@@ -19,9 +19,16 @@ export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = 
 };
 
 export default function parseHtmlAsFormattedText(
-  html: string,
+  html: string, caller: string,
 ): ApiFormattedText {
-  return parseMarkdownHtmlToEntities(html);
+  const now = performance.now();
+  console.log('WILL PARSE THIS MUCH: ', html.length);
+  console.log('CALLER: ', caller);
+  const res = parseMarkdownHtmlToEntities(html);
+  console.log('parseHtmlAsFormattedText', performance.now() - now);
+
+  return res;
+  // return parseMarkdownHtmlToEntities(html);
 }
 
 export function fixImageContent(fragment: HTMLDivElement) {
