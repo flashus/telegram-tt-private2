@@ -54,7 +54,6 @@ import {
   getMessageHtmlId,
   getMessageSingleCustomEmoji,
   getMessageSingleRegularEmoji,
-  getPeerTitle,
   hasMessageText,
   hasMessageTtl,
   isAnonymousForwardsChat,
@@ -70,6 +69,7 @@ import {
   isSystemBot,
   isUserId,
 } from '../../../global/helpers';
+import { getPeerTitle } from '../../../global/helpers/peers';
 import { getMessageReplyInfo, getStoryReplyInfo } from '../../../global/helpers/replies';
 import {
   selectActiveDownloads,
@@ -639,7 +639,7 @@ const PreviewMessage: FC<OwnProps & StateProps> = ({
 
   const currentTranslatedText = translatedText || previousTranslatedText;
 
-  const { phoneCall } = action || {};
+  const phoneCall = action?.type === 'phoneCall' ? action : undefined;
 
   const hasOutsideReactions = !withVoiceTranscription && hasReactions
     && (isCustomShape || ((photo || video || storyData || (location?.mediaType === 'geo')) && !hasText));
