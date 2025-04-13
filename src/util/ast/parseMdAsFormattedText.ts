@@ -36,7 +36,11 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
   const lexer = new Lexer(cleanedHtml);
   const tokens = lexer.tokenize();
 
+  console.log('tokens', tokens);
+
   const normalizedTokens = normalizeTokens(tokens);
+
+  console.log('normalizedTokens', normalizedTokens);
 
   const parser = new Parser(normalizedTokens);
   let document: DocumentNode | undefined;
@@ -68,6 +72,17 @@ export function renderASTToEntities(ast: DocumentNode): ApiFormattedText {
 }
 
 export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText {
+  const ast = parseMarkdownToAST(inputText);
+  if (!ast) {
+    return { text: inputText, entities: [] };
+  }
+  return renderASTToEntities(ast);
+}
+
+export function parseMarkdownHtmlToEntitiesWithCursorSelection(
+  inputText: string,
+  cursorSelection: { start: number; end: number },
+): ApiFormattedText {
   const ast = parseMarkdownToAST(inputText);
   if (!ast) {
     return { text: inputText, entities: [] };

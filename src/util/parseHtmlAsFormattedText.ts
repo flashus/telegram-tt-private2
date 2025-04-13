@@ -1,7 +1,10 @@
 import type { ApiFormattedText } from '../api/types';
 import { ApiMessageEntityTypes } from '../api/types';
 
-import { parseMarkdownHtmlToEntities } from './ast/parseMdAsFormattedText';
+import {
+  parseMarkdownHtmlToEntities,
+  parseMarkdownHtmlToEntitiesWithCursorSelection,
+} from './ast/parseMdAsFormattedText';
 
 export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = {
   B: ApiMessageEntityTypes.Bold,
@@ -30,6 +33,13 @@ export default function parseHtmlAsFormattedText(
   return res;
   // return parseMarkdownHtmlToEntities(html);
 }
+
+export const parseHtmlAsFormattedTextWithCursorSelection = (
+  html: string,
+  cursorSelection: { start: number; end: number },
+): ApiFormattedText => {
+  return parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursorSelection);
+};
 
 export function fixImageContent(fragment: HTMLDivElement) {
   fragment.querySelectorAll('img').forEach((node) => {
