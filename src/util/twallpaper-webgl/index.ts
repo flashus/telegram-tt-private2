@@ -9,7 +9,9 @@ import { hexToVec3 } from './hex-to-vec3';
 import { loadShaders } from './load-shaders';
 import { vertexShader } from './vertex-shader';
 
-export class TwallpaperWebGL {
+export class TWallpaperWebGL {
+  static instance: TWallpaperWebGL;
+
   private initialized: boolean;
 
   private gl: WebGLRenderingContext | undefined;
@@ -64,12 +66,7 @@ export class TwallpaperWebGL {
     color2: readonly [number, number, number];
     color3: readonly [number, number, number];
     color4: readonly [number, number, number];
-  } = {
-      color1: hexToVec3('#e8ecc1'),
-      color2: hexToVec3('#9fc68b'),
-      color3: hexToVec3('#c9d6a2'),
-      color4: hexToVec3('#7ba676'),
-    };
+  } | undefined;
 
   private readonly keyPoints = [
     [0.265, 0.582],
@@ -86,7 +83,10 @@ export class TwallpaperWebGL {
     this.initialized = false;
   }
 
-  public initCanvas(gradientCanvas: HTMLCanvasElement | null | undefined): void {
+  public initCanvas(
+    gradientCanvas: HTMLCanvasElement | null | undefined,
+    colorScheme: { color1: string; color2: string; color3: string; color4: string },
+  ): void {
     if (!gradientCanvas) {
       this.initialized = false;
       return;
@@ -194,6 +194,13 @@ export class TwallpaperWebGL {
     this.color3Pos = [this.targetColor3Pos[0], this.targetColor3Pos[1]];
     this.color4Pos = [this.targetColor4Pos[0], this.targetColor4Pos[1]];
 
+    this.colors = {
+      color1: hexToVec3(colorScheme.color1),
+      color2: hexToVec3(colorScheme.color2),
+      color3: hexToVec3(colorScheme.color3),
+      color4: hexToVec3(colorScheme.color4),
+    };
+
     this.initialized = true;
     this.renderGradientCanvas();
   }
@@ -230,7 +237,7 @@ export class TwallpaperWebGL {
   }
 
   private renderGradientCanvas(): void {
-    if (!this.gl) {
+    if (!this.gl || !this.colors) {
       return;
     }
     this.gl.uniform2fv(this.resolutionLoc, [this.gl.canvas.width, this.gl.canvas.height]);
@@ -286,5 +293,12 @@ export class TwallpaperWebGL {
       this.updateTargetColors();
       requestAnimationFrame(() => this.animate.bind(this)());
     }
+  }
+
+  public static getInstance(): TWallpaperWebGL {
+    if (!this.instance) {
+      this.instance = new TWallpaperWebGL();
+    }
+    return this.instance;
   }
 }
