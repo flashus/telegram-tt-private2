@@ -847,6 +847,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   useInlineMarkdown({
     getHtml,
     setHtml,
+    editableInputId,
     // insertHtmlAndUpdateCursor,
   });
 
