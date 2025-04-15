@@ -1,9 +1,14 @@
 import type { FC } from '../../lib/teact/teact';
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { IconName } from '../../types/icons';
 
+import animateHorizontalScroll from '../../util/animateHorizontalScroll';
 import buildClassName from '../../util/buildClassName';
+import { REM } from './helpers/mediaDimensions';
+
+import useAppLayout from '../../hooks/useAppLayout';
+import useHorizontalScroll from '../../hooks/useHorizontalScroll';
 
 import Button from '../ui/Button';
 import Icon from './icons/Icon';
@@ -16,6 +21,8 @@ interface OwnProps {
   categories: Pick<EmojiCategory, 'id' | 'name'>[] | undefined;
   onSelectSet: (index: number) => void;
 }
+
+const CATEGORY_BUTTON_WIDTH = 2 * REM; // Includes margins
 
 const ICONS_BY_CATEGORY: Record<string, IconName> = {
   people: 'smile',
@@ -34,11 +41,21 @@ const EmojiCategoryCovers: FC<OwnProps> = ({
   categories = [{ id: 'people', name: 'Emoji & People' }],
   onSelectSet,
 }) => {
+  // eslint-disable-next-line no-null/no-null
+  const itemsRef = useRef<HTMLDivElement>(null);
+  const { isMobile } = useAppLayout();
+
+  useHorizontalScroll(itemsRef, isMobile);
+
+  const categoriesActive = activeSetIndex >= categoriesStartIndex
+    && activeSetIndex < categoriesStartIndex + categories.length;
+
   function renderCategoryButton(category: Pick<EmojiCategory, 'id' | 'name'>, index: number) {
     const icon = ICONS_BY_CATEGORY[category.id];
 
     const buttonClassName = buildClassName(
       styles.symbolSetButton,
+      categoriesActive && styles.smaller,
       index === activeSetIndex && styles.activated,
     );
 
@@ -57,26 +74,37 @@ const EmojiCategoryCovers: FC<OwnProps> = ({
     );
   }
 
-  const categoriesActive = activeSetIndex >= categoriesStartIndex
-    && activeSetIndex < categoriesStartIndex + categories.length;
+  // Scroll container and header when active set changes
+  useEffect(() => {
+    const items = itemsRef.current;
+    if (!items || !categoriesActive) {
+      return;
+    }
 
-  const containerClassName = buildClassName(
-    styles.container,
-  );
+    const effectiveActiveIndex = activeSetIndex - categoriesStartIndex;
+
+    const newLeft = effectiveActiveIndex * CATEGORY_BUTTON_WIDTH - (items.offsetWidth / 2 - CATEGORY_BUTTON_WIDTH / 2);
+
+    animateHorizontalScroll(items, newLeft);
+  }, [activeSetIndex, categories, categoriesActive, categoriesStartIndex]);
 
   if (!categoriesActive) {
     return (
-      <div className={containerClassName}>
-        {renderCategoryButton(categories[0], categoriesStartIndex)}
+      <div className={styles.container}>
+        <div ref={itemsRef} className={styles.items}>
+          {renderCategoryButton(categories[0], categoriesStartIndex)}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={containerClassName}>
-      {categories.map((category, index) => {
-        return renderCategoryButton(category, categoriesStartIndex + index);
-      })}
+    <div className={buildClassName(styles.container, styles.activated)}>
+      <div ref={itemsRef} className={styles.items}>
+        {categories.map((category, index) => {
+          return renderCategoryButton(category, categoriesStartIndex + index);
+        })}
+      </div>
     </div>
   );
 };
