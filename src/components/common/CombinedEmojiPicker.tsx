@@ -354,8 +354,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const canRenderContent = useAsyncRendering([], SLIDE_TRANSITION_DURATION);
   const shouldRenderContent = areAddedLoaded && canRenderContent && !noPopulatedSets && emojis;
 
-  // useHorizontalScroll(headerRef, !(isMobile && shouldRenderContent));
-  useHorizontalScroll(headerRef, isMobile || !shouldRenderContent);
+  useHorizontalScroll(headerRef, isMobile || !shouldRenderContent || categoriesActive);
 
   const handleEmojiSelect = useLastCallback((emoji: string, name: string) => {
     onEmojiSelect(emoji, name);
@@ -571,31 +570,29 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         ref={headerRef}
         className={headerClassName}
       >
+        <Button
+          className={buildClassName(
+            styles.symbolSetButton,
+            activeSetIndex === 0 && styles.activated,
+          )}
+          ariaLabel={oldLang('RecentStickers')}
+          round
+          faded
+          color="translucent"
+          // eslint-disable-next-line react/jsx-no-bind
+          onClick={() => selectStickerSet(0)}
+        >
+          <Icon name="recent" />
+        </Button>
+        <EmojiCategoryCovers
+          activeSetIndex={activeSetIndex}
+          categoriesStartIndex={haveRecentEmojiSet ? 1 : 0}
+          categories={categories}
+          onSelectSet={selectStickerSet}
+        />
         <div className={canvasContainerClassName}>
           <canvas ref={sharedCanvasRef} className="shared-canvas" />
           <canvas ref={sharedCanvasHqRef} className="shared-canvas" />
-          <Button
-            key="recent"
-            className={buildClassName(
-              pickerStyles.stickerCover,
-              activeSetIndex === 0 && styles.activated,
-            )}
-            ariaLabel={oldLang('RecentStickers')}
-            round
-            faded
-            color="translucent"
-            // eslint-disable-next-line react/jsx-no-bind
-            onClick={() => selectStickerSet(0)}
-          >
-            <Icon name="recent" />
-          </Button>
-          <EmojiCategoryCovers
-            activeSetIndex={activeSetIndex}
-            // setStartIndex={1}
-            categoriesStartIndex={haveRecentEmojiSet ? 1 : 0}
-            categories={categories}
-            onSelectSet={selectStickerSet}
-          />
           {allCustomEmojiSets.map(
             (set, index) => renderCustomEmojiCover(
               set, index + (haveRecentEmojiSet ? 1 : 0) + (categories?.length ?? 1),
