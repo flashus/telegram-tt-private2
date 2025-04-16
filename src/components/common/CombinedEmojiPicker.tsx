@@ -132,6 +132,9 @@ const MAX_EMOJI_QUERY_LENGTH = 10;
 // TODO! Check scss files for occurense of this prefix!
 const DEFAULT_ID_PREFIX = 'combined-emoji-group';
 
+/** Move this to config if needed */
+const FILTERED_SYMBOL_SET_ID = 'filtered';
+
 const FADED_BUTTON_SET_IDS = new Set([RECENT_SYMBOL_SET_ID, FAVORITE_SYMBOL_SET_ID, POPULAR_SYMBOL_SET_ID]);
 const STICKER_SET_IDS_WITH_COVER = new Set([
   RECENT_SYMBOL_SET_ID,
@@ -356,6 +359,43 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
   useHorizontalScroll(headerRef, isMobile || !shouldRenderContent || categoriesActive);
 
+  const filteredEmojiSet = useMemo<EmojiSet | undefined>(() => {
+    if (!searchQuery) {
+      return undefined;
+    }
+    let filteredEmojis: string[] = [];
+    const filteredCustomEmojis: ApiSticker[] = [];
+
+    if (categories?.length && emojis) {
+      for (const category of (categories ?? [])) {
+        filteredEmojis = filteredEmojis.concat(category.emojis.filter((name) => {
+          const emoji = emojis[name];
+          // Recent emojis may contain emoticons that are no longer in the list
+          if (!emoji) {
+            return false;
+          }
+          // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+          // For now, we select only the first emoji with 'neutral' skin.
+          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+          return displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery));
+        }));
+      }
+    }
+
+    return {
+      data: {
+        id: FILTERED_SYMBOL_SET_ID,
+        emojis: filteredEmojis,
+        stickers: filteredCustomEmojis,
+        accessHash: '',
+        title: '',
+        count: filteredEmojis.length + (filteredCustomEmojis?.length ?? 0),
+        isEmoji: true,
+      },
+      type: EmojiSetType.Combined,
+    };
+  }, [searchQuery, categories, emojis]);
+
   const handleEmojiSelect = useLastCallback((emoji: string, name: string) => {
     onEmojiSelect(emoji, name);
   });
@@ -534,6 +574,14 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     }
   }
 
+  function renderNoResults() {
+    return (
+      <div className={styles.noResults}>
+        {oldLang('NoResults')}
+      </div>
+    );
+  }
+
   // const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
   const fullClassName = buildClassName('StickerPicker', styles.root, className);
 
@@ -617,7 +665,9 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
             placeholder="Search Emoji"
           />
         </div>
-        {allSets.map((set, i) => renderSet(set, i, emojis))}
+        {!searchQuery && allSets.map((set, i) => renderSet(set, i, emojis))}
+        {searchQuery && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
+        {searchQuery && !filteredEmojiSet && renderNoResults()}
       </div>
     </div>
   );
