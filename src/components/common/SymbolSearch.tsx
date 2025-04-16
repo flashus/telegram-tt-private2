@@ -1,9 +1,13 @@
-import type { FC, RefObject } from '../../lib/teact/teact';
+import type { FC, RefObject, TeactNode } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useRef,
+  useState,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
+import parseHtmlAsFormattedText from '../../util/parseHtmlAsFormattedText';
+import { preparePastedHtml } from '../middle/composer/helpers/cleanHtml';
+import renderText from './helpers/renderText';
 
 import useFlag from '../../hooks/useFlag';
 import useInputFocusOnOpen from '../../hooks/useInputFocusOnOpen';
@@ -91,6 +95,8 @@ const SymbolSearch: FC<OwnProps> = ({
 
   useInputFocusOnOpen(inputRef, autoFocusSearch, unmarkInputFocused);
 
+  const [emojiImg, setEmojiImg] = useState<TeactNode>();
+
   useEffect(() => {
     if (!inputRef.current) {
       return;
@@ -106,6 +112,58 @@ const SymbolSearch: FC<OwnProps> = ({
   const oldLang = useOldLang();
   const lang = useLang();
 
+  useEffect(() => {
+    if (!isInputFocused) {
+      return undefined;
+    }
+
+    function handlePaste(e: ClipboardEvent) {
+      if (!e.clipboardData) {
+        return;
+      }
+
+      const input = inputRef.current;
+      if (!input) {
+        return;
+      }
+
+      e.preventDefault();
+
+      // Some extensions can trigger paste into their panels without focus
+      if (document.activeElement !== input) {
+        return;
+      }
+
+      const pastedText = e.clipboardData.getData('text');
+      const html = e.clipboardData.getData('text/html');
+
+      if (!pastedText) {
+        return;
+      }
+
+      const pastedFormattedText = html ? parseHtmlAsFormattedText(preparePastedHtml(html)) : undefined;
+      const textToPaste = pastedFormattedText?.entities?.length ? pastedFormattedText : { text: pastedText };
+      const hasText = textToPaste && textToPaste.text;
+
+      if (hasText && html.includes('emoji')) {
+        input.value = ' ';
+        onChange(input.value);
+        // Do not render custom emojis here
+        setEmojiImg(renderText(textToPaste.text));
+        return;
+      }
+
+      input.value = hasText ? textToPaste.text : '';
+      onChange(input.value);
+    }
+
+    document.addEventListener('paste', handlePaste, false);
+
+    return () => {
+      document.removeEventListener('paste', handlePaste, false);
+    };
+  }, [isInputFocused, inputRef, onChange]);
+
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { currentTarget } = event;
     onChange(currentTarget.value);
@@ -113,6 +171,8 @@ const SymbolSearch: FC<OwnProps> = ({
     if (!isInputFocused) {
       handleFocus();
     }
+
+    setEmojiImg(undefined);
   }
 
   function handleFocus() {
@@ -124,6 +184,11 @@ const SymbolSearch: FC<OwnProps> = ({
     unmarkInputFocused();
     onBlur?.();
   }
+
+  const handleReset = useLastCallback(() => {
+    setEmojiImg(undefined);
+    onReset?.();
+  });
 
   const handleKeyDown = useLastCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!resultsItemSelector) return;
@@ -141,7 +206,7 @@ const SymbolSearch: FC<OwnProps> = ({
 
   return (
     <div
-      className={buildClassName('SearchInput', className, isInputFocused && 'has-focus')}
+      className={buildClassName('SymbolSearch', className, isInputFocused && 'has-focus')}
       onClick={onClick}
       dir={oldLang.isRtl ? 'rtl' : undefined}
     >
@@ -155,7 +220,7 @@ const SymbolSearch: FC<OwnProps> = ({
         {isLoading && !withBackIcon ? (
           <Loading color={spinnerColor} backgroundColor={spinnerBackgroundColor} onClick={onSpinnerClick} />
         ) : withBackIcon ? (
-          <Icon name="arrow-left" className="back-icon" onClick={onReset} />
+          <Icon name="arrow-left" className="back-icon" onClick={handleReset} />
         ) : (
           <Icon name="search" className="search-icon" />
         )}
@@ -166,7 +231,7 @@ const SymbolSearch: FC<OwnProps> = ({
         id={inputId}
         type="text"
         dir="auto"
-        placeholder={placeholder || oldLang('Search')}
+        placeholder={emojiImg ? undefined : (placeholder || oldLang('Search'))}
         className="form-control"
         value={value}
         disabled={disabled}
@@ -177,6 +242,7 @@ const SymbolSearch: FC<OwnProps> = ({
         onKeyDown={handleKeyDown}
         teactExperimentControlled={teactExperimentControlled}
       />
+      <div className="pasted-emoji">{emojiImg}</div>
       {hasUpButton && (
         <Button
           round
@@ -216,7 +282,7 @@ const SymbolSearch: FC<OwnProps> = ({
               round
               size="tiny"
               color="translucent"
-              onClick={onReset}
+              onClick={handleReset}
             >
               <Icon name="close" />
             </Button>
