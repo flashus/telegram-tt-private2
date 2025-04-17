@@ -411,7 +411,7 @@ describe('parseMarkdownToEntities', () => {
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Blockquote,
       offset: 0,
-      length: 35,
+      length: 17,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.CustomEmoji,
@@ -433,7 +433,7 @@ describe('parseMarkdownToEntities', () => {
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Blockquote,
       offset: 0,
-      length: 33,
+      length: 16,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.CustomEmoji,

@@ -116,9 +116,11 @@ export class Renderer {
   }
 
   private renderQuote(node: QuoteNode): string {
-    let html: string = '<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n';
+    const raw = node.children.map((child) => this.render(child)).join('');
+    const content = raw.replace(/\n+$/, '');
+    let html = '<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n';
     html += '::before\n';
-    html += `${node.children.map((child) => this.render(child)).join('')}\n`;
+    html += `${content}\n`;
     html += '::after\n';
     html += '</blockquote>';
     return html;
