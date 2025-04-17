@@ -78,6 +78,9 @@ export class Parser {
       case TokenType.NEWLINE:
         this.advance();
         return this.createPlainTextNode('\n');
+      case TokenType.IGNORE:
+        this.advance();
+        return undefined;
       case TokenType.EOF:
         return this.parseEOF();
       default:

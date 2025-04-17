@@ -37,4 +37,5 @@ export enum TokenType {
   QUOTEMARK_MARKER,
   // html and custom emoji handling
   HTML_TAG,
+  IGNORE,
 }
