@@ -441,96 +441,112 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
     }
 
     // Ignore others like opening when active style
+    filteredTokens.push({ ...token, type: TokenType.IGNORE });
   }
 
   const recombinedTokens: TIntermediateToken[] = [];
 
   for (i = 0; i < filteredTokens.length; i++) {
     const token = filteredTokens[i];
-    const prevToken = filteredTokens[i - 1];
+    const nextToken = filteredTokens[i + 1];
 
     // Push all non-style tokens as is
-    if (!token.isStyleToken || !prevToken || !prevToken.isStyleToken) {
+    if (!token.isStyleToken || !nextToken || !nextToken.isStyleToken) {
       recombinedTokens.push(token);
       continue;
     }
 
-    // If style token is closing or previous was not closing - leave it as is
-    if (token.isClosing || !prevToken.isClosing) {
-      recombinedTokens.push(token);
-      continue;
-    }
-
-    const style = token.attributes?.tagName
-      ?? MARKDOWN_TO_HTML_TAG[token.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-    const prevStyle = prevToken.attributes?.tagName
-      ?? MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-
-    // If there is a style change - leave it as is
-    if (style !== prevStyle) {
-      recombinedTokens.push(token);
-      continue;
-    }
-
-    // Otherwise, combine them if there is next closing token with the same style
-    const nextClosingTokenWithThisStyleIndex = findClosingStyleToken(
-      filteredTokens,
-      i + 1,
-      style,
-    );
-
-    if (nextClosingTokenWithThisStyleIndex === -1) {
-      recombinedTokens.push(token);
-      continue;
-    }
-
-    // Everything lower in this loop is designed to make closing token type match the opening one
-    let lastOpeningTokenWithThisStyle: Token | undefined;
-    for (let j = i - 1; j >= 0; j--) {
-      const lookupToken = filteredTokens[j];
-      if (
-        lookupToken.isStyleToken
-        && (lookupToken.attributes?.tagName === style
-          || MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG] === style
-        )
-      ) {
-        lastOpeningTokenWithThisStyle = lookupToken;
-        break;
-      }
-    }
-
-    const nextClosingTokenWithThisStyle = filteredTokens[nextClosingTokenWithThisStyleIndex];
-    if (
-      nextClosingTokenWithThisStyle.type === TokenType.HTML_TAG
-      && lastOpeningTokenWithThisStyle!.type !== TokenType.HTML_TAG
-    ) {
-      filteredTokens[nextClosingTokenWithThisStyleIndex] = htmlTagToMarkdown(
-        HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
-        nextClosingTokenWithThisStyle.value,
-        true,
-        nextClosingTokenWithThisStyle.start,
-        nextClosingTokenWithThisStyle.end,
-      );
-    }
-
-    if (
-      nextClosingTokenWithThisStyle.type !== TokenType.HTML_TAG
-      && lastOpeningTokenWithThisStyle!.type === TokenType.HTML_TAG
-    ) {
-      filteredTokens[nextClosingTokenWithThisStyleIndex] = markdownToHtmlTag(
-        style,
-        nextClosingTokenWithThisStyle.value,
-        true,
-        nextClosingTokenWithThisStyle.start,
-        nextClosingTokenWithThisStyle.end,
-      );
-    }
+    // Make it ignored if this token is closing and next one is opening with the same style
   }
 
-  // Reconstruct the token stream after potentially losing some redundant tokens.
-  for (i = 1; i < recombinedTokens.length; i++) {
-    recombinedTokens[i].start = recombinedTokens[i - 1].end;
-  }
+  // const recombinedTokens: TIntermediateToken[] = [];
+
+  // for (i = 0; i < filteredTokens.length; i++) {
+  //   const token = filteredTokens[i];
+  //   const prevToken = filteredTokens[i - 1];
+
+  //   // Push all non-style tokens as is
+  //   if (!token.isStyleToken || !prevToken || !prevToken.isStyleToken) {
+  //     recombinedTokens.push(token);
+  //     continue;
+  //   }
+
+  //   // If style token is closing or previous was not closing - leave it as is
+  //   if (token.isClosing || !prevToken.isClosing) {
+  //     recombinedTokens.push(token);
+  //     continue;
+  //   }
+
+  //   const style = token.attributes?.tagName
+  //     ?? MARKDOWN_TO_HTML_TAG[token.type as keyof typeof MARKDOWN_TO_HTML_TAG];
+  //   const prevStyle = prevToken.attributes?.tagName
+  //     ?? MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG];
+
+  //   // If there is a style change - leave it as is
+  //   if (style !== prevStyle) {
+  //     recombinedTokens.push(token);
+  //     continue;
+  //   }
+
+  //   // Otherwise, combine them if there is next closing token with the same style
+  //   const nextClosingTokenWithThisStyleIndex = findClosingStyleToken(
+  //     filteredTokens,
+  //     i + 1,
+  //     style,
+  //   );
+
+  //   if (nextClosingTokenWithThisStyleIndex === -1) {
+  //     recombinedTokens.push(token);
+  //     continue;
+  //   }
+
+  //   // Everything lower in this loop is designed to make closing token type match the opening one
+  //   let lastOpeningTokenWithThisStyle: Token | undefined;
+  //   for (let j = i - 1; j >= 0; j--) {
+  //     const lookupToken = filteredTokens[j];
+  //     if (
+  //       lookupToken.isStyleToken
+  //       && (lookupToken.attributes?.tagName === style
+  //         || MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG] === style
+  //       )
+  //     ) {
+  //       lastOpeningTokenWithThisStyle = lookupToken;
+  //       break;
+  //     }
+  //   }
+
+  //   const nextClosingTokenWithThisStyle = filteredTokens[nextClosingTokenWithThisStyleIndex];
+  //   if (
+  //     nextClosingTokenWithThisStyle.type === TokenType.HTML_TAG
+  //     && lastOpeningTokenWithThisStyle!.type !== TokenType.HTML_TAG
+  //   ) {
+  //     filteredTokens[nextClosingTokenWithThisStyleIndex] = htmlTagToMarkdown(
+  //       HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
+  //       nextClosingTokenWithThisStyle.value,
+  //       true,
+  //       nextClosingTokenWithThisStyle.start,
+  //       nextClosingTokenWithThisStyle.end,
+  //     );
+  //   }
+
+  //   if (
+  //     nextClosingTokenWithThisStyle.type !== TokenType.HTML_TAG
+  //     && lastOpeningTokenWithThisStyle!.type === TokenType.HTML_TAG
+  //   ) {
+  //     filteredTokens[nextClosingTokenWithThisStyleIndex] = markdownToHtmlTag(
+  //       style,
+  //       nextClosingTokenWithThisStyle.value,
+  //       true,
+  //       nextClosingTokenWithThisStyle.start,
+  //       nextClosingTokenWithThisStyle.end,
+  //     );
+  //   }
+  // }
+
+  // // Reconstruct the token stream after potentially losing some redundant tokens.
+  // for (i = 1; i < recombinedTokens.length; i++) {
+  //   recombinedTokens[i].start = recombinedTokens[i - 1].end;
+  // }
 
   // const restoredTokens: Token[] = [];
 
