@@ -175,22 +175,6 @@ function findClosingToken(tokens: TIntermediateToken[], startIndex: number, tag:
   return -1; // matching closing tag not found
 }
 
-// /**
-//  * Given an array of tokens and a start index at an opening style token,
-//  * try to use closingIndex if exists
-//  *
-//  * Tries to recursively call itself with a helper function to handle continuous style applications
-//  */
-// function findClosingTokenCached(tokens: TIntermediateToken[], startIndex: number, tag: string): number {
-//   const closingIndex = tokens[startIndex].closingIndex;
-
-//   if (closingIndex) {
-//     return tryRecurseFindClosingToken(tokens, closingIndex, tag);
-//   }
-
-//   return -1; // matching closing tag not found
-// }
-
 /**
  * Checks if there is another open token with the same style and if there is one,
  * calls findClosingToken to find the corresponding closing token
@@ -361,11 +345,6 @@ const MARKDOWN_TO_FORCE_REBALANCE_AROUND = new Set([
   TokenType.CODE_BLOCK,
   // TokenType.QUOTE_MARKER,
 ]);
-
-// const TOKEN_TYPES_TO_PREVENT_REBALANCE_AROUND = new Set([
-//   TokenType.TEXT,
-//   TokenType.EOF,
-// ]);
 
 const createZeroLengthToken = (
   styleStackItem: StyleStackItem,
