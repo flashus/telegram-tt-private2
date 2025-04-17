@@ -38,4 +38,6 @@ export enum TokenType {
   // html and custom emoji handling
   HTML_TAG,
   IGNORE,
+  CARET_START,
+  CARET_END,
 }
