@@ -1,9 +1,10 @@
 import type { ApiFormattedText } from '../api/types';
+import type { SelectionBounds } from './ast/parseMdAsFormattedText';
 import { ApiMessageEntityTypes } from '../api/types';
 
 import {
   parseMarkdownHtmlToEntities,
-  parseMarkdownHtmlToEntitiesWithCursorSelection,
+  parseMarkdownHtmlToEntitiesWithSelection,
 } from './ast/parseMdAsFormattedText';
 
 export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = {
@@ -24,21 +25,28 @@ export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = 
 export default function parseHtmlAsFormattedText(
   html: string, caller: string,
 ): ApiFormattedText {
-  const now = performance.now();
-  console.log('WILL PARSE THIS MUCH: ', html.length);
-  console.log('CALLER: ', caller);
-  const res = parseMarkdownHtmlToEntities(html);
-  console.log('parseHtmlAsFormattedText', performance.now() - now);
+  // const now = performance.now();
+  // console.log('WILL PARSE THIS MUCH: ', html.length);
+  // console.log('CALLER: ', caller);
+  // const res = parseMarkdownHtmlToEntities(html);
+  // console.log('parseHtmlAsFormattedText', performance.now() - now);
 
-  return res;
-  // return parseMarkdownHtmlToEntities(html);
+  // return res;
+  return parseMarkdownHtmlToEntities(html);
 }
 
-export const parseHtmlAsFormattedTextWithCursorSelection = (
+export const parseHtmlAsFormattedTextWithSelection = (
   html: string,
-  cursorSelection: { start: number; end: number },
+  selection: SelectionBounds,
 ): ApiFormattedText => {
-  return parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursorSelection);
+  const now = performance.now();
+  console.log('WILL PARSE THIS MUCH: ', html.length);
+  console.log('CALLER: ', 'parseHtmlAsFormattedTextWithSelection');
+  const res = parseMarkdownHtmlToEntitiesWithSelection(html, selection);
+  console.log('parseHtmlAsFormattedTextWithSelection', performance.now() - now);
+  return res;
+
+  // return parseMarkdownHtmlToEntitiesWithSelection(html, cursorSelection);
 };
 
 export function fixImageContent(fragment: HTMLDivElement) {

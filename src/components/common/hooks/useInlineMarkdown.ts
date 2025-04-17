@@ -2,7 +2,7 @@ import { useEffect, useRef } from '../../../lib/teact/teact';
 
 import type { Signal } from '../../../util/signals';
 
-import { parseHtmlAsFormattedTextWithCursorSelection } from '../../../util/parseHtmlAsFormattedText';
+import { parseHtmlAsFormattedTextWithSelection } from '../../../util/parseHtmlAsFormattedText';
 import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
 
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
@@ -71,13 +71,13 @@ const setCaretCharacterOffsets = (el: HTMLElement, start: number, end: number) =
   }
 };
 
-const getCursorSelection = (el: HTMLElement): { start: number; end: number } => {
+const getCaretSelection = (el: HTMLElement): { start: number; end: number } => {
   const { start, end } = getCaretCharacterOffsets(el);
 
   return { start, end };
 };
 
-const restoreCursorSelection = (
+const restoreCaretSelection = (
   el: HTMLElement,
   cursorPosition: { start: number; end: number },
   cb: () => void,
@@ -114,16 +114,16 @@ const useInlineMarkdown = ({
       return;
     }
 
-    const cursorSelection = getCursorSelection(composerElement);
+    const caretSelection = getCaretSelection(composerElement);
 
     const currentHtml = getHtml();
     // const parsed = parseHtmlAsFormattedText(currentHtml, 'handleSelectionChange');
-    const parsed = parseHtmlAsFormattedTextWithCursorSelection(currentHtml, cursorSelection);
+    const parsed = parseHtmlAsFormattedTextWithSelection(currentHtml, caretSelection);
     const newHtml = getTextWithEntitiesAsHtml(parsed);
 
     if (currentHtml !== newHtml) {
       setHtml(newHtml);
-      restoreCursorSelection(composerElement, cursorSelection, () => {
+      restoreCaretSelection(composerElement, caretSelection, () => {
         restored.current = true;
       });
     }
