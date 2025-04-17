@@ -585,7 +585,7 @@ describe('Parse Edges4', () => {
   });
 
   it('MD->AST bold/italic overlapped', () => {
-    const [inputMarkdown, result] = ['**bold**plain__ital**bold-ital__bold**', '<b>bold</b>plain__ital<b>bold-ital__bold</b>'];
+    const [inputMarkdown, result] = ['**bold**plain__ital**bold-ital__bold**', '<b>bold</b>plain<i>ital<b>bold-ital</b></i><b>bold</b>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
 
@@ -616,10 +616,10 @@ describe('Parse Edges4', () => {
 
   it('MD->AST multiple blockquote with overlapped vals', () => {
     const [inputMarkdown, result] = ['&gt; Коля:\n**kakdjlajd**aldklad__plsld;lasd**adjlaj__saldjlaskd**\n\n&gt; Ilya:\n&lt;br&gt;**kakdjlajd**aldklad__plsld;lasd**adjlaj__saldjlaskd**\n\n&gt; Ilya:\n**kakdjlajd**aldklad__plsld;lasd**adjlaj__saldjlaskd**\n\n&gt; Ilya:\n<b data-entity-type="MessageEntityBold">kakdjlajd</b>aldklad__plsld;lasd<b data-entity-type="MessageEntityBold">adjlaj__saldjlaskd</b>',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><br/><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><br/><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(32);
+    expect(ast.children.length).toBe(28);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -628,10 +628,10 @@ describe('Parse Edges4', () => {
 
   it('HTML->AST blockquote with overlapped md/html simplified', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Nick:</blockquote><b>bold_text</b>plain text__italic-pretend<b>again bold__italic-pretend</b><br><br>',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text__italic-pretend<b>again bold__italic-pretend</b>\n\n'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text<i>italic-pretend<b>again bold</b></i><b>italic-pretend</b>\n\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    // expect(ast.children.length).toBe(32);
+    expect(ast.children.length).toBe(8);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -640,7 +640,7 @@ describe('Parse Edges4', () => {
 
   it('HTML->AST blockquote with overlapped md/html advanced', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Nick:</blockquote><b>bold_text</b>plain text__italic-pretend<b>bold_text__bold_text_pretend_italic</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>bold_text</b>plain text__italic-pretend<b>bold_text__bold_text_pretend_italic</b><br><br>',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text__italic-pretend<b>again bold__italic-pretend</b>\n\n'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n Ilya:\n::after\n</blockquote>\n<b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
 
@@ -651,7 +651,7 @@ describe('Parse Edges4', () => {
 
   it('HTML->AST multiple blockquote with overlapped vals', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote>да, работает<img class="custom-emoji emoji emoji-small" draggable="false" alt="🥰" data-document-id="5276417969390362800" data-entity-type="MessageEntityCustomEmoji" src="blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe">',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><br/><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b>'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n Коля:\n::after\n</blockquote>да, работает<img class="custom-emoji emoji emoji-small" draggable="false" alt="🥰" data-document-id="5276417969390362800" data-entity-type="MessageEntityCustomEmoji" src="blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe"/>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
 
