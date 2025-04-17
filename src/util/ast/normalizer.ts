@@ -519,6 +519,14 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
           value: '',
           start: tokenToPush.end,
           end: tokenToPush.end,
+          isClosing: true,
+          attributes: stackItem.isHtml ? {
+            tagName: stackItem.style,
+            isClosing: true,
+            isSelfClosing: false,
+            attributes: [],
+            endPos: tokenToPush.end,
+          } : undefined,
         };
 
         filteredTokens.push(newZeroLengthToken);
@@ -538,6 +546,14 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
           value: '',
           start: tokenToPush.end,
           end: tokenToPush.end,
+          isClosing: false,
+          attributes: stackItem.isHtml ? {
+            tagName: stackItem.style,
+            isClosing: false,
+            isSelfClosing: false,
+            attributes: [],
+            endPos: tokenToPush.end,
+          } : undefined,
         };
 
         filteredTokens.push(newZeroLengthToken);
