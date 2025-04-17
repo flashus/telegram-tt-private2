@@ -293,6 +293,8 @@ function findClosingHtmlTag(tokens: Token[], startIndex: number, tagName: string
 /**
  * Given an array of tokens and a start index at an opening style token,
  * try to find the matching closing token of the same type.
+ *
+ * Tries to recursively call itself with a helper function to handle continuous style applications
  */
 function findClosingStyleToken(tokens: TIntermediateToken[], startIndex: number, style: string): number {
   let count = 0;
@@ -307,8 +309,9 @@ function findClosingStyleToken(tokens: TIntermediateToken[], startIndex: number,
         count++;
       } else if (t.attributes.isClosing) {
         count--;
+        // Found corresponding closing tag! Next, check for continuous style applications
         if (count === 0) {
-          return i;
+          return tryRecurseFindClosingStyleToken(tokens, i, style);
         }
       }
     } else if (
@@ -318,13 +321,73 @@ function findClosingStyleToken(tokens: TIntermediateToken[], startIndex: number,
         count++;
       } else {
         count--;
+        // Found corresponding closing tag! Next, check for continuous style applications
         if (count === 0) {
-          return i;
+          return tryRecurseFindClosingStyleToken(tokens, i, style);
         }
       }
     }
   }
   return -1; // matching closing tag not found
+}
+
+function tryRecurseFindClosingStyleToken(tokens: TIntermediateToken[], index: number, style: string): number {
+  // There also must be at least one text token before the next style token with this style!
+  const foundTextAfterAnotherOpeningIndex = findTextTokenAfterAnotherOpenStyleToken(tokens, index + 1, style);
+
+  if (foundTextAfterAnotherOpeningIndex === -1) {
+    return index;
+  }
+
+  // Try to call itself recursively with foundTextAfterAnotherOpeningIndex in mind to find another closing tag
+  const nextClosingIndex = findClosingStyleToken(tokens, foundTextAfterAnotherOpeningIndex, style);
+
+  // Did we find another closing tag? If so, return it
+  if (nextClosingIndex !== -1) {
+    return nextClosingIndex;
+  }
+
+  // If did not find another closing tag, return the current found closing tag
+  return index;
+}
+
+/**
+ * If there is another opening style token with the same style, find the text token that comes after it.
+ */
+function findTextTokenAfterAnotherOpenStyleToken(
+  tokens: TIntermediateToken[], startIndex: number, style: string,
+): number {
+  let foundOpen = false;
+  for (let i = startIndex; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === TokenType.TEXT) {
+      if (foundOpen) {
+        // If found a text token after another open style token, return it
+        return i;
+      } else {
+        // If there is a text token before any other open style tokens, then return -1 as if not found
+        return -1;
+      }
+    }
+
+    if (
+      t.type === TokenType.HTML_TAG
+      && t.attributes
+      && t.attributes.tagName?.toLowerCase() === style
+    ) {
+      if (!t.attributes.isClosing && !t.attributes.isSelfClosing) {
+        foundOpen = true;
+      }
+    } else if (
+      MARKDOWN_TO_HTML_TAG[t.type as keyof typeof MARKDOWN_TO_HTML_TAG] === style
+    ) {
+      if (!t.isClosing) {
+        foundOpen = true;
+      }
+    }
+  }
+
+  return -1;
 }
 
 /**
@@ -367,11 +430,53 @@ function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[];
   return { moved, remaining: tokens };
 }
 
+const getTokenToPush = (
+  token: TIntermediateToken,
+  shouldBeHtml: boolean,
+  style: string,
+  isClosing: boolean,
+): TIntermediateToken => {
+  let tokenToPush = token;
+
+  // if (shouldBeHtml && token.type === TokenType.HTML_TAG) {
+  // Token as is
+  // }
+
+  if (shouldBeHtml && token.type !== TokenType.HTML_TAG) {
+    tokenToPush = markdownToHtmlTag(style, token.value, isClosing, token.start, token.end);
+  }
+
+  if (!shouldBeHtml && token.type === TokenType.HTML_TAG) {
+    tokenToPush = htmlTagToMarkdown(
+      HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
+      token.value,
+      isClosing,
+      token.start,
+      token.end,
+    );
+  }
+
+  // if (!shouldBeHtml && token.type !== TokenType.HTML_TAG) {
+  // Token as is
+  // }
+
+  return tokenToPush;
+};
+
 const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
   const filteredTokens: TIntermediateToken[] = [];
 
   /** key: style tag name, value: isHtml, closingIndex */
   const activeStylesMap: Map<string, { isHtml: boolean; closingIndex: number }> = new Map();
+
+  const firstStack: {
+    isHtml: boolean;
+    style: typeof MARKDOWN_TO_HTML_TAG[keyof typeof MARKDOWN_TO_HTML_TAG];
+  }[] = [];
+  const secondStack: {
+    isHtml: boolean;
+    style: typeof MARKDOWN_TO_HTML_TAG[keyof typeof MARKDOWN_TO_HTML_TAG];
+  }[] = [];
 
   let i: number;
 
@@ -396,36 +501,48 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
     if (isClosing && activeStyle) {
       const { isHtml, closingIndex } = activeStyle;
       if (closingIndex !== i) {
-        // Closing style token does not match opening style token - ignore it, harmless
+        // Closing style token does not match opening style token - mark it as ignored
+        filteredTokens.push({ ...token, type: TokenType.IGNORE });
         continue;
       }
 
-      let tokenToPush = token;
+      const tokenToPush = getTokenToPush(token, isHtml, style, isClosing);
 
-      // if (isHtml && token.type === TokenType.HTML_TAG) {
-      // Token as is
-      // }
-
-      if (isHtml && token.type !== TokenType.HTML_TAG) {
-        tokenToPush = markdownToHtmlTag(style, token.value, isClosing, token.start, token.end);
+      // Take from the first stack until we find match for the opening style token
+      let stackItem = firstStack.pop();
+      if (!stackItem) {
+        // Throw an Error, I guess. Should never happen!
       }
+      while (stackItem && stackItem.style !== style) {
+        const newZeroLengthToken = {
+          type: stackItem.isHtml ? TokenType.HTML_TAG : HTML_TAG_TO_MARKDOWN[stackItem.style],
+          value: '',
+          start: tokenToPush.end,
+          end: tokenToPush.end,
+        };
 
-      if (!isHtml && token.type === TokenType.HTML_TAG) {
-        tokenToPush = htmlTagToMarkdown(
-          HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
-          token.value,
-          isClosing,
-          token.start,
-          token.end,
-        );
+        filteredTokens.push(newZeroLengthToken);
+        // Put all the stack items back to the second stack until we find the opening style token
+        secondStack.push(stackItem);
+        stackItem = firstStack.pop();
       }
-
-      // if (!isHtml && token.type !== TokenType.HTML_TAG) {
-      // Token as is
-      // }
 
       filteredTokens.push(tokenToPush);
       activeStylesMap.delete(style);
+
+      // Take from the second stack until it is empty
+      stackItem = secondStack.pop();
+      while (stackItem) {
+        const newZeroLengthToken = {
+          type: stackItem.isHtml ? TokenType.HTML_TAG : HTML_TAG_TO_MARKDOWN[stackItem.style],
+          value: '',
+          start: tokenToPush.end,
+          end: tokenToPush.end,
+        };
+
+        filteredTokens.push(newZeroLengthToken);
+        stackItem = secondStack.pop();
+      }
       continue;
     }
 
@@ -435,6 +552,7 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
       if (closingIndex !== -1) {
         // Set as active only if there is a closing tag
         activeStylesMap.set(style, { isHtml: token.type === TokenType.HTML_TAG, closingIndex });
+        firstStack.push({ isHtml: token.type === TokenType.HTML_TAG, style });
       }
       filteredTokens.push(token);
       continue;
@@ -444,130 +562,7 @@ const removeRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
     filteredTokens.push({ ...token, type: TokenType.IGNORE });
   }
 
-  const recombinedTokens: TIntermediateToken[] = [];
-
-  for (i = 0; i < filteredTokens.length; i++) {
-    const token = filteredTokens[i];
-    const nextToken = filteredTokens[i + 1];
-
-    // Push all non-style tokens as is
-    if (!token.isStyleToken || !nextToken || !nextToken.isStyleToken) {
-      recombinedTokens.push(token);
-      continue;
-    }
-
-    // Make it ignored if this token is closing and next one is opening with the same style
-  }
-
-  // const recombinedTokens: TIntermediateToken[] = [];
-
-  // for (i = 0; i < filteredTokens.length; i++) {
-  //   const token = filteredTokens[i];
-  //   const prevToken = filteredTokens[i - 1];
-
-  //   // Push all non-style tokens as is
-  //   if (!token.isStyleToken || !prevToken || !prevToken.isStyleToken) {
-  //     recombinedTokens.push(token);
-  //     continue;
-  //   }
-
-  //   // If style token is closing or previous was not closing - leave it as is
-  //   if (token.isClosing || !prevToken.isClosing) {
-  //     recombinedTokens.push(token);
-  //     continue;
-  //   }
-
-  //   const style = token.attributes?.tagName
-  //     ?? MARKDOWN_TO_HTML_TAG[token.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-  //   const prevStyle = prevToken.attributes?.tagName
-  //     ?? MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-
-  //   // If there is a style change - leave it as is
-  //   if (style !== prevStyle) {
-  //     recombinedTokens.push(token);
-  //     continue;
-  //   }
-
-  //   // Otherwise, combine them if there is next closing token with the same style
-  //   const nextClosingTokenWithThisStyleIndex = findClosingStyleToken(
-  //     filteredTokens,
-  //     i + 1,
-  //     style,
-  //   );
-
-  //   if (nextClosingTokenWithThisStyleIndex === -1) {
-  //     recombinedTokens.push(token);
-  //     continue;
-  //   }
-
-  //   // Everything lower in this loop is designed to make closing token type match the opening one
-  //   let lastOpeningTokenWithThisStyle: Token | undefined;
-  //   for (let j = i - 1; j >= 0; j--) {
-  //     const lookupToken = filteredTokens[j];
-  //     if (
-  //       lookupToken.isStyleToken
-  //       && (lookupToken.attributes?.tagName === style
-  //         || MARKDOWN_TO_HTML_TAG[prevToken.type as keyof typeof MARKDOWN_TO_HTML_TAG] === style
-  //       )
-  //     ) {
-  //       lastOpeningTokenWithThisStyle = lookupToken;
-  //       break;
-  //     }
-  //   }
-
-  //   const nextClosingTokenWithThisStyle = filteredTokens[nextClosingTokenWithThisStyleIndex];
-  //   if (
-  //     nextClosingTokenWithThisStyle.type === TokenType.HTML_TAG
-  //     && lastOpeningTokenWithThisStyle!.type !== TokenType.HTML_TAG
-  //   ) {
-  //     filteredTokens[nextClosingTokenWithThisStyleIndex] = htmlTagToMarkdown(
-  //       HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
-  //       nextClosingTokenWithThisStyle.value,
-  //       true,
-  //       nextClosingTokenWithThisStyle.start,
-  //       nextClosingTokenWithThisStyle.end,
-  //     );
-  //   }
-
-  //   if (
-  //     nextClosingTokenWithThisStyle.type !== TokenType.HTML_TAG
-  //     && lastOpeningTokenWithThisStyle!.type === TokenType.HTML_TAG
-  //   ) {
-  //     filteredTokens[nextClosingTokenWithThisStyleIndex] = markdownToHtmlTag(
-  //       style,
-  //       nextClosingTokenWithThisStyle.value,
-  //       true,
-  //       nextClosingTokenWithThisStyle.start,
-  //       nextClosingTokenWithThisStyle.end,
-  //     );
-  //   }
-  // }
-
-  // // Reconstruct the token stream after potentially losing some redundant tokens.
-  // for (i = 1; i < recombinedTokens.length; i++) {
-  //   recombinedTokens[i].start = recombinedTokens[i - 1].end;
-  // }
-
-  // const restoredTokens: Token[] = [];
-
-  // for (i = 0; i < recombinedTokens.length; i++) {
-  //   // Here, no nesting is allowed anymore. But there could be situations
-  //   // like <b><i>...</b>...</i> which must be transformed to <b><i>...</i></b><i>...</i>
-  //   // with using of zero-width tokens with '' values
-  //   const token = recombinedTokens[i];
-
-  //   // Leave all non-style and closing tokens as is
-  //   if (!token.isStyleToken || token.attributes?.isClosing || token.isClosing) {
-  //     restoredTokens.push(token);
-  //     continue;
-  //   }
-
-  //   const style = token.attributes?.tagName
-  //     ?? MARKDOWN_TO_HTML_TAG[token.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-
-  // }
-
-  return recombinedTokens;
+  return filteredTokens;
 };
 
 /**
