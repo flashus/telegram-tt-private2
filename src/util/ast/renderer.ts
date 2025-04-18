@@ -122,7 +122,7 @@ export class Renderer {
     html += '::before\n';
     html += `${content}\n`;
     html += '::after\n';
-    html += '</blockquote>';
+    html += '</blockquote>\n';
     return html;
   }
 

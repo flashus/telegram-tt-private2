@@ -454,11 +454,10 @@ describe('Parse Edges4', () => {
     const [inputMarkdown, result] = ['> This is a quote\n> With text\n', `${makeBlockQuote(' This is a quote\n With text')}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(3);
+    expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.length).toBe(3);
-    expect(ast.children[1].type).toBe(NodeType.TEXT);
-    expect(ast.children[2].type).toBe(NodeType.EOF);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -484,12 +483,11 @@ describe('Parse Edges4', () => {
     const [inputMarkdown, result] = ['> This is a quote\n> With text <b>bold</b>\n', `${makeBlockQuote(' This is a quote\n With text <b>bold</b>')}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(3);
+    expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.length).toBe(4);
     expect(ast.children[0].children?.[3].type).toBe(NodeType.BOLD);
-    expect(ast.children[1].type).toBe(NodeType.TEXT);
-    expect(ast.children[2].type).toBe(NodeType.EOF);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -501,7 +499,7 @@ describe('Parse Edges4', () => {
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
     // expect(ast.children.length).toBe(3);
-    expect(ast.children.length).toBe(7);
+    expect(ast.children.length).toBe(6);
     expect(ast.children[0].type).toBe(NodeType.TEXT);
     expect(ast.children[1].type).toBe(NodeType.TEXT);
     expect(ast.children[2].type).toBe(NodeType.TEXT);
@@ -509,8 +507,8 @@ describe('Parse Edges4', () => {
 
     expect(ast.children[4].type).toBe(NodeType.QUOTE);
     expect(ast.children[4].children?.length).toBe(3);
-    expect(ast.children[5].type).toBe(NodeType.TEXT);
-    expect(ast.children[6].type).toBe(NodeType.EOF);
+    // expect(ast.children[5].type).toBe(NodeType.TEXT);
+    expect(ast.children[5].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -521,11 +519,11 @@ describe('Parse Edges4', () => {
     const [inputMarkdown, result] = ['> This is a **bold** quote\n> With __italic__ text\n', `${makeBlockQuote(' This is a <b>bold</b> quote\n With <i>italic</i> text')}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(3);
+    expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.length).toBe(7);
-    expect(ast.children[1].type).toBe(NodeType.TEXT);
-    expect(ast.children[2].type).toBe(NodeType.EOF);
+    // expect(ast.children[1].type).toBe(NodeType.TEXT);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -534,13 +532,13 @@ describe('Parse Edges4', () => {
 
   it('MD->AST blockquote simple nested', () => {
     const [inputMarkdown, result] = ['>This is a quote\n>With text\n>>And a nested quote\n>Back to first level',
-      `${makeBlockQuote(`This is a quote\nWith text\n${makeBlockQuote('And a nested quote')}\nBack to first level`)}`];
+      `${makeBlockQuote(`This is a quote\nWith text\n${makeBlockQuote('And a nested quote')}\nBack to first level`)}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
     expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
-    expect(ast.children[0].children?.length).toBe(7);
-    // expect(ast.children[0].children?.length).toBe(6);
+    // expect(ast.children[0].children?.length).toBe(7);
+    expect(ast.children[0].children?.length).toBe(6);
     expect(ast.children[0].children?.[4].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.[4].children?.length).toBe(1);
     // expect(ast.children[0].children?.[4].children?.length).toBe(2);
@@ -558,14 +556,14 @@ describe('Parse Edges4', () => {
       `${makeBlockQuote('This is a quote\nWith text A &gt;&gt; B not a nested quote')}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(3);
+    expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.length).toBe(6);
     expect(ast.children[0].children?.[1].type).toBe(NodeType.TEXT);
     expect(ast.children[0].children?.[2].type).toBe(NodeType.TEXT);
     expect(ast.children[0].children?.[3].type).toBe(NodeType.TEXT);
-    expect(ast.children[1].type).toBe(NodeType.TEXT);
-    expect(ast.children[2].type).toBe(NodeType.EOF);
+    // expect(ast.children[1].type).toBe(NodeType.TEXT);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -574,12 +572,12 @@ describe('Parse Edges4', () => {
 
   it('MD->AST blockquote nested', () => {
     const [inputMarkdown, result] = ['> This is a **bold** quote\n> With __italic__ text\n>> And a nested quote\n> Back to first level',
-      `${makeBlockQuote(` This is a <b>bold</b> quote\n With <i>italic</i> text\n${makeBlockQuote(' And a nested quote')}\n Back to first level`)}`];
+      `${makeBlockQuote(` This is a <b>bold</b> quote\n With <i>italic</i> text\n${makeBlockQuote(' And a nested quote')}\n Back to first level`)}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
     expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
-    expect(ast.children[0].children?.length).toBe(11);
+    expect(ast.children[0].children?.length).toBe(10);
     expect(ast.children[0].children?.[8].type).toBe(NodeType.QUOTE);
     expect(ast.children[0].children?.[8].children?.length).toBe(1);
     expect(ast.children[0].children?.[1].type).toBe(NodeType.BOLD);
@@ -607,19 +605,19 @@ describe('Parse Edges4', () => {
     const [inputMarkdown, result] = ['**bold__italic__\n>quoted text**\n',
       // `**bold<i>italic</i>\n${makeBlockQuote('quoted text**')}`];
       // `<b>bold<i>italic</i>\n${makeBlockQuote('quoted text')}</b>`];
-      '<b>bold<i>italic</i>\n</b><blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n<b>quoted text</b>\n::after\n</blockquote>\n'];
+      '<b>bold<i>italic</i></b>\n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n<b>quoted text</b>\n::after\n</blockquote>\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    // expect(ast.children.length).toBe(6);
-    // expect(ast.children[0].type).toBe(NodeType.TEXT);
-    // expect(ast.children[1].type).toBe(NodeType.TEXT);
+    expect(ast.children.length).toBe(4);
+    expect(ast.children[0].type).toBe(NodeType.BOLD);
+    expect(ast.children[1].type).toBe(NodeType.TEXT);
     // expect(ast.children[2].type).toBe(NodeType.ITALIC);
     // expect(ast.children[3].type).toBe(NodeType.TEXT);
     // expect(ast.children[4].type).toBe(NodeType.QUOTE);
-    // expect(ast.children[4].children?.length).toBe(2);
-    // expect(ast.children[4].children?.[0].type).toBe(NodeType.TEXT);
-    // expect(ast.children[4].children?.[1].type).toBe(NodeType.TEXT);
-    // expect(ast.children[5].type).toBe(NodeType.EOF);
+    expect(ast.children[2].children?.length).toBe(1);
+    expect(ast.children[2].children?.[0].type).toBe(NodeType.BOLD);
+    // expect(ast.children[2].children?.[1].type).toBe(NodeType.TEXT);
+    expect(ast.children[3].type).toBe(NodeType.EOF);
     const htmlOutput = renderASTToHTML(ast);
 
     expect(htmlOutput).toBe(result);
@@ -627,7 +625,7 @@ describe('Parse Edges4', () => {
 
   it('MD->AST small blockquote with overlapped bold/italic and plain', () => {
     const [inputMarkdown, result] = ['**bold__italic__\n>quoted text** plain text\n',
-      '<b>bold<i>italic</i>\n</b><blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n<b>quoted text</b> plain text\n::after\n</blockquote>\n'];
+      '<b>bold<i>italic</i></b>\n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n<b>quoted text</b> plain text\n::after\n</blockquote>\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
     // expect(ast.children.length).toBe(6);
@@ -650,7 +648,7 @@ describe('Parse Edges4', () => {
       '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<br/><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(32);
+    expect(ast.children.length).toBe(28);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -659,7 +657,7 @@ describe('Parse Edges4', () => {
 
   it('HTML->AST blockquote with overlapped md/html simplified', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Nick:</blockquote><b>bold_text</b>plain text__italic-pretend<b>again bold__italic-pretend</b><br><br>',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text<i>italic-pretend<b>again bold</b></i><b>italic-pretend</b>\n\n'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote>\n<b>bold_text</b>plain text<i>italic-pretend<b>again bold</b></i><b>italic-pretend</b>\n\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
     // expect(ast.children.length).toBe(32);
@@ -715,7 +713,7 @@ describe('Parse Edges4', () => {
   */
   it('HTML->AST blockquote with overlapped md/html advanced', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Nick:</blockquote><b>bold_text</b>plain text__italic-pretend<b>bold_text__bold_text_pretend_italic</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>bold_text</b>plain text__italic-pretend<b>bold_text__bold_text_pretend_italic</b><br><br>',
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote><b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Nick:\n::after\n</blockquote>\n<b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n\n<b>bold_text</b>plain text<i>italic-pretend<b>bold_text</b></i><b>bold_text_pretend_italic</b>\n\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
 
@@ -739,7 +737,7 @@ describe('Parse Edges4', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote>да, работает<img class="custom-emoji emoji emoji-small" draggable="false" alt="🥰" data-document-id="5276417969390362800" data-entity-type="MessageEntityCustomEmoji" src="blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe">',
       // '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>'];
       // '<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote>да, работает<img class="custom-emoji emoji emoji-small" draggable="false" alt="🥰" data-document-id="5276417969390362800" data-entity-type="MessageEntityCustomEmoji" src="blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe">'];
-      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote><b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote>да, работает<img class=\"custom-emoji emoji emoji-small\" draggable=\"false\" alt=\"🥰\" data-document-id=\"5276417969390362800\" data-entity-type=\"MessageEntityCustomEmoji\" src=\"blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe\"/>'];
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Ilya:\n::after\n</blockquote>\n<b>kakdjlajd</b>aldklad<i>plsld;lasd<b>adjlaj</b></i><b>saldjlaskd</b>\n\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n Коля:\n::after\n</blockquote>\nда, работает<img class=\"custom-emoji emoji emoji-small\" draggable=\"false\" alt=\"🥰\" data-document-id=\"5276417969390362800\" data-entity-type=\"MessageEntityCustomEmoji\" src=\"blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe\"/>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
 
@@ -753,7 +751,7 @@ describe('Parse Edges4', () => {
       '<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\nFirst level\n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\nSecond level\n::after\n</blockquote>\nBack to first\n::after\n</blockquote>\n'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(3);
+    expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.QUOTE);
 
     const htmlOutput = renderASTToHTML(ast);
@@ -814,9 +812,33 @@ describe('ParseMixedMarkdownAndHTML', () => {
     expect(htmlOutput).toBe(expectedOutput);
   });
 
+  it('Handles quotes and non-quotes, simplified', () => {
+    const inputMarkdown = '>text\n>>nested quote with >>> symbol\nplain text';
+    const quoteBody = `text\n${makeBlockQuote('nested quote with &gt;&gt;&gt; symbol')}`;
+    const expectedOutput = `${makeBlockQuote(quoteBody)}\nplain text`;
+
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(expectedOutput);
+  });
+
   it('Handles nested mixed elements, md quote->html->md quote->text simplified', () => {
     const inputMarkdown = '>**Bold __italic <strong>and ++HTML++ strong</strong>__**\n>>nested quote\nplain text';
     const quoteBody = `<b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n${makeBlockQuote('nested quote')}`;
+    const expectedOutput = `${makeBlockQuote(quoteBody)}\nplain text`;
+    // const expectedOutput = '<blockquote><b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n<blockquote>nested quote</blockquote></blockquote>\nplain text';
+
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(expectedOutput);
+  });
+
+  it('Handles nested mixed elements, md quote->html->md quote->text simplified 3rd lvl nest', () => {
+    const inputMarkdown = '>**Bold __italic <strong>and ++HTML++ strong</strong>__**\n>>nested quote\n>>> 3rd lvl nested quote\nplain text';
+    const nestedQuoteBody = `nested quote\n${makeBlockQuote(' 3rd lvl nested quote')}`;
+    const quoteBody = `<b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n${makeBlockQuote(nestedQuoteBody)}`;
     const expectedOutput = `${makeBlockQuote(quoteBody)}\nplain text`;
     // const expectedOutput = '<blockquote><b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n<blockquote>nested quote</blockquote></blockquote>\nplain text';
 
@@ -862,7 +884,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
 
   it('MD->AST blockquote nested', () => {
     const [inputMarkdown, result] = ['> This is a **bold** quote\n> With __italic__ text\n>> And a nested quote <a href="https://example.com" target="_blank">**bold link**</a>\n> Back to <u>first</u> level',
-      `${makeBlockQuote(` This is a <b>bold</b> quote\n With <i>italic</i> text\n${makeBlockQuote(' And a nested quote <a href="https://example.com" target="_blank"><b>bold link</b></a>')}\n Back to <u>first</u> level`)}`];
+      `${makeBlockQuote(` This is a <b>bold</b> quote\n With <i>italic</i> text\n${makeBlockQuote(' And a nested quote <a href="https://example.com" target="_blank"><b>bold link</b></a>')}\n Back to <u>first</u> level`)}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
 
     expect(ast.type).toBe(NodeType.DOCUMENT);
@@ -965,7 +987,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
 
   it('should parse quotes with newlines on end stripping', () => {
     const inputHtml = '>a man\n>quote\n>\n>';
-    const result = `${makeBlockQuote('a man\nquote')}`;
+    const result = `${makeBlockQuote('a man\nquote')}\n`;
     const ast = parseMarkdownToAST(inputHtml) || { type: NodeType.DOCUMENT, value: '', children: [] };
     const outputHtml = renderASTToHTML(ast);
 
@@ -995,7 +1017,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
   it('should parse html/md mix with proper ast', () => {
     const inputHtmlMarkdown = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. <br>> It warns that <b>adding the token to the clone URL will store it in plaintext in</b>&nbsp;<code class="text-entity-code">.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i>&nbsp;repository and revoking the token when I\'m done, <b>I don\'t care.</b></div>';
 
-    const htmlResult = '<div id=\"editable-message-text\" class=\"form-control allow-selection touched\" contenteditable=\"true\" role=\"textbox\" dir=\"auto\" tabindex=\"0\" aria-label=\"Message\" style=\"transition: color 50ms linear !important;\">GitHub has a very handy guide on how to do this, but it doesn&#039;t cover what to do if you want to include it all in one line for automation purposes. \n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n It warns that <b>adding the token to the clone URL will store it in plaintext in</b> <code>.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i> repository and revoking the token when I&#039;m done, <b>I don&#039;t care.</b>\n::after\n</blockquote></div>';
+    const htmlResult = '<div id=\"editable-message-text\" class=\"form-control allow-selection touched\" contenteditable=\"true\" role=\"textbox\" dir=\"auto\" tabindex=\"0\" aria-label=\"Message\" style=\"transition: color 50ms linear !important;\">GitHub has a very handy guide on how to do this, but it doesn&#039;t cover what to do if you want to include it all in one line for automation purposes. \n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n It warns that <b>adding the token to the clone URL will store it in plaintext in</b> <code>.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i> repository and revoking the token when I&#039;m done, <b>I don&#039;t care.</b>\n::after\n</blockquote>\n</div>';
 
     const cleanedHtml = cleanHtml(inputHtmlMarkdown);
     const ast = parseMarkdownToAST(cleanedHtml) || { type: NodeType.DOCUMENT, value: '', children: [] };
@@ -1027,7 +1049,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
   it('should parse html/md mix with proper ast enclosed tags', () => {
     const inputHtmlMarkdown = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line <p>for automation purposes. <br>> It warns that <b>adding the token to the clone URL will store it in plaintext in</b>&nbsp;<code class="text-entity-code">.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i>&nbsp;repository and revoking the token when I\'m done, <b>I don\'t care.</b></p></div>';
 
-    const htmlResult = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn&#039;t cover what to do if you want to include it all in one line <p>for automation purposes. \n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n It warns that <b>adding the token to the clone URL will store it in plaintext in</b> <code>.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i> repository and revoking the token when I&#039;m done, <b>I don&#039;t care.</b>\n::after\n</blockquote></p></div>';
+    const htmlResult = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn&#039;t cover what to do if you want to include it all in one line <p>for automation purposes. \n<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n It warns that <b>adding the token to the clone URL will store it in plaintext in</b> <code>.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i> repository and revoking the token when I&#039;m done, <b>I don&#039;t care.</b>\n::after\n</blockquote>\n</p></div>';
 
     const cleanedHtml = cleanHtml(inputHtmlMarkdown);
     const ast = parseMarkdownToAST(cleanedHtml) || { type: NodeType.DOCUMENT, value: '', children: [] };
@@ -1089,7 +1111,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
     expect(ast.type).toBe(NodeType.DOCUMENT);
     expect(ast.children.length).toBe(2);
     expect(ast.children[0].type).toBe(NodeType.HTML_TAG);
-    expect(ast.children[0].children?.length).toBe(9);
+    expect(ast.children[0].children?.length).toBe(8);
     expect(ast.children[0].children?.[0].type).toBe(NodeType.BOLD);
     expect(ast.children[0].children?.[1].type).toBe(NodeType.TEXT);
     expect(ast.children[0].children?.[2].type).toBe(NodeType.BOLD);
@@ -1097,8 +1119,24 @@ describe('ParseMixedMarkdownAndHTML', () => {
     expect(ast.children[0].children?.[4].type).toBe(NodeType.CODE);
     expect(ast.children[0].children?.[5].type).toBe(NodeType.TEXT);
     expect(ast.children[0].children?.[6].type).toBe(NodeType.QUOTE);
-    expect(ast.children[0].children?.[7].type).toBe(NodeType.TEXT);
-    expect(ast.children[0].children?.[8].type).toBe(NodeType.BOLD);
+    // expect(ast.children[0].children?.[7].type).toBe(NodeType.TEXT);
+    expect(ast.children[0].children?.[7].type).toBe(NodeType.BOLD);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  test('should handle markdown blockquotes with custom emoji', () => {
+    const [inputMarkdown, htmlResult] = ['> This is a quote <img class="custom-emoji" alt="💬" data-document-id="777" data-entity-type="MessageEntityCustomEmoji">\n> With **bold** text',
+      '<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\n This is a quote <img class=\"custom-emoji\" alt=\"💬\" data-document-id=\"777\" data-entity-type=\"MessageEntityCustomEmoji\"/>\n With <b>bold</b> text\n::after\n</blockquote>\n'];
+
+    // const input = '> This is a quote <img class="custom-emoji" alt="💬" data-document-id="777" data-entity-type="MessageEntityCustomEmoji">\n> With **bold** text';
+    // const result = parseMarkdownHtmlToEntities(input);
+    // expect(result.text).toBe(' This is a quote 💬\n With bold text');
+    const cleanedHtml = cleanHtml(inputMarkdown);
+    const ast = parseMarkdownToAST(cleanedHtml) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
     const htmlOutput = renderASTToHTML(ast);
 
     expect(htmlOutput).toBe(htmlResult);

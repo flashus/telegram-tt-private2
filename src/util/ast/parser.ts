@@ -269,7 +269,7 @@ export class Parser {
         if (nextLevel > currentLevel) {
           children.push(this.parseQuote(nextLevel));
           // Add a newline after the nested quote
-          children.push(this.createPlainTextNode('\n'));
+          // children.push(this.createPlainTextNode('\n'));
         } else if (nextLevel < currentLevel) {
           break;
         }
