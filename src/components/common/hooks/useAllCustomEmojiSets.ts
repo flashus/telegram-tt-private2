@@ -17,6 +17,7 @@ import useLang from '../../../hooks/useLang';
 import useOldLang from '../../../hooks/useOldLang';
 
 type UseCustomEmojiProps = {
+  preventPushRecent?: boolean;
   addedCustomEmojiIds?: string[];
   withDefaultTopicIcons?: boolean;
   recentCustomEmojis?: ApiSticker[];
@@ -42,6 +43,7 @@ const RECENT_REACTIONS_COUNT = 32;
 const RECENT_DEFAULT_STATUS_COUNT = 7;
 
 export default function useAllCustomEmojiSets({
+  preventPushRecent,
   addedCustomEmojiIds,
   withDefaultTopicIcons,
   recentCustomEmojis,
@@ -157,7 +159,7 @@ export default function useAllCustomEmojiSets({
           title: oldLang('RecentStickers'),
         });
       }
-    } else if (recentCustomEmojis?.length) {
+    } else if (recentCustomEmojis?.length && !preventPushRecent) {
       defaultSets.push({
         id: RECENT_SYMBOL_SET_ID,
         accessHash: '0',
@@ -185,7 +187,7 @@ export default function useAllCustomEmojiSets({
     addedCustomEmojiIds, isReactionPicker, isStatusPicker, withDefaultTopicIcons, recentCustomEmojis,
     customEmojiFeaturedIds, stickerSetsById, topReactions, availableReactions, oldLang, recentReactions,
     defaultStatusIconsId, defaultTopicIconsId, isSavedMessages, defaultTagReactions, chatEmojiSetId,
-    isWithPaidReaction, collectibleStatusEmojis, lang,
+    isWithPaidReaction, collectibleStatusEmojis, lang, preventPushRecent,
   ]);
 
   return { allSets };
