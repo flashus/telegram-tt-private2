@@ -314,8 +314,8 @@ describe('TestLexer HTML tag parsing', () => {
 
     it('should handle tags with invalid characters', () => {
       lexer = new TestLexer('<div@>');
-      // expect(lexer.tryTokenizeHtmlTag()).toBeUndefined();
-      expect(lexer.tryTokenizeHtmlTag()).toBeDefined();
+      expect(lexer.tryTokenizeHtmlTag()).toBeUndefined();
+      // expect(lexer.tryTokenizeHtmlTag()).toBeDefined();
     });
 
     it('should handle nested angle brackets', () => {
