@@ -78,6 +78,10 @@ export class Parser {
       case TokenType.NEWLINE:
         this.advance();
         return this.createPlainTextNode('\n');
+      case TokenType.CARET_START:
+      case TokenType.CARET_END:
+        this.advance();
+        return undefined;
       case TokenType.IGNORE:
         this.advance();
         return undefined;
