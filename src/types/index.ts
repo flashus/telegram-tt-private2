@@ -120,6 +120,7 @@ export interface ISettings {
   isSensitiveEnabled?: boolean;
   canChangeSensitive?: boolean;
   timeFormat: TimeFormat;
+  liveFormat?: boolean;
   wasTimeFormatSetManually: boolean;
   isConnectionStatusMinimized: boolean;
   shouldArchiveAndMuteNewNonContact?: boolean;

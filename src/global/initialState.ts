@@ -278,6 +278,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       shouldUpdateStickerSetOrder: true,
       language: 'en',
       timeFormat: '24h',
+      liveFormat: true,
       wasTimeFormatSetManually: false,
       isConnectionStatusMinimized: true,
       shouldArchiveAndMuteNewNonContact: false,
@@ -290,6 +291,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       canDisplayChatInTitle: true,
       shouldAllowHttpTransport: true,
       shouldWarnAboutSvg: true,
+      isChatFolderListOnLeft: false,
     },
     themes: {
       light: {

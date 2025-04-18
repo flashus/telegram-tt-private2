@@ -35,7 +35,8 @@ type StateProps =
     'messageTextSize' |
     'animationLevel' |
     'messageSendKeyCombo' |
-    'timeFormat'
+    'timeFormat' |
+    'liveFormat'
   )> & {
     theme: ISettings['theme'];
     shouldUseSystemTheme: boolean;
@@ -48,6 +49,7 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
   messageTextSize,
   messageSendKeyCombo,
   timeFormat,
+  liveFormat,
   theme,
   shouldUseSystemTheme,
 }) => {
@@ -88,6 +90,12 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     },
   ] : undefined;
 
+  const liveFormatOptions: IRadioOption[] = [
+    // Could be more options like on-key-combo-press formatting
+    { value: 'true', label: 'On'/* lang('SettingsLiveFormatOn') */ },
+    { value: 'false', label: 'Off'/* lang('SettingsLiveFormatOff') */ },
+  ];
+
   const handleMessageTextSizeChange = useCallback((newSize: number) => {
     document.documentElement.style.setProperty(
       '--composer-text-size', `${Math.max(newSize, IS_IOS ? 16 : 15)}px`,
@@ -115,6 +123,10 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
 
   const handleMessageSendComboChange = useCallback((newCombo: string) => {
     setSettingOption({ messageSendKeyCombo: newCombo as ISettings['messageSendKeyCombo'] });
+  }, [setSettingOption]);
+
+  const handleLiveFormatChange = useCallback((newValue: string) => {
+    setSettingOption({ liveFormat: newValue === 'true' });
   }, [setSettingOption]);
 
   const [isTrayIconEnabled, setIsTrayIconEnabled] = useState(false);
@@ -198,6 +210,18 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
           />
         </div>
       )}
+
+      <div className="settings-item">
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>
+          {'Live message formatting' /* {lang('SettingsTimeFormat')} */}
+        </h4>
+        <RadioGroup
+          name="liveformat"
+          options={liveFormatOptions}
+          selected={String(liveFormat)}
+          onChange={handleLiveFormatChange}
+        />
+      </div>
     </div>
   );
 };
@@ -214,6 +238,7 @@ export default memo(withGlobal<OwnProps>(
         'isSensitiveEnabled',
         'canChangeSensitive',
         'timeFormat',
+        'liveFormat',
       ]),
       theme,
       shouldUseSystemTheme,
