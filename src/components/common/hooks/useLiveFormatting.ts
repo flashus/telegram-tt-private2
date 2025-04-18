@@ -7,6 +7,8 @@ import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
 
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 
+const LIVE_FORMAT_DEBOUNCE_MS = 400;
+
 const getCaretCharacterOffsets = (el: HTMLElement) => {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
@@ -97,14 +99,19 @@ const useLiveFormatting = ({
   getHtml,
   setHtml,
   editableInputId,
+  liveFormat,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
   editableInputId: string;
+  liveFormat: boolean;
 }) => {
   const restored = useRef(false);
 
   const handleSelectionChange = useDebouncedCallback(() => {
+    if (!liveFormat) {
+      return;
+    }
     if (restored.current === true) {
       restored.current = false;
       return;
@@ -127,7 +134,7 @@ const useLiveFormatting = ({
         restored.current = true;
       });
     }
-  }, [getHtml, setHtml, editableInputId], 300, true, false);
+  }, [getHtml, setHtml, editableInputId, liveFormat], LIVE_FORMAT_DEBOUNCE_MS, true, false);
 
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange);

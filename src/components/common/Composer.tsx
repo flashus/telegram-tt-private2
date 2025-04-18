@@ -294,6 +294,7 @@ type StateProps =
     isPaymentMessageConfirmDialogOpen: boolean;
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
+    liveFormat: boolean;
   };
 
 enum MainButtonState {
@@ -416,6 +417,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   isPaymentMessageConfirmDialogOpen,
   starsBalance,
   isStarsBalanceModalOpen,
+  liveFormat,
 }) => {
   const {
     sendMessage,
@@ -848,7 +850,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     getHtml,
     setHtml,
     editableInputId,
-    // insertHtmlAndUpdateCursor,
+    liveFormat,
   });
 
   // Handle chat change (should be placed after `useDraft` and `useEditing`)
@@ -2360,7 +2362,7 @@ export default memo(withGlobal<OwnProps>(
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove,
+      shouldPaidMessageAutoApprove, liveFormat,
     } = global.settings.byKey;
     const {
       forwardMessages: { messageIds: forwardMessageIds },
@@ -2516,6 +2518,7 @@ export default memo(withGlobal<OwnProps>(
       isPaymentMessageConfirmDialogOpen: tabState.isPaymentMessageConfirmDialogOpen,
       starsBalance,
       isStarsBalanceModalOpen,
+      liveFormat,
     };
   },
 )(Composer));
