@@ -21,7 +21,10 @@ const EMOJI_VERTICAL_MARGIN = 0.25 * REM;
 const EMOJI_VERTICAL_MARGIN_MOBILE = 0.5 * REM;
 const MOBILE_CONTAINER_PADDING = 0.5 * REM;
 
+const DEFAULT_ID_PREFIX = 'emoji-category';
+
 type OwnProps = {
+  idPrefix?: string;
   category: EmojiCategory;
   index: number;
   allEmojis: AllEmojis;
@@ -31,7 +34,13 @@ type OwnProps = {
 };
 
 const EmojiCategory: FC<OwnProps> = ({
-  category, index, allEmojis, observeIntersection, shouldRender, onEmojiSelect,
+  idPrefix = DEFAULT_ID_PREFIX,
+  category,
+  index,
+  allEmojis,
+  observeIntersection,
+  shouldRender,
+  onEmojiSelect,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -55,7 +64,7 @@ const EmojiCategory: FC<OwnProps> = ({
     <div
       ref={ref}
       key={category.id}
-      id={`emoji-category-${index}`}
+      id={`${idPrefix}-${index}`}
       className="symbol-set"
     >
       <div className="symbol-set-header">

@@ -40,7 +40,7 @@ import type {
   MessageListType,
   ThreadId,
 } from '../../types';
-import type { TwallpaperWebGL } from '../../util/twallpaper-webgl';
+import type { TWallpaperWebGL } from '../../util/twallpaper-webgl';
 import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
@@ -204,7 +204,7 @@ type OwnProps = {
   editableInputCssSelector: string;
   editableInputId: string;
   className?: string;
-  twallpaperAnimator?: TwallpaperWebGL;
+  twallpaperAnimator?: TWallpaperWebGL;
   inputPlaceholder?: TeactNode | string;
   onDropHide?: NoneToVoidFunction;
   onForward?: NoneToVoidFunction;
