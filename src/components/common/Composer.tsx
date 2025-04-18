@@ -153,7 +153,7 @@ import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import usePaidMessageConfirmation from '../middle/composer/hooks/usePaidMessageConfirmation';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
 import useVoiceRecording from '../middle/composer/hooks/useVoiceRecording';
-import useInlineMarkdown from './hooks/useInlineMarkdown';
+import useLiveFormatting from './hooks/useLiveFormatting';
 import { useUndoRedo } from './hooks/useUndoRedo';
 
 import AttachmentModal from '../middle/composer/AttachmentModal.async';
@@ -844,7 +844,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     editingDraft,
   );
 
-  useInlineMarkdown({
+  useLiveFormatting({
     getHtml,
     setHtml,
     editableInputId,
