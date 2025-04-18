@@ -41,7 +41,7 @@ import { REM } from './helpers/mediaDimensions';
 
 import useAppLayout from '../../hooks/useAppLayout';
 import useDebouncedCallback from '../../hooks/useDebouncedCallback';
-import useHorizontalScroll from '../../hooks/useHorizontalScroll';
+import { useChildHorizontalScroll } from '../../hooks/useHorizontalScroll';
 import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
 import usePrevDuringAnimation from '../../hooks/usePrevDuringAnimation';
@@ -194,6 +194,8 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const sharedCanvasRef = useRef<HTMLCanvasElement>(null);
   // eslint-disable-next-line no-null/no-null
   const sharedCanvasHqRef = useRef<HTMLCanvasElement>(null);
+  // eslint-disable-next-line no-null/no-null
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -359,7 +361,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const canRenderContent = useAsyncRendering([], SLIDE_TRANSITION_DURATION);
   const shouldRenderContent = areAddedLoaded && canRenderContent && !noPopulatedSets && emojis;
 
-  useHorizontalScroll(headerRef, isMobile || !shouldRenderContent || categoriesActive);
+  useChildHorizontalScroll(headerRef, canvasContainerRef, isMobile || !shouldRenderContent, !categoriesActive);
 
   const filteredEmojiSet = useMemo<EmojiSet | undefined>(() => {
     if (!searchQuery) {
@@ -668,7 +670,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           categories={categories}
           onSelectSet={handleSelectStickerSet}
         />
-        <div className={canvasContainerClassName}>
+        <div ref={canvasContainerRef} className={canvasContainerClassName}>
           <canvas ref={sharedCanvasRef} className="shared-canvas" />
           <canvas ref={sharedCanvasHqRef} className="shared-canvas" />
           {allCustomEmojiSets.map(
