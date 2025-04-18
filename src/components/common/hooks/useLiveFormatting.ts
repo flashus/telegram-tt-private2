@@ -93,7 +93,7 @@ const restoreCaretSelection = (
   });
 };
 
-const useInlineMarkdown = ({
+const useLiveFormatting = ({
   getHtml,
   setHtml,
   editableInputId,
@@ -138,4 +138,4 @@ const useInlineMarkdown = ({
   }, [handleSelectionChange]);
 };
 
-export default useInlineMarkdown;
+export default useLiveFormatting;
