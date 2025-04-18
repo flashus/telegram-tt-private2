@@ -424,7 +424,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     onCustomEmojiSelect(emoji);
   });
 
-  const handleSearchInputReset = useCallback(() => {
+  const handleSearchQueryReset = useCallback(() => {
     setSearchQuery('');
   }, []);
 
@@ -432,6 +432,17 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     const newQuery = value.slice(0, MAX_EMOJI_QUERY_LENGTH);
     setSearchQuery(newQuery.toLowerCase());
   }, [], 300, true);
+
+  const handleSelectStickerSet = useLastCallback((index: number) => {
+    if (searchQuery) {
+      handleSearchQueryReset();
+      requestAnimationFrame(() => {
+        selectStickerSet(index);
+      });
+      return;
+    }
+    selectStickerSet(index);
+  });
 
   function renderCustomEmojiCover(stickerSet: StickerSetOrReactionsSetOrRecent, index: number) {
     const firstSticker = stickerSet.stickers?.[0];
@@ -459,7 +470,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           faded={isFaded}
           color="translucent"
           // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => selectStickerSet(isRecent ? 0 : index)}
+          onClick={() => handleSelectStickerSet(isRecent ? 0 : index)}
         >
           {isRecent ? (
             <Icon name="recent" />
@@ -489,7 +500,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         isCurrentUserPremium
         sharedCanvasRef={withSharedCanvas ? (isHq ? sharedCanvasHqRef : sharedCanvasRef) : undefined}
         withTranslucentThumb={isTranslucent}
-        onClick={selectStickerSet}
+        onClick={handleSelectStickerSet}
         clickArg={index}
         forcePlayback
       />
@@ -602,8 +613,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     );
   }
 
-  // const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
-  const fullClassName = buildClassName('StickerPicker', styles.root, className);
+  const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
 
   if (!shouldRenderContent) {
     return (
@@ -648,7 +658,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           faded
           color="translucent"
           // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => selectStickerSet(0)}
+          onClick={() => handleSelectStickerSet(0)}
         >
           <Icon name="recent" />
         </Button>
@@ -656,7 +666,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           activeSetIndex={activeSetIndex}
           categoriesStartIndex={haveRecentEmojiSet ? 1 : 0}
           categories={categories}
-          onSelectSet={selectStickerSet}
+          onSelectSet={handleSelectStickerSet}
         />
         <div className={canvasContainerClassName}>
           <canvas ref={sharedCanvasRef} className="shared-canvas" />
@@ -680,8 +690,8 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
             className="search"
             value={searchQuery}
             onChange={handleSearchQueryChange}
-            onReset={handleSearchInputReset}
-            // placeholder={lang('SearchEmojisHint')}
+            onReset={handleSearchQueryReset}
+            // placeholder={lang('SearchEmojisHint')} // There is no usable translation yet with "Search Emoji" in english
             placeholder="Search Emoji"
           />
         </div>
