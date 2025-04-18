@@ -1,19 +1,13 @@
 /* eslint-disable no-useless-escape */
 import type { ApiFormattedText } from '../../api/types';
-import type { DocumentNode } from './node';
-import type { Token } from './token';
+import type { ASTNode, DocumentNode } from './node';
 
-import { TokenType } from './astEnums';
+import { NodeType } from './astEnums';
 import { Lexer } from './lexer';
 import { normalizeTokens } from './normalizer';
 import { Parser } from './parser';
 import { Renderer } from './renderer';
 import { EntityRenderer } from './rendererAstAsEntities';
-
-export type SelectionBounds = {
-  start: number;
-  end: number;
-};
 
 export function cleanHtml(html: string) {
   let cleanedHtml = html.slice(0);
@@ -38,148 +32,21 @@ export function cleanHtml(html: string) {
   return cleanedHtml;
 }
 
-function spliceSelectionIntoTokens(tokens: Token[], start: number, end: number) {
-  const tokensWithSelection: Token[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (token.type !== TokenType.TEXT) {
-      tokensWithSelection.push(token);
-      continue;
-    }
-
-    const isStartInText = start >= token.start && start <= token.end;
-    const isEndInText = end >= token.start && end <= token.end;
-
-    if (isStartInText && isEndInText) {
-      let textLength = start - token.start;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(0, start - token.start),
-          end: start,
-        });
-      }
-
-      tokensWithSelection.push({
-        type: TokenType.CARET_START,
-        value: '',
-        start,
-        end: start,
-      });
-
-      textLength = end - start;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(start - token.start, end - token.start),
-          start,
-          end,
-        });
-      }
-
-      tokensWithSelection.push({
-        type: TokenType.CARET_END,
-        value: '',
-        start: end,
-        end,
-      });
-
-      textLength = token.end - end;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(end - token.start),
-          start: end,
-          end: token.end,
-        });
-      }
-      continue;
-    }
-
-    if (isStartInText) {
-      let textLength = start - token.start;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(0, start - token.start),
-          end: start,
-        });
-      }
-
-      tokensWithSelection.push({
-        type: TokenType.CARET_START,
-        value: '',
-        start,
-        end: start,
-      });
-
-      textLength = token.end - start;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(start - token.start),
-          start,
-          end: token.end,
-        });
-      }
-      continue;
-    }
-
-    if (isEndInText) {
-      let textLength = end - token.start;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(0, end - token.start),
-          end,
-        });
-      }
-
-      tokensWithSelection.push({
-        type: TokenType.CARET_END,
-        value: '',
-        start: end,
-        end,
-      });
-
-      textLength = token.end - end;
-      if (textLength > 0) {
-        tokensWithSelection.push({
-          ...token,
-          value: token.value.slice(end - token.start),
-          start: end,
-          end: token.end,
-        });
-      }
-
-      continue;
-    }
-
-    tokensWithSelection.push(token);
-  }
-
-  return tokensWithSelection;
-}
-
-export function parseMarkdownToAST(inputText: string, selection?: SelectionBounds): DocumentNode | undefined {
+export function parseMarkdownToAST(inputText: string): DocumentNode | undefined {
   const cleanedHtml = cleanHtml(inputText);
   const lexer = new Lexer(cleanedHtml);
   const tokens = lexer.tokenize();
 
-  console.log('tokens', tokens);
+  const normalizedTokens = normalizeTokens(tokens);
 
-  let tokensToParse = normalizeTokens(tokens);
-
-  if (selection) {
-    tokensToParse = spliceSelectionIntoTokens(tokensToParse, selection.start, selection.end);
-  }
-
-  console.log('normalizedTokens', tokensToParse);
-
-  const parser = new Parser(tokensToParse);
+  const parser = new Parser(normalizedTokens);
   let document: DocumentNode | undefined;
   try {
     document = parser.parseDocument();
+    if (document) {
+      document = cleanupAST(document) as DocumentNode;
+      document = removeInheritedFormatting(document) as DocumentNode;
+    }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e);
@@ -213,13 +80,95 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
   return renderASTToEntities(ast);
 }
 
-export function parseMarkdownHtmlToEntitiesWithSelection(
-  inputText: string,
-  selection: SelectionBounds,
-): ApiFormattedText {
-  const ast = parseMarkdownToAST(inputText, selection);
-  if (!ast) {
-    return { text: inputText, entities: [] };
+// AST cleanup: flatten nested formatting, merge duplicates, and reorder formatting chains
+type FormattingNode = ASTNode & { children: ASTNode[] };
+function isFormattingNode(type: string): boolean {
+  return [NodeType.BOLD, NodeType.ITALIC, NodeType.UNDERLINE, NodeType.STRIKE, NodeType.SPOILER].includes(type as any);
+}
+// Formatting priority (lower = inner)
+const FORMAT_PRIORITY: Record<string, number> = {
+  [NodeType.STRIKE]: 0,
+  [NodeType.UNDERLINE]: 1,
+  [NodeType.ITALIC]: 2,
+  [NodeType.BOLD]: 3,
+  [NodeType.SPOILER]: 4,
+};
+function cleanupAST(node: ASTNode): ASTNode {
+  if (!node.children) return node;
+  // 1) Recursively clean children
+  let children = node.children.map(cleanupAST);
+  // 2) Flatten nested same‑type formatting
+  function flattenSameType(nodes: ASTNode[]): ASTNode[] {
+    return nodes.flatMap((n) => {
+      if (n.children) {
+        n = { ...n, children: flattenSameType(n.children) };
+      }
+      if (isFormattingNode(n.type) && n.children) {
+        const newChildren: ASTNode[] = [];
+        for (const c of n.children) {
+          if (c.type === n.type && c.children) {
+            newChildren.push(...c.children);
+          } else {
+            newChildren.push(c);
+          }
+        }
+        return [{ ...n, children: newChildren }];
+      }
+      return [n];
+    });
   }
-  return renderASTToEntities(ast);
+  children = flattenSameType(children);
+  // 3) Remove empty formatting nodes
+  children = children.filter((c) => !(isFormattingNode(c.type) && (!c.children || c.children.length === 0)));
+  // 4) Merge adjacent same‑type siblings
+  const merged: ASTNode[] = [];
+  for (const c of children) {
+    const last = merged[merged.length - 1];
+    if (last && last.type === c.type && isFormattingNode(c.type) && (c as FormattingNode).children) {
+      (last as FormattingNode).children.push(...(c as FormattingNode).children);
+    } else {
+      merged.push(c);
+    }
+  }
+  // 5) Bubble‑up & reorder nested chains
+  if (isFormattingNode(node.type) && merged.length === 1 && isFormattingNode(merged[0].type)) {
+    const chain: string[] = [];
+    let curr: FormattingNode = { type: node.type, children: merged };
+    chain.push(curr.type);
+    while (isFormattingNode(curr.children[0].type) && curr.children.length === 1) {
+      curr = curr.children[0] as FormattingNode;
+      chain.push(curr.type);
+    }
+    const unique = Array.from(new Set(chain)).sort((a, b) => FORMAT_PRIORITY[a] - FORMAT_PRIORITY[b]);
+    const content = curr.children || [];
+    let rebuilt: ASTNode[] = content;
+    for (const t of unique) {
+      rebuilt = [{ type: t, children: rebuilt } as FormattingNode];
+    }
+    return rebuilt[0];
+  }
+  node.children = merged;
+  return node;
+}
+
+// Remove inherited nested formatting wrappers
+function removeInheritedFormatting(node: ASTNode, ancestors: Set<string> = new Set()): ASTNode | ASTNode[] {
+  if (!node.children) return node;
+  let newAncestors = ancestors;
+  if (isFormattingNode(node.type)) {
+    if (ancestors.has(node.type)) {
+      // drop redundant wrapper, keep children
+      return node.children.flatMap((c) => removeInheritedFormatting(c, ancestors) as ASTNode);
+    }
+    newAncestors = new Set(ancestors);
+    newAncestors.add(node.type);
+  }
+  const newChildren: ASTNode[] = [];
+  for (const child of node.children) {
+    const processed = removeInheritedFormatting(child, newAncestors);
+    if (Array.isArray(processed)) newChildren.push(...processed);
+    else newChildren.push(processed);
+  }
+  node.children = newChildren;
+  return node;
 }

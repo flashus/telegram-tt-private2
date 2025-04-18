@@ -36,4 +36,5 @@ export interface HtmlTagParseResult {
   isClosing: boolean;
   isSelfClosing: boolean;
   endPos: number;
+  isCodeContent?: boolean;
 }

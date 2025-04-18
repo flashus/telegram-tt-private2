@@ -33,15 +33,23 @@ export class Parser {
   }
 
   // Entry point for parsing a document
+  // Modified parseDocument to ensure EOF is at document level
   parseDocument(): DocumentNode {
     const children: ASTNode[] = [];
 
     while (!this.isAtEnd()) {
       const node = this.parseInline();
       if (node) {
-        children.push(node);
+      // Only add non-EOF nodes to children, and save EOF for end
+        if (node.type !== NodeType.EOF) {
+          children.push(node);
+        }
       }
     }
+
+    // Always ensure there's an EOF node at document level
+    const eofNode: EOFNode = { type: NodeType.EOF, value: '' };
+    children.push(eofNode);
 
     return { type: NodeType.DOCUMENT, children };
   }
@@ -78,13 +86,6 @@ export class Parser {
       case TokenType.NEWLINE:
         this.advance();
         return this.createPlainTextNode('\n');
-      case TokenType.CARET_START:
-      case TokenType.CARET_END:
-        this.advance();
-        return undefined;
-      case TokenType.IGNORE:
-        this.advance();
-        return undefined;
       case TokenType.EOF:
         return this.parseEOF();
       default:
@@ -140,6 +141,15 @@ export class Parser {
             // Treat the initial marker as plain text.
             return this.createPlainTextNode(this.advance().value) as any;
           }
+
+          // // Special handling for HTML tags inside markdown formatting
+          // if (this.peek()?.type === TokenType.HTML_TAG) {
+          // // Escape the HTML tag instead of parsing it as a node
+          //   const htmlTagToken = this.advance();
+          //   children.push(this.createPlainTextNode(htmlTagToken.value));
+          //   continue;
+          // }
+
           const node = this.parseInline();
           if (node) {
             children.push(node);
@@ -259,7 +269,7 @@ export class Parser {
         if (nextLevel > currentLevel) {
           children.push(this.parseQuote(nextLevel));
           // Add a newline after the nested quote
-          children.push(this.createPlainTextNode('\n'));
+          // children.push(this.createPlainTextNode('\n'));
         } else if (nextLevel < currentLevel) {
           break;
         }
@@ -474,12 +484,12 @@ export class Parser {
       return this.handleUnmappedTag(token, lowerTag);
     }
 
-    // For mapped tags: if it's a closing tag, render as plain text.
+    // For closing tags, just render as plain text
     if (isClosing) {
       return this.createPlainTextNode(token.value);
     }
 
-    // If self-closing, handle LINK mapping specially.
+    // For self-closing tags
     if (isSelfClosing) {
       if (mapping.type === NodeType.LINK) {
         return {
@@ -494,7 +504,7 @@ export class Parser {
       return { type: mapping.type, children: [] } as ASTNode;
     }
 
-    // For non-self-closing mapped tags, delegate to the helper.
+    // For mapped tags, handle them
     return this.handleMappedTag(token, lowerTag, mapping);
   }
 
@@ -615,36 +625,34 @@ export class Parser {
    */
   private handleMappedTag(token: Token, lowerTag: string, mapping: any): ASTNode {
     const { attributes } = token.attributes!;
+
+    // Create a mapped node for the current tag
     const node: ASTNode = { type: mapping.type, children: [] };
-    const previousClosingTag = this.currentHtmlClosingTag;
-    this.currentHtmlClosingTag = lowerTag;
+
+    // Parse children until we find our closing tag
     while (!this.isAtEnd()) {
+      // Check if we've reached our closing tag
       if (
         this.peek()?.type === TokenType.HTML_TAG
         && this.peek()?.attributes?.tagName?.toLowerCase() === lowerTag
         && this.peek()?.attributes?.isClosing
       ) {
+        this.consume(TokenType.HTML_TAG); // Consume the closing tag
         break;
       }
+
+      // Regular parsing for other tokens
+      // We'll let parseInline handle HTML tags properly
       const child = this.parseInline();
       if (child) {
-        node.children?.push(child);
+        // Skip EOF nodes inside tag elements - they should only be at document level
+        if (child.type !== NodeType.EOF) {
+          node.children!.push(child);
+        }
       }
     }
-    if (
-      !this.isAtEnd()
-      && this.peek()?.type === TokenType.HTML_TAG
-      && this.peek()?.attributes?.tagName?.toLowerCase() === lowerTag
-      && this.peek()?.attributes?.isClosing
-    ) {
-      this.consume(TokenType.HTML_TAG);
-    } else {
-      this.currentHtmlClosingTag = previousClosingTag;
-      return this.createPlainTextNode(token.value);
-    }
-    this.currentHtmlClosingTag = previousClosingTag;
 
-    // If the mapping is for a link, extract additional attributes.
+    // If the mapping is for a link, extract additional attributes
     if (mapping.type === NodeType.LINK) {
       let href = '';
       let title: string | undefined;
@@ -662,12 +670,26 @@ export class Parser {
         }
       }
       return {
-        type: NodeType.LINK, href, title, target, children: node.children,
+        type: NodeType.LINK,
+        href,
+        title,
+        target,
+        children: node.children,
       } as LinkNode;
     } else {
       return { type: mapping.type, children: node.children } as ASTNode;
     }
   }
+
+  // // Helper method to escape HTML tags when converting to plain text
+  // private escapeHtml(unsafe: string): string {
+  //   return unsafe
+  //     .replace(/&/g, '&amp;')
+  //     .replace(/</g, '&lt;')
+  //     .replace(/>/g, '&gt;')
+  //     .replace(/"/g, '&quot;')
+  //     .replace(/'/g, '&#039;');
+  // }
 
   private hasClosingHtmlTag(lowerTag: string): boolean {
     // Look ahead from the current position to see if there is a closing HTML tag with the given tag name.

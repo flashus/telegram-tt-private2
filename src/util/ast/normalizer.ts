@@ -2,86 +2,8 @@ import type { Token } from './token';
 
 import { TokenType } from './astEnums';
 
-type TIntermediateToken = Token & {
-  isClosing?: boolean;
-  isStyleToken?: boolean;
-  forceRebalance?: boolean;
-  hasClosingToken?: boolean;
-};
-
-const MARKDOWN_TO_HTML_TAG: Record<
-| TokenType.BOLD_MARKER
-| TokenType.ITALIC_MARKER
-| TokenType.STRIKE_MARKER
-| TokenType.UNDERLINE_MARKER
-| TokenType.SPOILER_MARKER,
-string
-> = {
-  [TokenType.BOLD_MARKER]: 'b',
-  [TokenType.ITALIC_MARKER]: 'i',
-  [TokenType.STRIKE_MARKER]: 's',
-  [TokenType.UNDERLINE_MARKER]: 'u',
-  [TokenType.SPOILER_MARKER]: 'span',
-};
-
-const markdownToHtmlTag = (
-  tagEquivalent: typeof MARKDOWN_TO_HTML_TAG[keyof typeof MARKDOWN_TO_HTML_TAG],
-  value: string,
-  isClosing: boolean,
-  start: number,
-  end: number,
-) => {
-  return {
-    type: TokenType.HTML_TAG,
-    value,
-    start,
-    end,
-    attributes: {
-      tagName: tagEquivalent,
-      isClosing,
-      isSelfClosing: false,
-      attributes: [],
-      endPos: end,
-    },
-  };
-};
-
-const HTML_TAG_TO_MARKDOWN: Record<string, TokenType> = {
-  b: TokenType.BOLD_MARKER,
-  i: TokenType.ITALIC_MARKER,
-  s: TokenType.STRIKE_MARKER,
-  u: TokenType.UNDERLINE_MARKER,
-  span: TokenType.SPOILER_MARKER,
-};
-
-const htmlTagToMarkdown = (
-  tagEquivalent: typeof HTML_TAG_TO_MARKDOWN[keyof typeof HTML_TAG_TO_MARKDOWN],
-  value: string,
-  isClosing: boolean,
-  start: number,
-  end: number,
-) => {
-  return {
-    type: tagEquivalent,
-    isClosing,
-    value,
-    start,
-    end,
-  };
-};
-
-const STYLE_TAGS = new Set(['span', 'b', 'i', 's', 'u']);
-
-const STYLE_MARKER_TYPES = new Set([
-  TokenType.BOLD_MARKER,
-  TokenType.ITALIC_MARKER,
-  TokenType.STRIKE_MARKER,
-  TokenType.UNDERLINE_MARKER,
-  TokenType.SPOILER_MARKER,
-]);
-
-// A set of token types that represent markdown markers we want to “lift”
-const MARKDOWN_TO_LIFT_MARKER_TYPES = new Set([
+// A set of token types that represent markdown markers we want to "lift"
+const MARKDOWN_MARKER_TYPES = new Set([
   TokenType.BOLD_MARKER,
   TokenType.ITALIC_MARKER,
   TokenType.STRIKE_MARKER,
@@ -91,168 +13,14 @@ const MARKDOWN_TO_LIFT_MARKER_TYPES = new Set([
   TokenType.CODE_MARKER,
 ]);
 
-function isMarkdownToLiftMarker(token: Token): boolean {
-  return MARKDOWN_TO_LIFT_MARKER_TYPES.has(token.type);
+function isMarkdownMarker(token: Token): boolean {
+  return MARKDOWN_MARKER_TYPES.has(token.type);
 }
 
-function isStyleMarkdownToken(token: Token): boolean {
-  return STYLE_MARKER_TYPES.has(token.type);
-}
-
-function isStyleHtmlToken(token: Token): boolean {
-  if (!token.attributes) {
-    return false;
-  }
-  return STYLE_TAGS.has(token.attributes.tagName || '');
-}
-
-/**
- * Given an array of tokens and a start index at an opening HTML tag,
- * try to find the matching closing HTML tag with the same tagName.
- * This helper handles nested HTML tags with the same name.
- * Returns the index of the matching closing tag or -1 if not found.
- */
-function findClosingHtmlTag(tokens: Token[], startIndex: number, tagName: string): number {
-  let count = 0;
-  for (let i = startIndex; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (
-      t.type === TokenType.HTML_TAG
-      && t.attributes
-      && t.attributes.tagName?.toLowerCase() === tagName
-    ) {
-      if (!t.attributes.isClosing && !t.attributes.isSelfClosing) {
-        count++;
-      } else if (t.attributes.isClosing) {
-        count--;
-        if (count === 0) {
-          return i;
-        }
-      }
-    }
-  }
-  return -1; // matching closing tag not found
-}
-
-/**
- * Given an array of tokens and a start index at an opening style token,
- * try to find the matching closing token of the same type.
- *
- * Tries to recursively call itself with a helper function to handle continuous style applications
- */
-function findClosingToken(tokens: TIntermediateToken[], startIndex: number, tag: string): number {
-  let count = 0;
-  for (let i = startIndex; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (
-      t.type === TokenType.HTML_TAG
-      && t.attributes
-      && t.attributes.tagName?.toLowerCase() === tag
-    ) {
-      if (!t.attributes.isClosing && !t.attributes.isSelfClosing) {
-        count++;
-      } else if (t.attributes.isClosing) {
-        count--;
-        // Found corresponding closing tag! Next, check for continuous style applications
-        if (count === 0) {
-          return tryRecurseFindClosingToken(tokens, i, tag);
-        }
-      }
-    } else if (
-      MARKDOWN_TO_HTML_TAG[t.type as keyof typeof MARKDOWN_TO_HTML_TAG] === tag
-    ) {
-      if (!t.isClosing) {
-        count++;
-      } else {
-        count--;
-        // Found corresponding closing tag! Next, check for continuous style applications
-        if (count === 0) {
-          return tryRecurseFindClosingToken(tokens, i, tag);
-        }
-      }
-    }
-  }
-  return -1; // matching closing tag not found
-}
-
-/**
- * Checks if there is another open token with the same style and if there is one,
- * calls findClosingToken to find the corresponding closing token
- *
- * Effectively recombines style tokens that are continuous in terms of text
- */
-function tryRecurseFindClosingToken(tokens: TIntermediateToken[], index: number, style: string): number {
-  // There also must be at least one text token before the next style token with this style!
-  const foundTextAfterAnotherOpeningIndex = findTextTokenAfterAnotherOpenToken(tokens, index + 1, style);
-
-  if (foundTextAfterAnotherOpeningIndex === -1) {
-    return index;
-  }
-
-  // Try to call itself recursively with foundTextAfterAnotherOpeningIndex in mind to find another closing tag
-  const nextClosingIndex = findClosingToken(tokens, foundTextAfterAnotherOpeningIndex, style);
-
-  // Did we find another closing tag? If so, return it
-  if (nextClosingIndex !== -1) {
-    return nextClosingIndex;
-  }
-
-  // If did not find another closing tag, return the current found closing tag
-  return index;
-}
-
-/**
- * If there is another opening style token with the same style,
- * find the text token that comes after it.
- */
-function findTextTokenAfterAnotherOpenToken(
-  tokens: TIntermediateToken[], startIndex: number, style: string,
-): number {
-  let foundOpen = false;
-  for (let i = startIndex; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t.type === TokenType.TEXT || t.type === TokenType.NEWLINE) {
-      if (foundOpen) {
-        // If found a text token after another open style token, return it
-        return i;
-      } else {
-        // If there is a text token before any other open style tokens, then return -1 as if not found
-        return -1;
-      }
-    }
-
-    if (
-      t.type === TokenType.HTML_TAG
-      && t.attributes
-      && t.attributes.tagName?.toLowerCase() === style
-    ) {
-      if (!t.attributes.isClosing && !t.attributes.isSelfClosing) {
-        foundOpen = true;
-      }
-    } else if (
-      MARKDOWN_TO_HTML_TAG[t.type as keyof typeof MARKDOWN_TO_HTML_TAG] === style
-    ) {
-      if (!t.isClosing) {
-        foundOpen = true;
-      }
-    }
-  }
-
-  return -1;
-}
-
-/**
- * Given an array of tokens and a start index at an opening token,
- * try to find the closest closing token of the same type.
- */
-function findNextClosingToken(tokens: TIntermediateToken[], startIndex: number, type: TokenType): number {
-  for (let i = startIndex; i < tokens.length; i++) {
-    if (tokens[i].type === type && tokens[i].isClosing) {
-      return i;
-    }
-  }
-  return -1;
-}
+// HTML tags that can be used for formatting and might overlap
+const FORMATTING_HTML_TAGS = new Set([
+  'b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'code', 'pre', 'a', 'span',
+]);
 
 /**
  * Process boundary markers for an array of tokens.
@@ -270,10 +38,26 @@ function findNextClosingToken(tokens: TIntermediateToken[], startIndex: number, 
 function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[]; remaining: Token[] } {
   const moved: Token[] = [];
   if (fromFront) {
-    while (tokens.length > 0 && isMarkdownToLiftMarker(tokens[0])) {
+    while (
+      tokens.length > 0 && (
+        isMarkdownMarker(tokens[0])
+        || (tokens[0].type === TokenType.HTML_TAG
+          && tokens[0].attributes
+          && !tokens[0].attributes.isClosing
+          && !tokens[0].attributes.isSelfClosing
+          && FORMATTING_HTML_TAGS.has(tokens[0].attributes.tagName))
+      )
+    ) {
       const marker = tokens[0];
-      // Check if a matching marker appears later in the block.
-      const hasPair = tokens.slice(1).some((t) => t.type === marker.type);
+      let hasPair = false;
+      if (isMarkdownMarker(marker)) {
+        hasPair = tokens.slice(1).some((t) => t.type === marker.type);
+      } else {
+        const tagName = marker.attributes!.tagName.toLowerCase();
+        hasPair = tokens.slice(1).some((t) => t.type === TokenType.HTML_TAG
+          && t.attributes?.isClosing
+          && t.attributes.tagName.toLowerCase() === tagName);
+      }
       if (!hasPair) {
         moved.push(tokens.shift()!);
       } else {
@@ -281,9 +65,27 @@ function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[];
       }
     }
   } else {
-    while (tokens.length > 0 && isMarkdownToLiftMarker(tokens[tokens.length - 1])) {
+    while (
+      tokens.length > 0 && (
+        isMarkdownMarker(tokens[tokens.length - 1])
+        || (tokens[tokens.length - 1].type === TokenType.HTML_TAG
+          && tokens[tokens.length - 1].attributes
+          && tokens[tokens.length - 1].attributes?.isClosing
+          && !tokens[tokens.length - 1].attributes?.isSelfClosing
+          && FORMATTING_HTML_TAGS.has(tokens[tokens.length - 1].attributes!.tagName))
+      )
+    ) {
       const marker = tokens[tokens.length - 1];
-      const hasPair = tokens.slice(0, tokens.length - 1).some((t) => t.type === marker.type);
+      let hasPair = false;
+      if (isMarkdownMarker(marker)) {
+        hasPair = tokens.slice(0, tokens.length - 1).some((t) => t.type === marker.type);
+      } else {
+        const tagName = marker.attributes!.tagName.toLowerCase();
+        hasPair = tokens.slice(0, tokens.length - 1).some((t) => t.type === TokenType.HTML_TAG
+          && !t.attributes?.isClosing
+          && !t.attributes?.isSelfClosing
+          && t.attributes?.tagName.toLowerCase() === tagName);
+      }
       if (!hasPair) {
         moved.unshift(tokens.pop()!);
       } else {
@@ -294,322 +96,281 @@ function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[];
   return { moved, remaining: tokens };
 }
 
-const getCorrectTokenToPush = (
-  token: TIntermediateToken,
-  shouldBeHtml: boolean,
-  style: string,
-  isClosing: boolean,
-): TIntermediateToken => {
-  let tokenToPush = token;
+// Extracted helper: detect code and pre/code HTML regions
+function detectCodeRegions(tokens: Token[]): { start: number; end: number }[] {
+  const regions: { start: number; end: number }[] = [];
+  let inBlock = false; let blockStart = -1;
+  let inInline = false; let inlineStart = -1;
+  let inCodeTag = false; let codeTagStart = -1;
+  let inPreTag = false; let preTagStart = -1;
 
-  // if (shouldBeHtml && token.type === TokenType.HTML_TAG) {
-  // Token as is
-  // }
-
-  if (shouldBeHtml && token.type !== TokenType.HTML_TAG) {
-    tokenToPush = markdownToHtmlTag(style, token.value, isClosing, token.start, token.end);
-  }
-
-  if (!shouldBeHtml && token.type === TokenType.HTML_TAG) {
-    tokenToPush = htmlTagToMarkdown(
-      HTML_TAG_TO_MARKDOWN[style as keyof typeof HTML_TAG_TO_MARKDOWN],
-      token.value,
-      isClosing,
-      token.start,
-      token.end,
-    );
-  }
-
-  // if (!shouldBeHtml && token.type !== TokenType.HTML_TAG) {
-  // Token as is
-  // }
-
-  return tokenToPush;
-};
-
-type StyleStackItem = {
-  isHtml: boolean;
-  style: typeof MARKDOWN_TO_HTML_TAG[keyof typeof MARKDOWN_TO_HTML_TAG];
-  closingIndex: number;
-};
-
-const HTML_TAGS_TO_FORCE_REBALANCE_AROUND = new Set([
-  'spoiler',
-  'blockquote',
-  'pre',
-  'code',
-]);
-
-const MARKDOWN_TO_FORCE_REBALANCE_AROUND = new Set([
-  TokenType.CODE_MARKER,
-  TokenType.CODE_BLOCK,
-  // TokenType.QUOTE_MARKER,
-]);
-
-const createZeroLengthToken = (
-  styleStackItem: StyleStackItem,
-  position: number,
-  isClosing: boolean,
-): TIntermediateToken => ({
-  type: styleStackItem.isHtml ? TokenType.HTML_TAG : HTML_TAG_TO_MARKDOWN[styleStackItem.style],
-  value: '',
-  start: position,
-  end: position,
-  isClosing,
-  attributes: styleStackItem.isHtml ? {
-    tagName: styleStackItem.style,
-    isClosing,
-    isSelfClosing: false,
-    attributes: [],
-    endPos: position,
-  } : undefined,
-});
+  tokens.forEach((tok, i) => {
+    if (tok.type === TokenType.CODE_BLOCK && tok.value === '```') {
+      if (!inBlock) {
+        inBlock = true; blockStart = i;
+      } else {
+        inBlock = false; regions.push({ start: blockStart, end: i });
+      }
+    } else if (tok.type === TokenType.CODE_MARKER && tok.value === '`') {
+      if (!inInline) {
+        inInline = true; inlineStart = i;
+      } else {
+        inInline = false; regions.push({ start: inlineStart, end: i });
+      }
+    } else if (tok.type === TokenType.HTML_TAG && tok.attributes) {
+      const name = tok.attributes.tagName?.toLowerCase();
+      const opening = !tok.attributes.isClosing && !tok.attributes.isSelfClosing;
+      const closing = tok.attributes.isClosing;
+      if (name === 'code') {
+        if (opening) {
+          inCodeTag = true; codeTagStart = i;
+        } else if (closing && inCodeTag) {
+          inCodeTag = false; regions.push({ start: codeTagStart, end: i });
+        }
+      } else if (name === 'pre') {
+        if (opening) {
+          inPreTag = true; preTagStart = i;
+        } else if (closing && inPreTag) {
+          inPreTag = false; regions.push({ start: preTagStart, end: i });
+        }
+      }
+    }
+  });
+  if (inBlock) regions.push({ start: blockStart, end: tokens.length - 1 });
+  if (inInline) regions.push({ start: inlineStart, end: tokens.length - 1 });
+  if (inCodeTag) regions.push({ start: codeTagStart, end: tokens.length - 1 });
+  if (inPreTag) regions.push({ start: preTagStart, end: tokens.length - 1 });
+  return regions;
+}
 
 /**
- * Rebalance the style markers around some token based on active style
+ * Helper function to create a basic closing tag token from an opening tag token.
+ * Note: Position information (start/end) will need adjustment based on context.
  */
-const rebalanceStyleTokensAroundStyle = (
-  checkedToken: TIntermediateToken,
-  activeStyleStack: StyleStackItem[],
-  checkedTokenStyle: string,
-): { rebalancedTokens: TIntermediateToken[]; newActiveStyleStack: StyleStackItem[] } => {
-  const firstActiveStyleStack: StyleStackItem[] = [];
-  const secondActiveStyleStack: StyleStackItem[] = [];
-  const rebalancedTokens: TIntermediateToken[] = [];
-
-  // const position = checkedToken.isClosing ? checkedToken.end : checkedToken.start;
-
-  // Take from the first stack until we find match for the opening style token
-  let stackItem = activeStyleStack.pop();
-  while (stackItem && stackItem.style !== checkedTokenStyle) {
-    rebalancedTokens.push(createZeroLengthToken(stackItem, checkedToken.start, true));
-    // Put all the stack items back to the second stack until we find the opening style token
-    secondActiveStyleStack.push(stackItem);
-    stackItem = activeStyleStack.pop();
+function createClosingTag(openTagToken: Token): Token {
+  if (!openTagToken.attributes) {
+    // Should not happen for valid HTML tags, but handle defensively
+    return {
+      type: TokenType.TEXT, value: '', start: openTagToken.end, end: openTagToken.end,
+    };
   }
+  const { tagName } = openTagToken.attributes;
+  const value = `</${tagName}>`;
+  // Initial position is set to follow the open tag, but might be inaccurate
+  // The balancing logic should place it correctly.
+  const start = openTagToken.end;
+  const end = start + value.length;
+  return {
+    type: TokenType.HTML_TAG,
+    value,
+    start,
+    end,
+    attributes: {
+      tagName,
+      attributes: [],
+      isClosing: true,
+      isSelfClosing: false,
+      endPos: end,
+    },
+  };
+}
 
-  rebalancedTokens.push(checkedToken);
+function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boolean): Token[] {
+  type StackEntry = { type: 'html' | 'md'; tagName?: string; markerType?: TokenType; token: Token };
+  const stack: StackEntry[] = [];
+  const result: Token[] = [];
 
-  // Take from the second stack until it is empty
-  stackItem = secondActiveStyleStack.pop();
-  while (stackItem) {
-    // Put all the stack items back to the first stack
-    firstActiveStyleStack.push(stackItem);
-    rebalancedTokens.push(createZeroLengthToken(stackItem, checkedToken.end, false));
-    stackItem = secondActiveStyleStack.pop();
-  }
-
-  return { rebalancedTokens, newActiveStyleStack: firstActiveStyleStack };
-};
-
-/**
- * Rebalance the style markers around some token based on active style
- *
- * Does not return the new active style stack
- */
-const rebalanceStyleTokens = (
-  checkedToken: TIntermediateToken,
-  activeStyleStack: StyleStackItem[],
-): TIntermediateToken[] => {
-  const secondActiveStyleStack: StyleStackItem[] = [];
-  const rebalancedTokens: TIntermediateToken[] = [];
-
-  // const position = checkedToken.isClosing ? checkedToken.end : checkedToken.start;
-
-  // Just iterate over the first stack
-  let stackItem;
-  for (let i = activeStyleStack.length - 1; i >= 0; i--) {
-    stackItem = activeStyleStack[i];
-    rebalancedTokens.push(createZeroLengthToken(stackItem, checkedToken.start, true));
-    // Put all the stack items back to the second stack until we find the opening style token
-    secondActiveStyleStack.push(stackItem);
-  }
-
-  rebalancedTokens.push(checkedToken);
-
-  // Take from the second stack until it is empty
-  stackItem = secondActiveStyleStack.pop();
-  while (stackItem) {
-    rebalancedTokens.push(createZeroLengthToken(stackItem, checkedToken.end, false));
-    stackItem = secondActiveStyleStack.pop();
-  }
-
-  return rebalancedTokens;
-};
-
-const ignoreRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
-  let filteredTokens: TIntermediateToken[] = [];
-
-  /** Set of html tags to watch for rebalancing */
-  const openHtmlTags: Set<string> = new Set();
-
-  let activeStyleStack: StyleStackItem[] = [];
-
-  const skipRebalanceAround: Map<number, string[]> = new Map();
-
-  let i: number;
-
-  for (i = 0; i < tokens.length; i++) {
+  for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-
-    // If this token is not a style token - start //
-    if (!token.isStyleToken) {
-      if (
-        token.type === TokenType.HTML_TAG
-        && token.attributes
-        && !token.attributes.isSelfClosing
-      ) {
-        // Handle all the html tags that are not style
-        if (token.attributes.isClosing) {
-          const wasOpen = openHtmlTags.delete(token.attributes.tagName);
-          // Rebalance style tags around the closing tag only if it was open before
-          if (wasOpen) {
-            // Rebalance all active styles except for skipped
-            const skipRebalance = skipRebalanceAround.get(i);
-            const styleStackToRebalance = skipRebalance ? activeStyleStack.filter(
-              (stackItem) => !skipRebalance?.includes(stackItem.style),
-            ) : activeStyleStack;
-            const rebalancedTokens = rebalanceStyleTokens(token, styleStackToRebalance);
-            filteredTokens = filteredTokens.concat(rebalancedTokens);
-          }
+    if (isInCodeRegion(i)) {
+      result.push(token);
+      continue;
+    }
+    // mid-line '>' is not a blockquote: emit as text
+    if (token.type === TokenType.QUOTE_MARKER
+      && !(
+        i === 0
+        || tokens[i - 1].type === TokenType.NEWLINE
+        || tokens[i - 1].type === TokenType.QUOTE_MARKER)) {
+      result.push({
+        type: TokenType.TEXT, value: token.value, start: token.start, end: token.end,
+      });
+      continue;
+    }
+    // On encountering a blockquote marker, break open MD/HTML tags around it
+    if (token.type === TokenType.QUOTE_MARKER) {
+      // handle newline before quote as a unit: pop and reinsert around closures
+      let newlineTok: Token | undefined;
+      if (result.length > 0 && (result[result.length - 1].type === TokenType.NEWLINE
+          || (result[result.length - 1].type === TokenType.TEXT && result[result.length - 1].value === '\n'))) {
+        newlineTok = result.pop();
+      }
+      const savedStack = [...stack];
+      // close all open tags and markers before newline+quote
+      for (let k = stack.length - 1; k >= 0; k--) {
+        const ent = stack[k];
+        if (ent.type === 'html') {
+          result.push(createClosingTag(ent.token));
         } else {
-          // Check if it must be rebalanced around open tag - only if it will close
-          if (token.hasClosingToken) {
-            const tagClosingIndex = findClosingHtmlTag(tokens, i, token.attributes.tagName);
-            // Will have to keep track of the closing tag and those specific style items that have to be rebalanced specifically for this tag
-            let styleStackToRebalance: StyleStackItem[] = [];
-            if (HTML_TAGS_TO_FORCE_REBALANCE_AROUND.has(token.attributes.tagName)) {
-              styleStackToRebalance = activeStyleStack;
-            } else {
-              /** These tokens will not be rebalanced around corresponding closing html tag */
-              const skipRebalance: string[] = [];
-              for (let j = 0; j < activeStyleStack.length; j++) {
-                const stackItem = activeStyleStack[j];
-                if (stackItem.closingIndex > tagClosingIndex) {
-                  // If this style token is closing after the closing tag,
-                  // it must not be rebalanced - this tag is entirely inside of style token coverage
-                  skipRebalance.push(stackItem.style);
-                  continue;
-                }
-                styleStackToRebalance.push(stackItem);
-              }
-
-              skipRebalanceAround.set(tagClosingIndex, skipRebalance);
-            }
-
-            const rebalancedTokens = rebalanceStyleTokens(token, styleStackToRebalance);
-
-            filteredTokens = filteredTokens.concat(rebalancedTokens);
+          result.push(ent.token);
+        }
+      }
+      // reinsert newline before emitting quote
+      if (newlineTok) {
+        result.push(newlineTok);
+      }
+      // emit quote marker and reopen markers
+      result.push(token);
+      for (const ent of savedStack) {
+        result.push(ent.token);
+      }
+      continue;
+    }
+    // Markdown marker
+    if (isMarkdownMarker(token)) {
+      const mType = token.type;
+      let matchIdx = -1;
+      for (let j = stack.length - 1; j >= 0; j--) {
+        if (stack[j].type === 'md' && stack[j].markerType === mType) { matchIdx = j; break; }
+      }
+      if (matchIdx !== -1) {
+        const overlap = stack.slice(matchIdx + 1);
+        // Special-case: a single markdown marker overlaps this HTML boundary and its closing marker follows
+        if (overlap.length === 1 && overlap[0].type === 'md' && tokens[i + 1]?.type === overlap[0].markerType) {
+          // Remove both HTML and markdown entries from stack
+          stack.splice(matchIdx, overlap.length + 1);
+          // Emit the closing markdown marker before closing the HTML tag
+          result.push(tokens[i + 1]);
+          // Emit the HTML closing tag
+          result.push(token);
+          // Skip the upcoming markdown closing marker
+          i++;
+          continue;
+        }
+        // Close overlap
+        for (let k = overlap.length - 1; k >= 0; k--) {
+          const ent = overlap[k];
+          if (ent.type === 'html') {
+            result.push(createClosingTag(ent.token));
           } else {
-            // If there is no closing tag, just push the token
-            filteredTokens.push(token);
+            result.push(ent.token);
           }
-          openHtmlTags.add(token.attributes.tagName);
         }
-
-        continue;
+        // Close current md marker
+        result.push(token);
+        // Pop matched and overlap
+        stack.splice(matchIdx);
+        // Reopen overlap
+        for (const ent of overlap) {
+          result.push(ent.token);
+          stack.push(ent);
+        }
+      } else {
+        // Opening md marker
+        stack.push({ type: 'md', markerType: mType, token });
+        result.push(token);
       }
-
-      if (MARKDOWN_TO_FORCE_REBALANCE_AROUND.has(token.type)) {
-        // Handle all the html tokens that are not style
-        if (token.isClosing) {
-          // Rebalance style tokens around the closing md tag or open that has a corresponding closing marker
-          // Rebalance all active styles except for skipped
-          const skipRebalance = skipRebalanceAround.get(i);
-          const styleStackToRebalance = skipRebalance ? activeStyleStack.filter(
-            (stackItem) => !skipRebalance?.includes(stackItem.style),
-          ) : activeStyleStack;
-          const rebalancedTokens = rebalanceStyleTokens(token, styleStackToRebalance);
-          filteredTokens = filteredTokens.concat(rebalancedTokens);
-        } else if (token.hasClosingToken) {
-          const closingIndex = findNextClosingToken(tokens, i, token.type);
-          const styleStackToRebalance: StyleStackItem[] = [];
-          /** These tokens will not be rebalanced around corresponding closing html tag */
-          const skipRebalance: string[] = [];
-          for (let j = 0; j < activeStyleStack.length; j++) {
-            const stackItem = activeStyleStack[j];
-            if (stackItem.closingIndex > closingIndex) {
-              // If this style token is closing after the closing tag,
-              // it must not be rebalanced - this tag is entirely inside of style token coverage
-              skipRebalance.push(stackItem.style);
-              continue;
+      continue;
+    }
+    // HTML formatting tag
+    if (
+      token.type === TokenType.HTML_TAG
+      && token.attributes
+      && FORMATTING_HTML_TAGS.has(token.attributes.tagName.toLowerCase())
+    ) {
+      const tagName = token.attributes.tagName.toLowerCase();
+      if (token.attributes.isSelfClosing) {
+        result.push(token);
+      } else if (!token.attributes.isClosing) {
+        // Opening HTML tag
+        stack.push({ type: 'html', tagName, token });
+        result.push(token);
+      } else {
+        // Closing HTML tag
+        let matchIdx = -1;
+        for (let j = stack.length - 1; j >= 0; j--) {
+          if (stack[j].type === 'html' && stack[j].tagName === tagName) { matchIdx = j; break; }
+        }
+        if (matchIdx !== -1) {
+          const overlap = stack.slice(matchIdx + 1);
+          // Special-case: a single markdown marker overlaps this HTML boundary and its closing marker follows
+          if (overlap.length === 1 && overlap[0].type === 'md' && tokens[i + 1]?.type === overlap[0].markerType) {
+            // Remove both HTML and markdown entries from stack
+            stack.splice(matchIdx, overlap.length + 1);
+            // Emit the closing markdown marker before closing the HTML tag
+            result.push(tokens[i + 1]);
+            // Emit the HTML closing tag
+            result.push(token);
+            // Skip the upcoming markdown closing marker
+            i++;
+            continue;
+          }
+          // Close overlapping entries
+          for (let k = overlap.length - 1; k >= 0; k--) {
+            const ent = overlap[k];
+            if (ent.type === 'html') {
+              result.push(createClosingTag(ent.token));
+            } else {
+              result.push(ent.token);
             }
-            styleStackToRebalance.push(stackItem);
           }
-
-          skipRebalanceAround.set(closingIndex, skipRebalance);
-          const rebalancedTokens = rebalanceStyleTokens(token, styleStackToRebalance);
-          filteredTokens = filteredTokens.concat(rebalancedTokens);
+          // Close tag
+          result.push(token);
+          // Pop matched and overlap
+          stack.splice(matchIdx);
+          // Reopen overlap
+          for (const ent of overlap) {
+            result.push(ent.token);
+            stack.push(ent);
+          }
         } else {
-          // If there is no closing token, just push the token
-          filteredTokens.push(token);
+          // Unmatched closing HTML tag -> text
+          result.push({
+            type: TokenType.TEXT, value: token.value, start: token.start, end: token.end,
+          });
         }
-
-        continue;
       }
-
-      // Just push all non-style non-html non-rebalancing-around tokens
-      filteredTokens.push(token);
       continue;
     }
-    // If this token is not a style token - end //
-
-    const style = token.attributes?.tagName ?? MARKDOWN_TO_HTML_TAG[token.type as keyof typeof MARKDOWN_TO_HTML_TAG];
-    const isClosing = token.attributes?.isClosing ?? token.isClosing;
-    const activeStyle = activeStyleStack.find((item) => item.style === style);
-
-    // Some lonely closing tag - harmless
-    if (isClosing && !activeStyle) {
-      filteredTokens.push(token);
-      continue;
-    }
-
-    if (isClosing && activeStyle) {
-      const { isHtml, closingIndex } = activeStyle;
-      if (closingIndex !== i) {
-        // Closing style token does not match opening style token - mark it as ignored
-        filteredTokens.push({ ...token, type: TokenType.IGNORE });
-        continue;
-      }
-
-      const tokenToPush = getCorrectTokenToPush(token, isHtml, style, isClosing);
-
-      // Rebalance tokens around the closing tag - it was for sure open because of activeStyle
-      const { rebalancedTokens, newActiveStyleStack } = rebalanceStyleTokensAroundStyle(
-        tokenToPush, activeStyleStack, style,
-      );
-
-      filteredTokens = filteredTokens.concat(rebalancedTokens);
-      activeStyleStack = newActiveStyleStack;
-      continue;
-    }
-
-    // Not is closing === opening
-    if (!isClosing && !activeStyle) {
-      const closingIndex = findClosingToken(tokens, i, style);
-      if (closingIndex !== -1) {
-        // Set as active only if there is a closing tag
-        activeStyleStack.push({
-          isHtml: token.type === TokenType.HTML_TAG,
-          closingIndex,
-          style,
-        });
-      }
-      // Do not rebalance around opening style tags
-      filteredTokens.push(token);
-      continue;
-    }
-
-    // Ignore others like opening when active style
-    filteredTokens.push({ ...token, type: TokenType.IGNORE });
+    // Other tokens
+    result.push(token);
   }
+  // Close any remaining open entries (only HTML tags; drop unmatched markdown markers)
+  for (let j = stack.length - 1; j >= 0; j--) {
+    const ent = stack[j];
+    if (ent.type === 'html') {
+      // generate closing tag for unmatched HTML
+      result.push(createClosingTag(ent.token));
+    }
+    // skip unmatched markdown markers (treated as plain text)
+  }
+  return result;
+}
 
-  return filteredTokens;
-};
+// // Remove consecutive duplicate HTML tags
+// function compressDuplicateTags(tokens: Token[]): Token[] {
+//   const result: Token[] = [];
+//   for (const token of tokens) {
+//     const last = result[result.length - 1];
+//     if (
+//       last
+//       && token.type === TokenType.HTML_TAG
+//       && last.type === TokenType.HTML_TAG
+//       && token.value === last.value
+//       && token.attributes?.tagName === last.attributes?.tagName
+//       && token.attributes?.isClosing === last.attributes?.isClosing
+//       && token.attributes?.isSelfClosing === last.attributes?.isSelfClosing
+//     ) {
+//       continue;
+//     }
+//     result.push(token);
+//   }
+//   return result;
+// }
 
 /**
- * Recursively normalize a token stream so that markdown markers that
- * “leak” across HTML boundaries are repositioned.
+ * Recursively normalize a token stream so that markdown markers and HTML tags that
+ * "leak" across HTML boundaries are repositioned.
  *
  * For each complete HTML block (an opening tag with its matching closing tag),
  * we recursively normalize its content. Then we examine the tokens at the very
@@ -624,113 +385,30 @@ const ignoreRedundantTokens = (tokens: TIntermediateToken[]): Token[] => {
  * so that the output becomes:
  *
  *    **<i>Settings</i> … **
+ *
+ * It also handles overlapping HTML tags like:
+ *
+ *    <b>boldtxt<i>bolt_it</b>just italic</i>
+ *
+ * which becomes:
+ *
+ *    <b>boldtxt<i>bolt_it</i></b><i>just italic</i>
  */
-export function liftTokensRecursively(tokens: TIntermediateToken[]): TIntermediateToken[] {
-  let i = 0;
-  const lifted: TIntermediateToken[] = [];
-
-  while (i < tokens.length) {
-    const token = tokens[i];
-
-    // If this token is an opening HTML tag (and not self-closing)…
-    if (
-      token.type === TokenType.HTML_TAG
-      && token.attributes
-      && !token.attributes.isClosing
-      && !token.attributes.isSelfClosing
-      && token.attributes.tagName
-    ) {
-      const tagName = token.attributes.tagName.toLowerCase();
-      const closingIndex = findClosingHtmlTag(tokens, i, tagName);
-      if (closingIndex !== -1) {
-        // Found a complete HTML block.
-        const htmlOpeningToken = token;
-        const htmlClosingToken = tokens[closingIndex];
-
-        // Extract the tokens inside the HTML block.
-        const contentTokens = tokens.slice(i + 1, closingIndex);
-        // Recursively normalize the inner tokens.
-        const normalizedContent = liftTokensRecursively(contentTokens);
-
-        // Process the front boundary of the block.
-        const { moved: frontMarkers, remaining: frontRemaining } = processBoundary([...normalizedContent], true);
-        // Process the back boundary of the block.
-        const { moved: backMarkers, remaining: middleTokens } = processBoundary(frontRemaining, false);
-
-        // Insert any unbalanced markers lifted from the front BEFORE the HTML block.
-        lifted.push(...frontMarkers);
-        lifted.push({ ...htmlOpeningToken, hasClosingToken: true });
-        // Then insert the inner (normalized) tokens.
-        lifted.push(...middleTokens);
-        lifted.push(htmlClosingToken);
-        // Insert any unbalanced markers lifted from the back AFTER the HTML block.
-        lifted.push(...backMarkers);
-
-        // Skip over this entire HTML block.
-        i = closingIndex + 1;
-        continue;
-      }
-      // If no matching closing tag is found, fall through.
-    }
-
-    // For non-HTML tokens (or if no matching closing tag), pass the token through.
-    lifted.push(token);
-    i++;
-  }
-
-  return lifted;
-}
-
 export function normalizeTokens(tokens: Token[]): Token[] {
-  const isOpenMarkdownTagMap: Record<string | number, {
-    lastIndex: number;
-    isClosing: boolean;
-  }> = {};
+  // 1. Lift unpaired markdown & HTML tags from block boundaries
+  const { moved: frontMarkers, remaining: afterFront } = processBoundary([...tokens], true);
+  const { moved: backMarkers, remaining: coreTokens } = processBoundary(afterFront, false);
 
-  const mappedTokens: TIntermediateToken[] = tokens.map((token, index) => {
-    if (isStyleHtmlToken(token)) {
-      return { ...token, isStyleToken: true };
-    }
-    if (isStyleMarkdownToken(token)) {
-      // For style markdown markers, iterate open and close equivalent HTML tags
-      const isClosing = isOpenMarkdownTagMap[token.type]?.isClosing ?? false;
-      isOpenMarkdownTagMap[token.type] = {
-        lastIndex: index, isClosing: !isClosing,
-      };
-      return {
-        ...token,
-        isClosing,
-        isStyleToken: true,
-        hasClosingToken: !isClosing ? true : undefined, // assume that it has a closing token
-      };
-    }
+  // 2. Identify code regions within core content
+  const codeRegions = detectCodeRegions(coreTokens);
+  const isInCodeRegion = (pos: number) => codeRegions.some((r) => pos >= r.start && pos <= r.end)
+    || coreTokens[pos]?.attributes?.isCodeContent === true;
 
-    if (token.type === TokenType.CODE_BLOCK || token.type === TokenType.CODE_MARKER) {
-      // For markdown markers that must be forced rebalanced around, iterate open and close equivalent HTML tags
-      const isClosing = isOpenMarkdownTagMap[token.type]?.isClosing ?? false;
-      isOpenMarkdownTagMap[token.type] = {
-        lastIndex: index, isClosing: !isClosing,
-      };
-      return {
-        ...token,
-        isClosing,
-        hasClosingToken: !isClosing ? true : undefined, // assume that it has a closing token
-      };
-    }
+  // 3. Balance interleaved HTML tags and markdown markers in core
+  // let balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
+  // balanced = compressDuplicateTags(balanced);
+  const balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
 
-    // HANDLE BLOCKQUOTES
-
-    return token;
-  });
-
-  Object.values(isOpenMarkdownTagMap).forEach(({ isClosing, lastIndex }) => {
-    if (!isClosing) {
-      // Now for sure it has no closing token
-      mappedTokens[lastIndex].hasClosingToken = false;
-    }
-  });
-
-  const lifted = liftTokensRecursively(mappedTokens);
-
-  return ignoreRedundantTokens(lifted);
+  // 4. Reassemble with lifted boundary markers
+  return [...frontMarkers, ...balanced, ...backMarkers];
 }
