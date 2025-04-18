@@ -63,11 +63,4 @@ const ChatFolderListVertical: FC<OwnProps> = ({
   );
 };
 
-// <TabList
-//   contextRootElementSelector="#LeftColumn"
-//   tabs={chatFolders}
-//   activeTab={activeChatFolder}
-//   onSwitchTab={handleSwitchChatFolder}
-// />
-
 export default memo(ChatFolderListVertical);
