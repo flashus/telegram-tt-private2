@@ -23,6 +23,8 @@ import {
 import { selectTabState, selectTheme } from '../../../global/selectors';
 import { getPromptInstall } from '../../../util/installPrompt';
 import { switchPermanentWebVersion } from '../../../util/permanentWebVersion';
+import { TWallpaperWebGL } from '../../../util/twallpaper-webgl';
+import { animatorBaseColorScheme } from '../../../util/twallpaper-webgl/config';
 import { IS_ELECTRON } from '../../../util/windowEnvironment';
 
 import { useFolderManagerForUnreadCounters } from '../../../hooks/useFolderManager';
@@ -49,6 +51,8 @@ type StateProps = {
   canInstall?: boolean;
   attachBots: GlobalState['attachMenu']['bots'];
 } & Pick<GlobalState, 'currentUserId' | 'archiveSettings'>;
+
+const twallpaperAnimator = TWallpaperWebGL.getInstance();
 
 const LeftSideMenuItems = ({
   currentUserId,
@@ -90,6 +94,8 @@ const LeftSideMenuItems = ({
   const handleDarkModeToggle = useLastCallback((e: React.SyntheticEvent<HTMLElement>) => {
     e.stopPropagation();
     const newTheme = theme === 'light' ? 'dark' : 'light';
+
+    twallpaperAnimator.setColorScheme(animatorBaseColorScheme[newTheme]);
 
     setSettingOption({ theme: newTheme });
     setSettingOption({ shouldUseSystemTheme: false });
