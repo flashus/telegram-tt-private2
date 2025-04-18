@@ -307,7 +307,6 @@ export default memo(withGlobal<OwnProps>(
       hasPasscode: Boolean(global.passcode.hasPasscode),
       canSetPasscode: selectCanSetPasscode(global),
       isChatFolderListOnLeft,
-      // isChatFolderListOnLeft: !isChatFolderListOnLeft,
     };
   },
 )(LeftMainHeader));
