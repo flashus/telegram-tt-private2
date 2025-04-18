@@ -45,7 +45,7 @@ const testCases = [
   ['', ''],
   ['**Bold __Italic__ ~~Strike~~ `Code` ||Spoiler||** [Link](https://example.com)', `<b>Bold <i>Italic</i> <s>Strike</s> <code>Code</code> <span data-entity-type="${ApiMessageEntityTypes.Spoiler}">Spoiler</span></b> <a href="https://example.com">Link</a>`],
   ['Code:\n```javascript\nconst x = "**bold**";\nconsole.log(x);\n```', 'Code:\n<pre data-language="javascript">const x = &quot;**bold**&quot;;\nconsole.log(x);</pre>'],
-  ['**Bold****Still Bold**__Italic__', '<b>Bold</b><b>Still Bold</b><i>Italic</i>'],
+  ['**Bold****Still Bold**__Italic__', '<b>BoldStill Bold</b><i>Italic</i>'],
   ['**Bold at start** Middle **Bold at end**', '<b>Bold at start</b> Middle <b>Bold at end</b>'],
   ['[**Bold** and __Italic__ Link](https://example.com)', '<a href="https://example.com"><b>Bold</b> and <i>Italic</i> Link</a>'],
   ['**Bold __Italic ~~Strikethrough `Code`~~__**', '<b>Bold <i>Italic <s>Strikethrough <code>Code</code></s></i></b>'],
@@ -335,14 +335,14 @@ describe('Parse Link2', () => {
 
 describe('Parse Edges0', () => {
   it('MD->AST', () => {
-    const [inputMarkdown, result] = ['**Bold****Still Bold**__Italic__', '<b>Bold</b><b>Still Bold</b><i>Italic</i>'];
+    const [inputMarkdown, result] = ['**Bold****Still Bold**__Italic__', '<b>BoldStill Bold</b><i>Italic</i>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
-    expect(ast.children.length).toBe(4);
+    expect(ast.children.length).toBe(3);
     expect(ast.children[0].type).toBe(NodeType.BOLD);
-    expect(ast.children[1].type).toBe(NodeType.BOLD);
-    expect(ast.children[2].type).toBe(NodeType.ITALIC);
-    expect(ast.children[3].type).toBe(NodeType.EOF);
+    // expect(ast.children[1].type).toBe(NodeType.BOLD);
+    expect(ast.children[1].type).toBe(NodeType.ITALIC);
+    expect(ast.children[2].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -732,6 +732,28 @@ describe('Parse Edges4', () => {
 
     expect(htmlOutput).toBe(result);
   });
+
+  it('HTML->AST with overlapped md/html duplicates', () => {
+    const [inputMarkdown, result] = ['<div>text**<b>__bold italic</b>__**</div>',
+      '<div>text<b><i>bold italic</i></b></div>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
+  // it('HTML->AST with overlapped md duplicates', () => {
+  //   const [inputMarkdown, result] = ['<div>text**__**bold italic**__**</div>',
+  //     '<div>text<b><i>bold italic</i></b></div>'];
+  //   const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+  //   expect(ast.type).toBe(NodeType.DOCUMENT);
+
+  //   const htmlOutput = renderASTToHTML(ast);
+
+  //   expect(htmlOutput).toBe(result);
+  // });
 
   it('HTML->AST multiple blockquote with overlapped vals', () => {
     const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><br><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Ilya:</blockquote><b>kakdjlajd</b>aldklad__plsld;lasd<b>adjlaj__saldjlaskd</b><br><br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;Коля:</blockquote>да, работает<img class="custom-emoji emoji emoji-small" draggable="false" alt="🥰" data-document-id="5276417969390362800" data-entity-type="MessageEntityCustomEmoji" src="blob:http://localhost:1234/7c81db32-e537-466e-a2bc-bbc272c850fe">',

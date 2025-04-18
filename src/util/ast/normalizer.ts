@@ -347,6 +347,27 @@ function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boo
   return result;
 }
 
+// // Remove consecutive duplicate HTML tags
+// function compressDuplicateTags(tokens: Token[]): Token[] {
+//   const result: Token[] = [];
+//   for (const token of tokens) {
+//     const last = result[result.length - 1];
+//     if (
+//       last
+//       && token.type === TokenType.HTML_TAG
+//       && last.type === TokenType.HTML_TAG
+//       && token.value === last.value
+//       && token.attributes?.tagName === last.attributes?.tagName
+//       && token.attributes?.isClosing === last.attributes?.isClosing
+//       && token.attributes?.isSelfClosing === last.attributes?.isSelfClosing
+//     ) {
+//       continue;
+//     }
+//     result.push(token);
+//   }
+//   return result;
+// }
+
 /**
  * Recursively normalize a token stream so that markdown markers and HTML tags that
  * "leak" across HTML boundaries are repositioned.
@@ -384,6 +405,8 @@ export function normalizeTokens(tokens: Token[]): Token[] {
     || coreTokens[pos]?.attributes?.isCodeContent === true;
 
   // 3. Balance interleaved HTML tags and markdown markers in core
+  // let balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
+  // balanced = compressDuplicateTags(balanced);
   const balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
 
   // 4. Reassemble with lifted boundary markers
