@@ -1,17 +1,12 @@
-import type { FC, RefObject, TeactNode } from '../../lib/teact/teact';
+import type { FC, RefObject } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useRef,
-  useState,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
-import parseHtmlAsFormattedText from '../../util/parseHtmlAsFormattedText';
-import { preparePastedHtml } from '../middle/composer/helpers/cleanHtml';
-import renderText from './helpers/renderText';
 
 import useFlag from '../../hooks/useFlag';
 import useInputFocusOnOpen from '../../hooks/useInputFocusOnOpen';
-import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
 
@@ -21,8 +16,6 @@ import Transition from '../ui/Transition';
 import Icon from './icons/Icon';
 
 import './SymbolSearch.scss';
-
-// TODO!!! Cut this component to be symbol search - specific
 
 interface OwnProps {
   ref?: RefObject<HTMLInputElement>;
@@ -40,8 +33,6 @@ interface OwnProps {
   autoComplete?: string;
   canClose?: boolean;
   autoFocusSearch?: boolean;
-  hasUpButton?: boolean;
-  hasDownButton?: boolean;
   teactExperimentControlled?: boolean;
   withBackIcon?: boolean;
   onChange: (value: string) => void;
@@ -50,8 +41,6 @@ interface OwnProps {
   onFocus?: NoneToVoidFunction;
   onBlur?: NoneToVoidFunction;
   onClick?: NoneToVoidFunction;
-  onUpClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onDownClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onSpinnerClick?: NoneToVoidFunction;
 }
 
@@ -71,8 +60,6 @@ const SymbolSearch: FC<OwnProps> = ({
   autoComplete,
   canClose,
   autoFocusSearch,
-  hasUpButton,
-  hasDownButton,
   teactExperimentControlled,
   withBackIcon,
   onChange,
@@ -81,8 +68,6 @@ const SymbolSearch: FC<OwnProps> = ({
   onFocus,
   onBlur,
   onClick,
-  onUpClick,
-  onDownClick,
   onSpinnerClick,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -94,8 +79,6 @@ const SymbolSearch: FC<OwnProps> = ({
   const [isInputFocused, markInputFocused, unmarkInputFocused] = useFlag(focused);
 
   useInputFocusOnOpen(inputRef, autoFocusSearch, unmarkInputFocused);
-
-  const [emojiImg, setEmojiImg] = useState<TeactNode>();
 
   useEffect(() => {
     if (!inputRef.current) {
@@ -110,59 +93,6 @@ const SymbolSearch: FC<OwnProps> = ({
   }, [focused, placeholder]); // Trick for setting focus when selecting a contact to search for
 
   const oldLang = useOldLang();
-  const lang = useLang();
-
-  useEffect(() => {
-    if (!isInputFocused) {
-      return undefined;
-    }
-
-    function handlePaste(e: ClipboardEvent) {
-      if (!e.clipboardData) {
-        return;
-      }
-
-      const input = inputRef.current;
-      if (!input) {
-        return;
-      }
-
-      e.preventDefault();
-
-      // Some extensions can trigger paste into their panels without focus
-      if (document.activeElement !== input) {
-        return;
-      }
-
-      const pastedText = e.clipboardData.getData('text');
-      const html = e.clipboardData.getData('text/html');
-
-      if (!pastedText) {
-        return;
-      }
-
-      const pastedFormattedText = html ? parseHtmlAsFormattedText(preparePastedHtml(html)) : undefined;
-      const textToPaste = pastedFormattedText?.entities?.length ? pastedFormattedText : { text: pastedText };
-      const hasText = textToPaste && textToPaste.text;
-
-      if (hasText && html.includes('emoji')) {
-        input.value = ' ';
-        onChange(input.value);
-        // Do not render custom emojis here
-        setEmojiImg(renderText(textToPaste.text));
-        return;
-      }
-
-      input.value = hasText ? textToPaste.text : '';
-      onChange(input.value);
-    }
-
-    document.addEventListener('paste', handlePaste, false);
-
-    return () => {
-      document.removeEventListener('paste', handlePaste, false);
-    };
-  }, [isInputFocused, inputRef, onChange]);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { currentTarget } = event;
@@ -171,8 +101,6 @@ const SymbolSearch: FC<OwnProps> = ({
     if (!isInputFocused) {
       handleFocus();
     }
-
-    setEmojiImg(undefined);
   }
 
   function handleFocus() {
@@ -186,7 +114,6 @@ const SymbolSearch: FC<OwnProps> = ({
   }
 
   const handleReset = useLastCallback(() => {
-    setEmojiImg(undefined);
     onReset?.();
   });
 
@@ -231,7 +158,7 @@ const SymbolSearch: FC<OwnProps> = ({
         id={inputId}
         type="text"
         dir="auto"
-        placeholder={emojiImg ? undefined : (placeholder || oldLang('Search'))}
+        placeholder={(placeholder || oldLang('Search'))}
         className="form-control"
         value={value}
         disabled={disabled}
@@ -242,31 +169,6 @@ const SymbolSearch: FC<OwnProps> = ({
         onKeyDown={handleKeyDown}
         teactExperimentControlled={teactExperimentControlled}
       />
-      <div className="pasted-emoji">{emojiImg}</div>
-      {hasUpButton && (
-        <Button
-          round
-          size="tiny"
-          color="translucent"
-          onClick={onUpClick}
-          disabled={!onUpClick}
-          ariaLabel={lang('AriaSearchOlderResult')}
-        >
-          <Icon name="up" />
-        </Button>
-      )}
-      {hasDownButton && (
-        <Button
-          round
-          size="tiny"
-          color="translucent"
-          onClick={onDownClick}
-          disabled={!onDownClick}
-          ariaLabel={lang('AriaSearchNewerResult')}
-        >
-          <Icon name="down" />
-        </Button>
-      )}
       <Transition
         name="fade"
         shouldCleanup
