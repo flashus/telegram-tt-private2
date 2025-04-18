@@ -45,6 +45,7 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
     document = parser.parseDocument();
     if (document) {
       document = cleanupAST(document) as DocumentNode;
+      document = removeInheritedFormatting(document) as DocumentNode;
     }
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -82,7 +83,7 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
 // AST cleanup: flatten nested formatting, merge duplicates, and reorder formatting chains
 type FormattingNode = ASTNode & { children: ASTNode[] };
 function isFormattingNode(type: string): boolean {
-  return [NodeType.BOLD, NodeType.ITALIC, NodeType.UNDERLINE, NodeType.STRIKE].includes(type as any);
+  return [NodeType.BOLD, NodeType.ITALIC, NodeType.UNDERLINE, NodeType.STRIKE, NodeType.SPOILER].includes(type as any);
 }
 // Formatting priority (lower = inner)
 const FORMAT_PRIORITY: Record<string, number> = {
@@ -92,49 +93,82 @@ const FORMAT_PRIORITY: Record<string, number> = {
   [NodeType.BOLD]: 3,
   [NodeType.SPOILER]: 4,
 };
-
 function cleanupAST(node: ASTNode): ASTNode {
   if (!node.children) return node;
-  // 1) Recursively clean
+  // 1) Recursively clean children
   let children = node.children.map(cleanupAST);
-  // 2) Flatten parent-child same-type
+  // 2) Flatten nested same‑type formatting
   function flattenSameType(nodes: ASTNode[]): ASTNode[] {
     return nodes.flatMap((n) => {
-      if (isFormattingNode(n.type) && n.children?.length === 1 && n.children[0].type === n.type) {
-        return flattenSameType((n.children[0] as FormattingNode).children);
+      if (n.children) {
+        n = { ...n, children: flattenSameType(n.children) };
       }
-      return [{ ...n, children: n.children ? flattenSameType(n.children) : undefined }];
+      if (isFormattingNode(n.type) && n.children) {
+        const newChildren: ASTNode[] = [];
+        for (const c of n.children) {
+          if (c.type === n.type && c.children) {
+            newChildren.push(...c.children);
+          } else {
+            newChildren.push(c);
+          }
+        }
+        return [{ ...n, children: newChildren }];
+      }
+      return [n];
     });
   }
   children = flattenSameType(children);
-  // 3) Merge adjacent same-type siblings
+  // 3) Remove empty formatting nodes
+  children = children.filter((c) => !(isFormattingNode(c.type) && (!c.children || c.children.length === 0)));
+  // 4) Merge adjacent same‑type siblings
   const merged: ASTNode[] = [];
   for (const c of children) {
     const last = merged[merged.length - 1];
-    if (last && last.type === c.type && isFormattingNode(c.type)) {
+    if (last && last.type === c.type && isFormattingNode(c.type) && (c as FormattingNode).children) {
       (last as FormattingNode).children.push(...(c as FormattingNode).children);
     } else {
       merged.push(c);
     }
   }
-  // 4) Bubble-up & reorder nested chains
+  // 5) Bubble‑up & reorder nested chains
   if (isFormattingNode(node.type) && merged.length === 1 && isFormattingNode(merged[0].type)) {
     const chain: string[] = [];
     let curr: FormattingNode = { type: node.type, children: merged };
-    while (isFormattingNode(curr.type) && curr.children.length === 1 && isFormattingNode(curr.children[0].type)) {
-      chain.push(curr.type);
-      curr = curr.children[0] as FormattingNode;
-    }
     chain.push(curr.type);
-    // dedupe & sort by priority inner->outer
-    const unique = Array.from(new Set(chain)).sort((a, b) => FORMAT_PRIORITY[a] - FORMAT_PRIORITY[b]);
-    // rebuild
-    let content = curr.children || [];
-    for (const t of unique) {
-      content = [{ type: t, children: content } as FormattingNode];
+    while (isFormattingNode(curr.children[0].type) && curr.children.length === 1) {
+      curr = curr.children[0] as FormattingNode;
+      chain.push(curr.type);
     }
-    return content[0];
+    const unique = Array.from(new Set(chain)).sort((a, b) => FORMAT_PRIORITY[a] - FORMAT_PRIORITY[b]);
+    const content = curr.children || [];
+    let rebuilt: ASTNode[] = content;
+    for (const t of unique) {
+      rebuilt = [{ type: t, children: rebuilt } as FormattingNode];
+    }
+    return rebuilt[0];
   }
   node.children = merged;
+  return node;
+}
+
+// Remove inherited nested formatting wrappers
+function removeInheritedFormatting(node: ASTNode, ancestors: Set<string> = new Set()): ASTNode | ASTNode[] {
+  if (!node.children) return node;
+  let newAncestors = ancestors;
+  if (isFormattingNode(node.type)) {
+    if (ancestors.has(node.type)) {
+      // drop redundant wrapper, keep children
+      return node.children.flatMap((c) => removeInheritedFormatting(c, ancestors) as ASTNode);
+    }
+    newAncestors = new Set(ancestors);
+    newAncestors.add(node.type);
+  }
+  const newChildren: ASTNode[] = [];
+  for (const child of node.children) {
+    const processed = removeInheritedFormatting(child, newAncestors);
+    if (Array.isArray(processed)) newChildren.push(...processed);
+    else newChildren.push(processed);
+  }
+  node.children = newChildren;
   return node;
 }

@@ -334,7 +334,7 @@ describe('Parse Link2', () => {
 });
 
 describe('Parse Edges0', () => {
-  it('MD->AST', () => {
+  it('MD->AST duplicates removed 1', () => {
     const [inputMarkdown, result] = ['**Bold****Still Bold**__Italic__', '<b>BoldStill Bold</b><i>Italic</i>'];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     expect(ast.type).toBe(NodeType.DOCUMENT);
@@ -343,6 +343,21 @@ describe('Parse Edges0', () => {
     // expect(ast.children[1].type).toBe(NodeType.BOLD);
     expect(ast.children[1].type).toBe(NodeType.ITALIC);
     expect(ast.children[2].type).toBe(NodeType.EOF);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
+  it('MD->AST duplicates removed 2', () => {
+    const [inputMarkdown, result] = ['__**Bold****<i>Still Bold**</i> Italic__',
+      '<i><b>BoldStill Bold</b> Italic</i>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    expect(ast.children.length).toBe(2);
+    expect(ast.children[0].type).toBe(NodeType.ITALIC);
+    expect(ast.children[0]?.children?.[0].type).toBe(NodeType.BOLD);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
 
     const htmlOutput = renderASTToHTML(ast);
 
@@ -804,7 +819,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
 
   it('Handles nested mixed elements md->html', () => {
     const inputMarkdown = '**Bold __italic <strong>and HTML strong</strong>__ still bold**';
-    const expectedOutput = '<b>Bold <i>italic <b>and HTML strong</b></i> still bold</b>';
+    const expectedOutput = '<b>Bold <i>italic and HTML strong</i> still bold</b>';
 
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     const htmlOutput = renderASTToHTML(ast);
@@ -814,7 +829,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
 
   it('Handles nested mixed elements, md->html->md', () => {
     const inputMarkdown = '**Bold __italic <strong>and ++HTML++ strong</strong>__ still bold**';
-    const expectedOutput = '<b>Bold <i>italic <b>and <u>HTML</u> strong</b></i> still bold</b>';
+    const expectedOutput = '<b>Bold <i>italic and <u>HTML</u> strong</i> still bold</b>';
 
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
     const htmlOutput = renderASTToHTML(ast);
@@ -847,7 +862,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
 
   it('Handles nested mixed elements, md quote->html->md quote->text simplified', () => {
     const inputMarkdown = '>**Bold __italic <strong>and ++HTML++ strong</strong>__**\n>>nested quote\nplain text';
-    const quoteBody = `<b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n${makeBlockQuote('nested quote')}`;
+    const quoteBody = `<b>Bold <i>italic and <u>HTML</u> strong</i></b>\n${makeBlockQuote('nested quote')}`;
     const expectedOutput = `${makeBlockQuote(quoteBody)}\nplain text`;
     // const expectedOutput = '<blockquote><b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n<blockquote>nested quote</blockquote></blockquote>\nplain text';
 
@@ -860,7 +875,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
   it('Handles nested mixed elements, md quote->html->md quote->text simplified 3rd lvl nest', () => {
     const inputMarkdown = '>**Bold __italic <strong>and ++HTML++ strong</strong>__**\n>>nested quote\n>>> 3rd lvl nested quote\nplain text';
     const nestedQuoteBody = `nested quote\n${makeBlockQuote(' 3rd lvl nested quote')}`;
-    const quoteBody = `<b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n${makeBlockQuote(nestedQuoteBody)}`;
+    const quoteBody = `<b>Bold <i>italic and <u>HTML</u> strong</i></b>\n${makeBlockQuote(nestedQuoteBody)}`;
     const expectedOutput = `${makeBlockQuote(quoteBody)}\nplain text`;
     // const expectedOutput = '<blockquote><b>Bold <i>italic <b>and <u>HTML</u> strong</b></i></b>\n<blockquote>nested quote</blockquote></blockquote>\nplain text';
 
