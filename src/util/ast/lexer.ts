@@ -358,16 +358,21 @@ export class Lexer {
    */
   // eslint-disable-next-line class-methods-use-this
   private preprocessRawMarkdown(input: string): string {
-    // Regex explanation:
-    //   (\n\s*)         - Captures a newline and any following whitespace.
-    //   (<\w+[^>]*>)     - Captures an HTML opening tag (e.g. "<i>")
-    //   (>)             - Captures a literal '>' immediately following the tag.
-    //
-    // Replacement:
-    //   We put the marker (">") immediately after the newline,
-    //   add a space, then insert the HTML tag.
-    return input.replace(/(\n\s*)(<\w+[^>]*>)(>)/g, (_, newlineAndSpace, htmlTag, marker) => {
-      return `${newlineAndSpace + marker} ${htmlTag}`;
-    });
+    // Regex matches:
+    //   1. (\n\s*) - newline and spaces
+    //   2. (</blockquote>) - closing blockquote
+    // Both followed by (<\w+[^>]*>) and (>)
+    return input.replace(
+      /(\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)(>)/g,
+      (_, prefix, htmlTag, marker) => {
+        if (prefix.startsWith('</blockquote>')) {
+          // Add newline after </blockquote>
+          return `${prefix}\n${marker}${htmlTag}`;
+        } else {
+          // Normal newline case
+          return `${prefix}${marker}${htmlTag}`;
+        }
+      },
+    );
   }
 }

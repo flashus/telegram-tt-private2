@@ -45,6 +45,7 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
     document = parser.parseDocument();
     if (document) {
       document = cleanupAST(document) as DocumentNode;
+      document = mergeAdjacentQuoteNodesWithNewline(document) as DocumentNode;
       document = removeInheritedFormatting(document) as DocumentNode;
     }
   } catch (e) {
@@ -85,6 +86,7 @@ type FormattingNode = ASTNode & { children: ASTNode[] };
 function isFormattingNode(type: string): boolean {
   return [NodeType.BOLD, NodeType.ITALIC, NodeType.UNDERLINE, NodeType.STRIKE, NodeType.SPOILER].includes(type as any);
 }
+
 // Formatting priority (lower = inner)
 const FORMAT_PRIORITY: Record<string, number> = {
   [NodeType.STRIKE]: 0,
@@ -93,6 +95,7 @@ const FORMAT_PRIORITY: Record<string, number> = {
   [NodeType.BOLD]: 3,
   [NodeType.SPOILER]: 4,
 };
+
 function cleanupAST(node: ASTNode): ASTNode {
   if (!node.children) return node;
   // 1) Recursively clean children
@@ -171,4 +174,36 @@ function removeInheritedFormatting(node: ASTNode, ancestors: Set<string> = new S
   }
   node.children = newChildren;
   return node;
+}
+
+function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
+  if (!ast.children) return ast;
+  const newChildren = [];
+  let i = 0;
+  while (i < ast.children.length) {
+    const node = ast.children[i];
+    if (
+      node.type === NodeType.QUOTE
+      && i + 2 < ast.children.length
+      && ast.children[i + 1].type === NodeType.TEXT
+      && ast.children[i + 1].value === '\n'
+      && ast.children[i + 2].type === NodeType.QUOTE
+    ) {
+      // Merge quoteNode + "\n" + quoteNode
+      const mergedQuoteNode = {
+        ...node,
+        children: [
+          ...(node.children || []),
+          ast.children[i + 1], // the newline text node
+          ...(ast.children[i + 2].children || []),
+        ],
+      };
+      newChildren.push(mergedQuoteNode);
+      i += 3; // skip the next two nodes
+    } else {
+      newChildren.push(node);
+      i++;
+    }
+  }
+  return { ...ast, children: newChildren };
 }

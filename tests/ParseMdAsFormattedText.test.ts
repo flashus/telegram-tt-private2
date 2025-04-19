@@ -545,6 +545,17 @@ describe('Parse Edges4', () => {
     expect(htmlOutput).toBe(result);
   });
 
+  it('MD->AST blockquote with > added to bold node', () => {
+    const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">Finally, to create a pull request private repo -> public repo:</blockquote><b>>Use the <i>GitHub UI</i> to create a fork</b> of the public repo (the small "Fork" button at the top right of the public repo page). Then:',
+      `${makeBlockQuote('Finally, to create a pull request private repo -&gt; public repo:\n<b>Use the <i>GitHub UI</i> to create a fork</b> of the public repo (the small &quot;Fork&quot; button at the top right of the public repo page). Then:')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
   it('MD->AST blockquote simple nested', () => {
     const [inputMarkdown, result] = ['>This is a quote\n>With text\n>>And a nested quote\n>Back to first level',
       `${makeBlockQuote(`This is a quote\nWith text\n${makeBlockQuote('And a nested quote')}\nBack to first level`)}\n`];
@@ -1132,7 +1143,7 @@ describe('ParseMixedMarkdownAndHTML', () => {
   it('should parse hard mix of pasted html and md', () => {
     const [inputMarkdown, htmlResult] = [
       '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;"><b>A 13 Aug 2021 post you must use</b><br><b>Git Clone</b><br><code class="text-entity-code">https://username:token@github.com/username/repository.git</code><br>&gt;To generate a token:<br><i>&gt;**Settings</i>&nbsp;→ <i>Developer settings</i>&nbsp;→ <i>Personal access tokens</i>&nbsp;→ <i>Generate new token</i>**<br><b>Git Push</b></div>',
-      '<div id=\"editable-message-text\" class=\"form-control allow-selection touched\" contenteditable=\"true\" role=\"textbox\" dir=\"auto\" tabindex=\"0\" aria-label=\"Message\" style=\"transition: color 50ms linear !important;\"><b>A 13 Aug 2021 post you must use</b>\n<b>Git Clone</b>\n<code>https://username:token@github.com/username/repository.git</code>\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\nTo generate a token:\n <i><b>Settings</b></i><b> → <i>Developer settings</i> → <i>Personal access tokens</i> → <i>Generate new token</i></b>\n::after\n</blockquote>\n<b>Git Push</b></div>',
+      '<div id=\"editable-message-text\" class=\"form-control allow-selection touched\" contenteditable=\"true\" role=\"textbox\" dir=\"auto\" tabindex=\"0\" aria-label=\"Message\" style=\"transition: color 50ms linear !important;\"><b>A 13 Aug 2021 post you must use</b>\n<b>Git Clone</b>\n<code>https://username:token@github.com/username/repository.git</code>\n<blockquote class=\"quote quote-like quote-like-border quote-like-icon\" dir=\"auto\">\n::before\nTo generate a token:\n<i><b>Settings</b></i><b> → <i>Developer settings</i> → <i>Personal access tokens</i> → <i>Generate new token</i></b>\n::after\n</blockquote>\n<b>Git Push</b></div>',
     ];
     // const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
 
