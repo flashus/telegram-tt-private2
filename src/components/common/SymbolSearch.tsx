@@ -213,7 +213,7 @@ const SymbolSearch: FC<OwnProps> = ({
 
   // Scroll container and header when active set changes
   useEffect(() => {
-    if (value || !groupValue) {
+    if (value) {
       return;
     }
 
@@ -222,7 +222,7 @@ const SymbolSearch: FC<OwnProps> = ({
       return;
     }
 
-    const activeIndex = MSG_EMOJI_GROUPS.findIndex((group) => group.id === groupValue);
+    const activeIndex = groupValue ? MSG_EMOJI_GROUPS.findIndex((group) => group.id === groupValue) : 0;
 
     const newLeft = SEARCH_HALF_WIDTH + activeIndex * MSG_EMOJI_GROUP_BUTTON_WIDTH
       - (container.offsetWidth / 2 - MSG_EMOJI_GROUP_BUTTON_WIDTH / 2);
