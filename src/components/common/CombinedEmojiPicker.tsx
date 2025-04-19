@@ -14,6 +14,7 @@ import type {
   EmojiModule,
   EmojiRawData,
 } from '../../util/emoji/emoji';
+import type { EmojiGroupIconName } from './SymbolSearch';
 
 import {
   FAVORITE_SYMBOL_SET_ID,
@@ -59,7 +60,7 @@ import EmojiCategoryCovers from './EmojiCategoryCovers';
 import Icon from './icons/Icon';
 import StickerButton from './StickerButton';
 import StickerSet from './StickerSet';
-import SymbolSearch from './SymbolSearch';
+import SymbolSearch, { MSG_EMOJI_GROUPS } from './SymbolSearch';
 
 import pickerStyles from '../middle/composer/StickerPicker.module.scss';
 import styles from './CombinedEmojiPicker.module.scss';
@@ -198,6 +199,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [groupSearchQueryKey, setGroupSearchQueryKey] = useState<EmojiGroupIconName | undefined>();
 
   const [categories, setCategories] = useState<EmojiCategory[]>();
   const [emojis, setEmojis] = useState<AllEmojis>();
@@ -206,8 +208,6 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     handleScroll: handleContentScroll,
     isAtBeginning: shouldHideTopBorder,
   } = useScrolledState();
-
-  // const [emojiSets, setEmojiSets] = useState<EmojiSet[]>();
 
   const recentCustomEmojis = useMemo(() => {
     return isStatusPicker
@@ -364,20 +364,53 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   useChildHorizontalScroll(headerRef, canvasContainerRef, isMobile || !shouldRenderContent, !categoriesActive);
 
   const filteredEmojiSet = useMemo<EmojiSet | undefined>(() => {
-    if (!searchQuery) {
+    if (!searchQuery && !groupSearchQueryKey) {
       return undefined;
     }
     const filteredEmojis: string[] = [];
     const filteredCustomEmojis: ApiSticker[] = [];
 
-    const leadingEmoji = searchQuery.match(LEADING_EMOJI_REGEXP)?.[0];
+    if (searchQuery) {
+      const leadingEmoji = searchQuery.match(LEADING_EMOJI_REGEXP)?.[0];
 
-    if (leadingEmoji && emojis) {
+      if (leadingEmoji && emojis) {
+        Object.values(emojis).forEach((emoji) => {
+        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+        // For now, we select only the first emoji with 'neutral' skin.
+          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+          if (displayedEmoji.native === leadingEmoji) {
+            filteredEmojis.push(displayedEmoji.id);
+          }
+        });
+
+        for (const set of allCustomEmojiSets) {
+          const { stickers } = set;
+          if (!stickers) {
+            continue;
+          }
+          for (const sticker of stickers) {
+            if (sticker.emoji === leadingEmoji) {
+              filteredCustomEmojis.push(sticker);
+            }
+          }
+        }
+      } else if (emojis) {
+        Object.values(emojis).forEach((emoji) => {
+        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+        // For now, we select only the first emoji with 'neutral' skin.
+          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+          if (displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery))) {
+            filteredEmojis.push(displayedEmoji.id);
+          }
+        });
+      }
+    } else if (groupSearchQueryKey && emojis) {
+      const foundGroup: string[] = MSG_EMOJI_GROUPS.find((group) => group.id === groupSearchQueryKey)?.emojis ?? [];
       Object.values(emojis).forEach((emoji) => {
         // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
         // For now, we select only the first emoji with 'neutral' skin.
         const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
-        if (displayedEmoji.native === leadingEmoji) {
+        if (foundGroup.includes(displayedEmoji.native)) {
           filteredEmojis.push(displayedEmoji.id);
         }
       });
@@ -388,20 +421,11 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           continue;
         }
         for (const sticker of stickers) {
-          if (sticker.emoji === leadingEmoji) {
+          if (sticker.emoji && foundGroup.includes(sticker.emoji)) {
             filteredCustomEmojis.push(sticker);
           }
         }
       }
-    } else if (emojis) {
-      Object.values(emojis).forEach((emoji) => {
-        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
-        // For now, we select only the first emoji with 'neutral' skin.
-        const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
-        if (displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery))) {
-          filteredEmojis.push(displayedEmoji.id);
-        }
-      });
     }
 
     return {
@@ -416,7 +440,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
       },
       type: EmojiSetType.Combined,
     };
-  }, [searchQuery, allCustomEmojiSets, emojis]);
+  }, [searchQuery, groupSearchQueryKey, allCustomEmojiSets, emojis]);
 
   const handleEmojiSelect = useLastCallback((emoji: string, name: string) => {
     onEmojiSelect(emoji, name);
@@ -426,18 +450,25 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     onCustomEmojiSelect(emoji);
   });
 
-  const handleSearchQueryReset = useCallback(() => {
+  const handleSearchReset = useCallback(() => {
     setSearchQuery('');
+    setGroupSearchQueryKey(undefined);
   }, []);
 
   const handleSearchQueryChange = useDebouncedCallback((value: string) => {
     const newQuery = value.slice(0, MAX_EMOJI_QUERY_LENGTH);
+    setGroupSearchQueryKey(undefined);
     setSearchQuery(newQuery.toLowerCase());
   }, [], 300, true);
 
+  const handleGroupSearchQueryChange = useCallback((value: EmojiGroupIconName) => {
+    setSearchQuery('');
+    setGroupSearchQueryKey(value);
+  }, []);
+
   const handleSelectStickerSet = useLastCallback((index: number) => {
-    if (searchQuery) {
-      handleSearchQueryReset();
+    if (searchQuery || groupSearchQueryKey) {
+      handleSearchReset();
       requestAnimationFrame(() => {
         selectStickerSet(index);
       });
@@ -615,6 +646,8 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     );
   }
 
+  const willSearch = searchQuery || groupSearchQueryKey;
+
   const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
 
   if (!shouldRenderContent) {
@@ -691,15 +724,17 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           <SymbolSearch
             className="search"
             value={searchQuery}
+            groupValue={groupSearchQueryKey}
             onChange={handleSearchQueryChange}
-            onReset={handleSearchQueryReset}
+            onGroupValueChange={handleGroupSearchQueryChange}
+            onReset={handleSearchReset}
             // placeholder={lang('SearchEmojisHint')} // There is no usable translation yet with "Search Emoji" in english
             placeholder="Search Emoji"
           />
         </div>
-        {!searchQuery && allSets.map((set, i) => renderSet(set, i, emojis))}
-        {searchQuery && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
-        {searchQuery && !filteredEmojiSet && renderNoResults()}
+        {!willSearch && allSets.map((set, i) => renderSet(set, i, emojis))}
+        {willSearch && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
+        {willSearch && !filteredEmojiSet && renderNoResults()}
       </div>
     </div>
   );
