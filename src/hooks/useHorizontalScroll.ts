@@ -30,6 +30,10 @@ const useHorizontalScroll = (
 
 export default useHorizontalScroll;
 
+/**
+ * This kind of horizontal scroll can be used to fix handling scrolling for several elements
+ * that are not overflowing (thus, not scrollable themselves) but are part of the same overflowing container
+ */
 export const useChildHorizontalScroll = (
   overflowingContainerRef: React.RefObject<HTMLDivElement>,
   trackingContainerRef: React.RefObject<HTMLDivElement>,
