@@ -34,6 +34,18 @@
     }
   }
 
+  .input-overflowing-container {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+  
+    scrollbar-width: none;
+    scrollbar-color: rgba(0, 0, 0, 0);
+  }
+
   input.form-control {
     height: 2.5rem;
     margin-bottom: 0;
@@ -41,31 +53,12 @@
     border-radius: 1.375rem;
     background-color: transparent !important;
     box-shadow: none !important;
-    padding:
-      calc(0.4375rem - var(--border-width)) calc(0.625rem - var(--border-width))
-      calc(0.5rem - var(--border-width)) calc(0.75rem - var(--border-width));
+    padding-left: 0.5rem;
+
+    color: var(--color-text-secondary);
 
     &::placeholder {
       color: var(--color-placeholders);
-    }
-  }
-
-  .pasted-emoji {
-    position: absolute;
-    width: 1.5rem;
-    height: 1.5rem;
-    left: 2.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-
-    img {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 1.5rem;
-      height: 1.5rem;
-      margin: 0;
     }
   }
 
@@ -79,12 +72,66 @@
     width: 2.5rem;
     flex-shrink: 0;
     margin-inline-start: 0.5rem;
+
+    &.moved-left {
+      left: -10rem;
+    }
+
+    .emoji-groups {
+      vertical-align: middle;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+
+      .emoji-group-button {
+        display: inline-grid;
+        vertical-align: middle;
+      
+        width: 1.875rem !important;
+        height: 1.875rem;
+        margin: 0.125rem 0.125rem !important;
+        padding: 0;
+        border-radius: 50%;
+    
+        .icon {
+          font-size: 1.875rem;
+          margin-top: -0.25rem;
+          color: rgba(var(--color-text-secondary-rgb), 0.5);
+        }
+      
+        &.activated {
+          background-color: var(--color-interactive-element-hover);
+          color: var(--color-text-secondary);
+
+          .icon {
+            color: var(--color-text-secondary);
+          }
+        }
+      }
+    
+      &::-webkit-scrollbar {
+        height: 0;
+      }
+    
+      &::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0);
+      }
+    
+      // Spacer to counter last button margin not being accounted in scroll width
+      &::after {
+        content: "";
+        display: block;
+        flex-shrink: 0;
+        width: 1px;
+        height: 1rem;
+      }
+    }
   }
 
   .icon-container-slide {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .search-icon, .back-icon {
@@ -93,6 +140,7 @@
   }
 
   .back-icon {
+    cursor: pointer;
     color: var(--color-text-secondary);
   }
 
