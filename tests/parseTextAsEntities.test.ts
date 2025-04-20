@@ -262,26 +262,26 @@ describe('parseMarkdownToEntities', () => {
     `;
     const result = parseMarkdownHtmlToEntities(input);
 
-    expect(result.text).toBe('\n      \n        Important bold announcement:\n        \n          Item 1 with italic emphasis\n          Item 2 with 🚀\n        \n        Visit our website for more info.\n      \n    ');
+    expect(result.text).toBe('\n      \n\n        Important bold announcement:\n        \n          Item 1 with italic emphasis\n          Item 2 with 🚀\n        \n        Visit our website for more info.\n      \n    ');
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 16,
+      offset: 17,
       length: 14,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Italic,
-      offset: 76,
+      offset: 77,
       length: 15,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.CustomEmoji,
-      offset: 114,
+      offset: 115,
       length: 2,
       documentId: '246810',
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.TextUrl,
-      offset: 144,
+      offset: 145,
       length: 7,
       url: 'https://example.com',
     });
@@ -320,10 +320,10 @@ describe('parseMarkdownToEntities', () => {
   test('should handle markdown inside HTML tags', () => {
     const input = '<div>This is **bold** inside a div</div>';
     const result = parseMarkdownHtmlToEntities(input);
-    expect(result.text).toBe('This is bold inside a div');
+    expect(result.text).toBe('\nThis is bold inside a div');
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 8,
+      offset: 9,
       length: 4,
     });
   });
@@ -564,11 +564,11 @@ describe('parseMarkdownToEntities', () => {
     const cleanedHtml = cleanHtml(input);
     const ast = parseMarkdownToAST(cleanedHtml) || { type: NodeType.DOCUMENT, children: [] };
     const result = renderASTToEntities(ast);
-    expect(result.text).toBe('das 😏 was');
+    expect(result.text).toBe('\ndas 😏 was');
     expect(result.entities).toContainEqual({
       documentId: '5375170473095077321',
       length: 2,
-      offset: 4,
+      offset: 5,
       type: 'MessageEntityCustomEmoji',
     });
   });
@@ -665,30 +665,30 @@ describe('parseMarkdownToEntities', () => {
   test('should handle html.md mix text', () => {
     const input = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. <br>> It warns that <b>adding the token to the clone URL will store it in plaintext in</b>&nbsp;<code class="text-entity-code">.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i>&nbsp;repository and revoking the token when I\'m done, <b>I don\'t care.</b></div>';
     const result = parseMarkdownHtmlToEntities(input);
-    expect(result.text).toBe('GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. \n It warns that adding the token to the clone URL will store it in plaintext in .git/config. This is obviously a security risk for almost every use case, but since I plan on deleting the repository and revoking the token when I\'m done, I don\'t care.');
+    expect(result.text).toBe('\nGitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. \n It warns that adding the token to the clone URL will store it in plaintext in .git/config. This is obviously a security risk for almost every use case, but since I plan on deleting the repository and revoking the token when I\'m done, I don\'t care.');
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Blockquote,
-      offset: 149,
+      offset: 150,
       length: 248,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 164,
+      offset: 165,
       length: 63,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Code,
-      offset: 228,
+      offset: 229,
       length: 11,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Italic,
-      offset: 249,
+      offset: 250,
       length: 85,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 384,
+      offset: 385,
       length: 13,
     });
   });
@@ -696,30 +696,30 @@ describe('parseMarkdownToEntities', () => {
   test('should handle html.md mix text, PRE', () => {
     const input = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. <br>> It warns that <b>adding the token to the clone URL will store it in plaintext in</b>&nbsp;<pre class="text-entity-code">.git/config</pre>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i>&nbsp;repository and revoking the token when I\'m done, <b>I don\'t care.</b></div>';
     const result = parseMarkdownHtmlToEntities(input);
-    expect(result.text).toBe('GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. \n It warns that adding the token to the clone URL will store it in plaintext in .git/config. This is obviously a security risk for almost every use case, but since I plan on deleting the repository and revoking the token when I\'m done, I don\'t care.');
+    expect(result.text).toBe('\nGitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line for automation purposes. \n It warns that adding the token to the clone URL will store it in plaintext in .git/config. This is obviously a security risk for almost every use case, but since I plan on deleting the repository and revoking the token when I\'m done, I don\'t care.');
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Blockquote,
-      offset: 149,
+      offset: 150,
       length: 248,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 164,
+      offset: 165,
       length: 63,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Pre,
-      offset: 228,
+      offset: 229,
       length: 11,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Italic,
-      offset: 249,
+      offset: 250,
       length: 85,
     });
     expect(result.entities).toContainEqual({
       type: ApiMessageEntityTypes.Bold,
-      offset: 384,
+      offset: 385,
       length: 13,
     });
   });

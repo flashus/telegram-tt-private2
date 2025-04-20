@@ -1,6 +1,8 @@
 /* eslint-disable no-useless-escape */
 import type { ApiFormattedText } from '../../api/types';
-import type { ASTNode, DocumentNode } from './node';
+import type {
+  ASTNode, DocumentNode, HtmlTagNode, TextNode,
+} from './node';
 
 import { NodeType } from './astEnums';
 import { Lexer } from './lexer';
@@ -16,12 +18,12 @@ export function cleanHtml(html: string) {
   cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
 
   // Replace <div><br></div> with newline (new line in Safari)
-  cleanedHtml = cleanedHtml.replace(/<div><br([^>]*)?><\/div>/g, '\n');
+  // cleanedHtml = cleanedHtml.replace(/<div><br([^>]*)?><\/div>/g, '\n');
   // Replace <br> with newline
   cleanedHtml = cleanedHtml.replace(/<br([^>]*)?>/g, '\n');
 
-  // Strip redundant <div> tags
-  cleanedHtml = cleanedHtml.replace(/<\/div>(\s*)<div>/g, '\n');
+  // // Strip redundant <div> tags
+  // cleanedHtml = cleanedHtml.replace(/<\/div>(\s*)<div>/g, '\n');
   // cleanedHtml = cleanedHtml.replace(/<div>/g, '\n');
   // cleanedHtml = cleanedHtml.replace(/<\/div>/g, '');
 
@@ -47,6 +49,7 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
       document = cleanupAST(document) as DocumentNode;
       document = mergeAdjacentQuoteNodesWithNewline(document) as DocumentNode;
       document = removeInheritedFormatting(document) as DocumentNode;
+      document = unwrapDivNodes(document) as DocumentNode;
     }
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -186,7 +189,7 @@ function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
       node.type === NodeType.QUOTE
       && i + 2 < ast.children.length
       && ast.children[i + 1].type === NodeType.TEXT
-      && ast.children[i + 1].value === '\n'
+      && (ast.children[i + 1] as TextNode).value === '\n'
       && ast.children[i + 2].type === NodeType.QUOTE
     ) {
       // Merge quoteNode + "\n" + quoteNode
@@ -206,4 +209,44 @@ function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
     }
   }
   return { ...ast, children: newChildren };
+}
+
+// Unwrap <div> AST nodes: emit newline before content for normal divs, but preserve custom emoji divs
+function unwrapDivNodes(ast: DocumentNode): DocumentNode {
+  const process = (nodes: ASTNode[]): ASTNode[] => {
+    const result: ASTNode[] = [];
+    for (const node of nodes) {
+      if (
+        node.type === NodeType.HTML_TAG
+        && (node as HtmlTagNode).tagName.toLowerCase() === 'div'
+      ) {
+        const htmlTag = node as HtmlTagNode;
+        const attrs = Array.isArray(htmlTag.attributes)
+          ? (htmlTag.attributes as { key: string; value: string }[])
+          : [];
+        const entityType = attrs.find((a) => a.key === 'data-entity-type')?.value;
+        if (entityType === 'MessageEntityCustomEmoji') {
+          // Preserve custom emoji div
+          const clone: ASTNode = {
+            ...node,
+            children: htmlTag.children ? process(htmlTag.children) : [],
+          };
+          result.push(clone);
+        } else {
+          // Unwrap normal div: emit newline and recurse
+          result.push({ type: NodeType.TEXT, value: '\n' } as TextNode);
+          result.push(...process(htmlTag.children || []));
+        }
+      } else if (node.children) {
+        // Recurse into other nodes, preserving wrappers
+        const clone: ASTNode = { ...node, children: process(node.children) };
+        result.push(clone);
+      } else {
+        // Leaf node
+        result.push(node);
+      }
+    }
+    return result;
+  };
+  return { ...ast, children: process(ast.children) };
 }
