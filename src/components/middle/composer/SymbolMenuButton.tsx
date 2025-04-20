@@ -1,12 +1,14 @@
-import type { FC } from '../../../lib/teact/teact';
+import type { FC, TeactNode } from '../../../lib/teact/teact';
 import React, { memo, useRef, useState } from '../../../lib/teact/teact';
 import { getActions } from '../../../global';
 
 import type { ApiSticker, ApiVideo } from '../../../api/types';
 import type { IAnchorPosition, ThreadId } from '../../../types';
+import type { IconName } from '../../../types/icons';
 
 import { EDITABLE_INPUT_CSS_SELECTOR, EDITABLE_INPUT_MODAL_CSS_SELECTOR } from '../../../config';
 import buildClassName from '../../../util/buildClassName';
+import { REM } from '../../common/helpers/mediaDimensions';
 
 import useFlag from '../../../hooks/useFlag';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -32,6 +34,7 @@ type OwnProps = {
   forceDarkTheme?: boolean;
   openSymbolMenu: VoidFunction;
   closeSymbolMenu: VoidFunction;
+  onSvgIconSelect?: (svgIcon: IconName) => void;
   onCustomEmojiSelect: (emoji: ApiSticker) => void;
   onStickerSelect?: (
     sticker: ApiSticker,
@@ -50,7 +53,11 @@ type OwnProps = {
   canSendPlainText?: boolean;
   className?: string;
   inputCssSelector?: string;
+  icon?: TeactNode;
+  isFolderIconMenu?: boolean;
 };
+
+const FOLDER_ICON_MENU_Y_OFFSET = -3.5 * REM;
 
 const SymbolMenuButton: FC<OwnProps> = ({
   chatId,
@@ -68,8 +75,11 @@ const SymbolMenuButton: FC<OwnProps> = ({
   className,
   forceDarkTheme,
   inputCssSelector = EDITABLE_INPUT_CSS_SELECTOR,
+  icon,
+  isFolderIconMenu,
   openSymbolMenu,
   closeSymbolMenu,
+  onSvgIconSelect,
   onCustomEmojiSelect,
   onStickerSelect,
   onGifSelect,
@@ -106,7 +116,7 @@ const SymbolMenuButton: FC<OwnProps> = ({
     const triggerEl = triggerRef.current;
     if (!triggerEl) return;
     const { x, y } = triggerEl.getBoundingClientRect();
-    setContextMenuAnchor({ x, y });
+    setContextMenuAnchor({ x, y: isFolderIconMenu ? y + FOLDER_ICON_MENU_Y_OFFSET : y });
   });
 
   const handleSearchOpen = useLastCallback((type: 'stickers' | 'gifs') => {
@@ -151,7 +161,7 @@ const SymbolMenuButton: FC<OwnProps> = ({
           onClick={isSymbolMenuOpen ? closeSymbolMenu : handleSymbolMenuOpen}
           ariaLabel="Choose emoji, sticker or GIF"
         >
-          <Icon name="smile" />
+          {icon ?? <Icon name="smile" />}
           <Icon name="keyboard" />
           {isSymbolMenuOpen && !isSymbolMenuLoaded && <Spinner color="gray" />}
         </Button>
@@ -164,7 +174,7 @@ const SymbolMenuButton: FC<OwnProps> = ({
           ariaLabel="Choose emoji, sticker or GIF"
         >
           <div ref={triggerRef} className="symbol-menu-trigger" />
-          <Icon name="smile" />
+          {icon ?? <Icon name="smile" />}
         </ResponsiveHoverButton>
       )}
 
@@ -178,6 +188,7 @@ const SymbolMenuButton: FC<OwnProps> = ({
         idPrefix={idPrefix}
         onLoad={onSymbolMenuLoadingComplete}
         onClose={closeSymbolMenu}
+        onSvgIconSelect={onSvgIconSelect}
         onEmojiSelect={onEmojiSelect}
         onStickerSelect={onStickerSelect}
         onCustomEmojiSelect={onCustomEmojiSelect}
@@ -189,11 +200,12 @@ const SymbolMenuButton: FC<OwnProps> = ({
         isAttachmentModal={isAttachmentModal}
         canSendPlainText={canSendPlainText}
         className={buildClassName(className, forceDarkTheme && 'component-theme-dark')}
-        anchor={isAttachmentModal ? contextMenuAnchor : undefined}
-        getTriggerElement={isAttachmentModal ? getTriggerElement : undefined}
-        getRootElement={isAttachmentModal ? getRootElement : undefined}
-        getMenuElement={isAttachmentModal ? getMenuElement : undefined}
-        getLayout={isAttachmentModal ? getLayout : undefined}
+        anchor={isAttachmentModal || isFolderIconMenu ? contextMenuAnchor : undefined}
+        getTriggerElement={isAttachmentModal || isFolderIconMenu ? getTriggerElement : undefined}
+        getRootElement={isAttachmentModal || isFolderIconMenu ? getRootElement : undefined}
+        getMenuElement={isAttachmentModal || isFolderIconMenu ? getMenuElement : undefined}
+        getLayout={isAttachmentModal || isFolderIconMenu ? getLayout : undefined}
+        isFolderIconMenu={isFolderIconMenu}
       />
     </>
   );

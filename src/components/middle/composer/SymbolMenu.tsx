@@ -7,6 +7,7 @@ import { withGlobal } from '../../../global';
 import type { ApiSticker, ApiVideo } from '../../../api/types';
 import type { GlobalActions } from '../../../global';
 import type { ThreadId } from '../../../types';
+import type { IconName } from '../../../types/icons';
 import type { MenuPositionOptions } from '../../ui/Menu';
 
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
@@ -45,6 +46,7 @@ export type OwnProps = {
   idPrefix: string;
   onLoad: () => void;
   onClose: () => void;
+  onSvgIconSelect?: (svgIcon: IconName) => void;
   onEmojiSelect: (emoji: string) => void;
   onCustomEmojiSelect: (emoji: ApiSticker) => void;
   onStickerSelect?: (
@@ -62,6 +64,7 @@ export type OwnProps = {
   className?: string;
   isAttachmentModal?: boolean;
   canSendPlainText?: boolean;
+  isFolderIconMenu?: boolean;
 }
 & MenuPositionOptions;
 
@@ -85,8 +88,10 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
   canSendPlainText,
   className,
   isBackgroundTranslucent,
+  isFolderIconMenu,
   onLoad,
   onClose,
+  onSvgIconSelect,
   onEmojiSelect,
   onCustomEmojiSelect,
   onStickerSelect,
@@ -198,11 +203,13 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
       case SymbolMenuTabs.Emoji:
         return (
           <CombinedEmojiPicker
+            withSvgIconSet={isFolderIconMenu}
             className="picker-tab"
             isHidden={!isOpen || !isActive}
             idPrefix={idPrefix}
             loadAndPlay={isOpen && (isActive || isFrom)}
             chatId={chatId}
+            onSvgIconSelect={onSvgIconSelect}
             onEmojiSelect={handleEmojiSelect}
             onCustomEmojiSelect={handleCustomEmojiSelect}
           />
@@ -312,7 +319,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
     <Menu
       isOpen={isOpen}
       onClose={onClose}
-      withPortal={isAttachmentModal}
+      withPortal={isAttachmentModal || isFolderIconMenu}
       className={buildClassName('SymbolMenu', className)}
       onCloseAnimationEnd={onClose}
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
@@ -320,7 +327,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
       noCloseOnBackdrop={!IS_TOUCH_ENV}
       noCompact
       // eslint-disable-next-line react/jsx-props-no-spreading
-      {...(isAttachmentModal ? menuPositionOptions : {
+      {...(isAttachmentModal || isFolderIconMenu ? menuPositionOptions : {
         positionX: 'left',
         positionY: 'bottom',
       })}
