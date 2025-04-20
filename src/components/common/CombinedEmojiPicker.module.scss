@@ -7,6 +7,10 @@
   :global(.symbol-set-container) {
     --symbol-set-gap-size: 0.625rem;
   }
+
+  .searchContainer {
+    margin-bottom: 0.5rem;
+  }
 }
 
 .header {
