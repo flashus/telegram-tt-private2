@@ -28,7 +28,7 @@ import {
 } from '../../../util/windowEnvironment';
 import renderText from '../../common/helpers/renderText';
 import { blockQuoteAllowedTags, sanitizeHTML } from './helpers/cleanHtml';
-import { getExpectedParentElementRecursive, isQuoteEnd, isSelectionInsideInput } from './helpers/selection';
+import { getExpectedParentElementRecursive, isDeepBlockquoteEnd, isSelectionInsideInput } from './helpers/selection';
 
 import useAppLayout from '../../../hooks/useAppLayout';
 import useDerivedState from '../../../hooks/useDerivedState';
@@ -486,7 +486,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
           || !(nextOuterElement instanceof HTMLElement)
           || nextOuterElement.tagName !== blockquoteTag)
       ) {
-        const isAtQuoteEnd = isQuoteEnd(selectionRange, parentElement);
+        const isAtQuoteEnd = isDeepBlockquoteEnd(selectionRange, parentElement);
         if (isAtQuoteEnd) {
           e.preventDefault();
           const content = nextOuterElement instanceof HTMLElement
@@ -515,17 +515,24 @@ const MessageInput: FC<OwnProps & StateProps> = ({
       }
       const range = selection.getRangeAt(0);
 
-      const isAtQuoteEnd = isQuoteEnd(range, blockquote);
+      // Determine if at deep quote end (handles nested tags)
+      const isAtQuoteEnd = isDeepBlockquoteEnd(range, blockquote);
+      const blockEndRange = document.createRange();
+      blockEndRange.selectNodeContents(blockquote);
+      blockEndRange.collapse(false);
+      const isAtBlockquoteContentEnd = range.compareBoundaryPoints(Range.END_TO_END, blockEndRange) >= 0;
       const isAfterBlockquoteComponent = range.endContainer?.parentElement === blockquote?.parentElement?.parentElement;
       const isAfterBlockquoteElement = range.endContainer?.parentElement === blockquote?.parentElement;
-      if (!(isAtQuoteEnd || isAfterBlockquoteComponent || isAfterBlockquoteElement)) {
+      if (!(isAtQuoteEnd || isAtBlockquoteContentEnd || isAfterBlockquoteComponent || isAfterBlockquoteElement)) {
         return;
       }
 
       e.preventDefault();
-
-      if (isAtQuoteEnd) {
+      // Insert newline: exit quote if at end-of-blockquote, else stay inside
+      if (isAtQuoteEnd || isAtBlockquoteContentEnd) {
         range.setEndAfter(blockquote);
+      } else {
+        range.collapse(false);
       }
       insertHtmlInSelection('\n');
     }
