@@ -61,17 +61,17 @@
   .symbolSetButton {
     display: inline-grid;
     vertical-align: middle;
-  
+
     width: 2.25rem !important;
     height: 2.25rem;
     margin: 0.375rem 0.125rem !important;
     padding: 0;
     border-radius: 50%;
-  
+
     &.activated {
       color: var(--color-text-lighter);
       background-color: var(--color-interactive-element-hover);
-  
+
       :global(.theme-dark) & {
         --color-text-lighter: var(--color-text);
       }

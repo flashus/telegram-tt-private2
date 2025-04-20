@@ -41,7 +41,7 @@
 
     overflow-x: auto;
     overflow-y: hidden;
-  
+
     scrollbar-width: none;
     scrollbar-color: rgba(0, 0, 0, 0);
   }
@@ -86,19 +86,19 @@
       .emoji-group-button {
         display: inline-grid;
         vertical-align: middle;
-      
+
         width: 1.875rem !important;
         height: 1.875rem;
         margin: 0.125rem 0.125rem !important;
         padding: 0;
         border-radius: 50%;
-    
+
         .icon {
           font-size: 1.875rem;
           margin-top: -0.25rem;
           color: rgba(var(--color-text-secondary-rgb), 0.5);
         }
-      
+
         &.activated {
           background-color: var(--color-interactive-element-hover);
           color: var(--color-text-secondary);
@@ -108,15 +108,15 @@
           }
         }
       }
-    
+
       &::-webkit-scrollbar {
         height: 0;
       }
-    
+
       &::-webkit-scrollbar-thumb {
         background-color: rgba(0, 0, 0, 0);
       }
-    
+
       // Spacer to counter last button margin not being accounted in scroll width
       &::after {
         content: "";
