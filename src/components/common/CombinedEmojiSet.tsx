@@ -345,6 +345,24 @@ const CombinedEmojiSet: FC<OwnProps & StateProps> = ({
             />
           );
         })}
+        {shouldRender && set.emojis?.map((name) => {
+          const emoji = allEmojis[name];
+          // Recent emojis may contain emoticons that are no longer in the list
+          if (!emoji) {
+            return undefined;
+          }
+          // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+          // For now, we select only the first emoji with 'neutral' skin.
+          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+
+          return (
+            <EmojiButton
+              key={displayedEmoji.id}
+              emoji={displayedEmoji}
+              onClick={onEmojiSelect}
+            />
+          );
+        })}
         {shouldRender && set.stickers?.slice(0, isCut ? itemsBeforeCutout : set.stickers.length)
           .map((sticker, i) => {
             const isHqEmoji = (isRecent || isFavorite)
@@ -391,24 +409,6 @@ const CombinedEmojiSet: FC<OwnProps & StateProps> = ({
               />
             );
           })}
-        {shouldRender && set.emojis?.map((name) => {
-          const emoji = allEmojis[name];
-          // Recent emojis may contain emoticons that are no longer in the list
-          if (!emoji) {
-            return undefined;
-          }
-          // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
-          // For now, we select only the first emoji with 'neutral' skin.
-          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
-
-          return (
-            <EmojiButton
-              key={displayedEmoji.id}
-              emoji={displayedEmoji}
-              onClick={onEmojiSelect}
-            />
-          );
-        })}
         {isCut && totalItemsCount > itemsBeforeCutout && (
           <Button
             className="StickerButton custom-emoji set-expand"

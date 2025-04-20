@@ -9,11 +9,14 @@ import type {
   ApiAvailableReaction, ApiEmojiStatusType, ApiReaction, ApiReactionWithPaid, ApiSticker, ApiStickerSet,
 } from '../../api/types';
 import type { StickerSetOrReactionsSetOrRecent } from '../../types';
+import type { IconName } from '../../types/icons';
 import type {
   EmojiData,
   EmojiModule,
   EmojiRawData,
 } from '../../util/emoji/emoji';
+import type { TSvgIconSet } from '../middle/composer/SvgIconSet';
+import type { EmojiGroupIconName } from './SymbolSearch';
 
 import {
   FAVORITE_SYMBOL_SET_ID,
@@ -33,6 +36,7 @@ import {
 } from '../../global/selectors';
 import animateHorizontalScroll from '../../util/animateHorizontalScroll';
 import buildClassName from '../../util/buildClassName';
+import { EMOTICON_TO_ICON_NAME_MAP } from '../../util/chatFolder';
 import { uncompressEmoji } from '../../util/emoji/emoji';
 import { pickTruthy } from '../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -41,7 +45,7 @@ import { REM } from './helpers/mediaDimensions';
 
 import useAppLayout from '../../hooks/useAppLayout';
 import useDebouncedCallback from '../../hooks/useDebouncedCallback';
-import useHorizontalScroll from '../../hooks/useHorizontalScroll';
+import { useChildHorizontalScroll } from '../../hooks/useHorizontalScroll';
 import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
 import usePrevDuringAnimation from '../../hooks/usePrevDuringAnimation';
@@ -52,6 +56,7 @@ import { useStickerPickerObservers } from './hooks/useStickerPickerObservers';
 
 import EmojiCategory from '../middle/composer/EmojiCategory';
 import StickerSetCover from '../middle/composer/StickerSetCover';
+import SvgIconSet from '../middle/composer/SvgIconSet';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 import CombinedEmojiSet from './CombinedEmojiSet';
@@ -59,12 +64,13 @@ import EmojiCategoryCovers from './EmojiCategoryCovers';
 import Icon from './icons/Icon';
 import StickerButton from './StickerButton';
 import StickerSet from './StickerSet';
-import SymbolSearch from './SymbolSearch';
+import SymbolSearch, { MSG_EMOJI_GROUPS } from './SymbolSearch';
 
 import pickerStyles from '../middle/composer/StickerPicker.module.scss';
 import styles from './CombinedEmojiPicker.module.scss';
 
 type OwnProps = {
+  withSvgIconSet?: boolean;
   className?: string;
   chatId?: string;
   pickerListClassName?: string;
@@ -76,6 +82,7 @@ type OwnProps = {
   isStatusPicker?: boolean;
   isReactionPicker?: boolean;
   isTranslucent?: boolean;
+  onSvgIconSelect?: (svgIcon: IconName) => void;
   onEmojiSelect: (emoji: string, name: string) => void;
   onCustomEmojiSelect: (sticker: ApiSticker) => void;
   onReactionSelect?: (reaction: ApiReactionWithPaid) => void;
@@ -112,12 +119,14 @@ export type CombinedEmojiSetData = StickerSetOrReactionsSetOrRecent & {
 };
 
 enum EmojiSetType {
+  SvgIcon,
   Combined,
   Emoji,
   CustomEmoji,
 }
 
 type EmojiSet =
+| { data: TSvgIconSet; type: EmojiSetType.SvgIcon }
 | { data: EmojiCategory; type: EmojiSetType.Emoji }
 | { data: CombinedEmojiSetData; type: EmojiSetType.Combined }
 | { data: ApiStickerSet | StickerSetOrReactionsSetOrRecent; type: EmojiSetType.CustomEmoji };
@@ -142,11 +151,20 @@ const STICKER_SET_IDS_WITH_COVER = new Set([
   POPULAR_SYMBOL_SET_ID,
 ]);
 
+const LEADING_EMOJI_REGEXP = /^(\p{Emoji}\uFE0F|\p{Emoji_Presentation})/gu;
+
+const SVG_ICONS_SET: TSvgIconSet = {
+  id: 'icons',
+  name: 'Icons',
+  icons: Object.values(EMOTICON_TO_ICON_NAME_MAP),
+};
+
 let emojiDataPromise: Promise<EmojiModule>;
 let emojiRawData: EmojiRawData;
 let emojiData: EmojiData;
 
 const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
+  withSvgIconSet,
   className,
   recentEmojis,
   pickerListClassName,
@@ -176,6 +194,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   defaultStatusIconsId,
   defaultTagReactions,
   isWithPaidReaction,
+  onSvgIconSelect,
   onEmojiSelect,
   onCustomEmojiSelect,
   onReactionSelect,
@@ -192,8 +211,11 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const sharedCanvasRef = useRef<HTMLCanvasElement>(null);
   // eslint-disable-next-line no-null/no-null
   const sharedCanvasHqRef = useRef<HTMLCanvasElement>(null);
+  // eslint-disable-next-line no-null/no-null
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [groupSearchQueryKey, setGroupSearchQueryKey] = useState<EmojiGroupIconName | undefined>();
 
   const [categories, setCategories] = useState<EmojiCategory[]>();
   const [emojis, setEmojis] = useState<AllEmojis>();
@@ -202,8 +224,6 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     handleScroll: handleContentScroll,
     isAtBeginning: shouldHideTopBorder,
   } = useScrolledState();
-
-  // const [emojiSets, setEmojiSets] = useState<EmojiSet[]>();
 
   const recentCustomEmojis = useMemo(() => {
     return isStatusPicker
@@ -271,6 +291,13 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
     const sets: EmojiSet[] = [];
 
+    if (withSvgIconSet) {
+      sets.push({
+        data: SVG_ICONS_SET,
+        type: EmojiSetType.SvgIcon,
+      });
+    }
+
     if (recentEmojiSet.data.count > 0) {
       sets.push(recentEmojiSet);
     }
@@ -290,7 +317,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     }
 
     return sets;
-  }, [recentEmojiSet, allCustomEmojiSets, categories]);
+  }, [recentEmojiSet, allCustomEmojiSets, categories, withSvgIconSet]);
 
   const haveRecentEmojiSet = recentEmojiSet.data.count > 0;
   const categoriesActive = categories && activeSetIndex >= (haveRecentEmojiSet ? 1 : 0)
@@ -342,6 +369,8 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     areAddedLoaded
     && allSets.filter((set) => {
       switch (set.type) {
+        case EmojiSetType.SvgIcon:
+          return set.data.icons?.length;
         case EmojiSetType.Emoji:
           return set.data.emojis?.length;
         case EmojiSetType.CustomEmoji:
@@ -357,28 +386,70 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   const canRenderContent = useAsyncRendering([], SLIDE_TRANSITION_DURATION);
   const shouldRenderContent = areAddedLoaded && canRenderContent && !noPopulatedSets && emojis;
 
-  useHorizontalScroll(headerRef, isMobile || !shouldRenderContent || categoriesActive);
+  useChildHorizontalScroll(headerRef, canvasContainerRef, isMobile || !shouldRenderContent, !categoriesActive);
 
   const filteredEmojiSet = useMemo<EmojiSet | undefined>(() => {
-    if (!searchQuery) {
+    if (!searchQuery && !groupSearchQueryKey) {
       return undefined;
     }
-    let filteredEmojis: string[] = [];
+    const filteredEmojis: string[] = [];
     const filteredCustomEmojis: ApiSticker[] = [];
 
-    if (categories?.length && emojis) {
-      for (const category of (categories ?? [])) {
-        filteredEmojis = filteredEmojis.concat(category.emojis.filter((name) => {
-          const emoji = emojis[name];
-          // Recent emojis may contain emoticons that are no longer in the list
-          if (!emoji) {
-            return false;
-          }
-          // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
-          // For now, we select only the first emoji with 'neutral' skin.
+    if (searchQuery) {
+      const leadingEmoji = searchQuery.match(LEADING_EMOJI_REGEXP)?.[0];
+
+      if (leadingEmoji && emojis) {
+        Object.values(emojis).forEach((emoji) => {
+        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+        // For now, we select only the first emoji with 'neutral' skin.
           const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
-          return displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery));
-        }));
+          if (displayedEmoji.native === leadingEmoji) {
+            filteredEmojis.push(displayedEmoji.id);
+          }
+        });
+
+        for (const set of allCustomEmojiSets) {
+          const { stickers } = set;
+          if (!stickers) {
+            continue;
+          }
+          for (const sticker of stickers) {
+            if (sticker.emoji === leadingEmoji) {
+              filteredCustomEmojis.push(sticker);
+            }
+          }
+        }
+      } else if (emojis) {
+        Object.values(emojis).forEach((emoji) => {
+        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+        // For now, we select only the first emoji with 'neutral' skin.
+          const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+          if (displayedEmoji.names.some((emojiName) => emojiName.includes(searchQuery))) {
+            filteredEmojis.push(displayedEmoji.id);
+          }
+        });
+      }
+    } else if (groupSearchQueryKey && emojis) {
+      const foundGroup: string[] = MSG_EMOJI_GROUPS.find((group) => group.id === groupSearchQueryKey)?.emojis ?? [];
+      Object.values(emojis).forEach((emoji) => {
+        // Some emojis have multiple skins and are represented as an Object with emojis for all skins.
+        // For now, we select only the first emoji with 'neutral' skin.
+        const displayedEmoji = 'id' in emoji ? emoji : emoji[1];
+        if (foundGroup.includes(displayedEmoji.native)) {
+          filteredEmojis.push(displayedEmoji.id);
+        }
+      });
+
+      for (const set of allCustomEmojiSets) {
+        const { stickers } = set;
+        if (!stickers) {
+          continue;
+        }
+        for (const sticker of stickers) {
+          if (sticker.emoji && foundGroup.includes(sticker.emoji)) {
+            filteredCustomEmojis.push(sticker);
+          }
+        }
       }
     }
 
@@ -394,7 +465,11 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
       },
       type: EmojiSetType.Combined,
     };
-  }, [searchQuery, categories, emojis]);
+  }, [searchQuery, groupSearchQueryKey, allCustomEmojiSets, emojis]);
+
+  const handleSvgIconSelect = useLastCallback((icon: IconName) => {
+    onSvgIconSelect?.(icon);
+  });
 
   const handleEmojiSelect = useLastCallback((emoji: string, name: string) => {
     onEmojiSelect(emoji, name);
@@ -404,14 +479,32 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     onCustomEmojiSelect(emoji);
   });
 
-  const handleSearchInputReset = useCallback(() => {
+  const handleSearchReset = useCallback(() => {
     setSearchQuery('');
+    setGroupSearchQueryKey(undefined);
   }, []);
 
   const handleSearchQueryChange = useDebouncedCallback((value: string) => {
     const newQuery = value.slice(0, MAX_EMOJI_QUERY_LENGTH);
+    setGroupSearchQueryKey(undefined);
     setSearchQuery(newQuery.toLowerCase());
   }, [], 300, true);
+
+  const handleGroupSearchQueryChange = useCallback((value: EmojiGroupIconName) => {
+    setSearchQuery('');
+    setGroupSearchQueryKey(value);
+  }, []);
+
+  const handleSelectStickerSet = useLastCallback((index: number) => {
+    if (searchQuery || groupSearchQueryKey) {
+      handleSearchReset();
+      requestAnimationFrame(() => {
+        selectStickerSet(index);
+      });
+      return;
+    }
+    selectStickerSet(index);
+  });
 
   function renderCustomEmojiCover(stickerSet: StickerSetOrReactionsSetOrRecent, index: number) {
     const firstSticker = stickerSet.stickers?.[0];
@@ -439,7 +532,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
           faded={isFaded}
           color="translucent"
           // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => selectStickerSet(isRecent ? 0 : index)}
+          onClick={() => handleSelectStickerSet(isRecent ? 0 : index)}
         >
           {isRecent ? (
             <Icon name="recent" />
@@ -469,7 +562,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         isCurrentUserPremium
         sharedCanvasRef={withSharedCanvas ? (isHq ? sharedCanvasHqRef : sharedCanvasRef) : undefined}
         withTranslucentThumb={isTranslucent}
-        onClick={selectStickerSet}
+        onClick={handleSelectStickerSet}
         clickArg={index}
         forcePlayback
       />
@@ -478,6 +571,19 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
   function renderSet(set: EmojiSet, i: number, allEmojis: AllEmojis) {
     switch (set.type) {
+      case EmojiSetType.SvgIcon: {
+        return (
+          <SvgIconSet
+            key={set.data.id}
+            idPrefix={prefix}
+            set={set.data}
+            index={i}
+            observeIntersection={observeIntersectionForSet}
+            shouldRender={activeSetIndex >= i - 1 && activeSetIndex <= i + 1}
+            onSvgIconSelect={handleSvgIconSelect}
+          />
+        );
+      }
       case EmojiSetType.Emoji: {
         return (
           <EmojiCategory
@@ -582,8 +688,9 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     );
   }
 
-  // const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
-  const fullClassName = buildClassName('StickerPicker', styles.root, className);
+  const willSearch = searchQuery || groupSearchQueryKey;
+
+  const fullClassName = buildClassName('CombinedEmojiPicker', styles.root, className);
 
   if (!shouldRenderContent) {
     return (
@@ -604,8 +711,10 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     'shared-canvas-container',
   );
 
-  const listClassName = buildClassName(
+  const mainClassName = buildClassName(
     pickerStyles.main,
+    'combined-picker',
+    'main', // is needed in SymbolMenu for querySelector
     pickerStyles.main_customEmoji,
     IS_TOUCH_ENV ? 'no-scrollbar' : 'custom-scroll',
     pickerListClassName,
@@ -618,27 +727,29 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         ref={headerRef}
         className={headerClassName}
       >
-        <Button
-          className={buildClassName(
-            styles.symbolSetButton,
-            activeSetIndex === 0 && styles.activated,
-          )}
-          ariaLabel={oldLang('RecentStickers')}
-          round
-          faded
-          color="translucent"
-          // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => selectStickerSet(0)}
-        >
-          <Icon name="recent" />
-        </Button>
+        {recentEmojiSet.data.count > 0 && (
+          <Button
+            className={buildClassName(
+              styles.symbolSetButton,
+              activeSetIndex === 0 && styles.activated,
+            )}
+            ariaLabel={oldLang('RecentStickers')}
+            round
+            faded
+            color="translucent"
+            // eslint-disable-next-line react/jsx-no-bind
+            onClick={() => handleSelectStickerSet(0)}
+          >
+            <Icon name="recent" />
+          </Button>
+        )}
         <EmojiCategoryCovers
           activeSetIndex={activeSetIndex}
           categoriesStartIndex={haveRecentEmojiSet ? 1 : 0}
           categories={categories}
-          onSelectSet={selectStickerSet}
+          onSelectSet={handleSelectStickerSet}
         />
-        <div className={canvasContainerClassName}>
+        <div ref={canvasContainerRef} className={canvasContainerClassName}>
           <canvas ref={sharedCanvasRef} className="shared-canvas" />
           <canvas ref={sharedCanvasHqRef} className="shared-canvas" />
           {allCustomEmojiSets.map(
@@ -651,23 +762,25 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
       <div
         ref={containerRef}
         onScroll={handleContentScroll}
-        className={listClassName}
+        className={mainClassName}
       >
         <div
-          className="search-input-container"
+          className={styles.searchContainer}
         >
           <SymbolSearch
             className="search"
             value={searchQuery}
+            groupValue={groupSearchQueryKey}
             onChange={handleSearchQueryChange}
-            onReset={handleSearchInputReset}
-            // placeholder={lang('SearchEmojisHint')}
+            onGroupValueChange={handleGroupSearchQueryChange}
+            onReset={handleSearchReset}
+            // placeholder={lang('SearchEmojisHint')} // There is no usable translation yet with "Search Emoji" in english
             placeholder="Search Emoji"
           />
         </div>
-        {!searchQuery && allSets.map((set, i) => renderSet(set, i, emojis))}
-        {searchQuery && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
-        {searchQuery && !filteredEmojiSet && renderNoResults()}
+        {!willSearch && allSets.map((set, i) => renderSet(set, i, emojis))}
+        {willSearch && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
+        {willSearch && !filteredEmojiSet && renderNoResults()}
       </div>
     </div>
   );
