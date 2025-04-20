@@ -280,6 +280,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
         canSearch={isMessageComposer}
         onSearchOpen={handleSearch}
         isAttachmentModal={isAttachmentModal}
+        isFolderIconMenu={isFolderIconMenu}
         canSendPlainText={canSendPlainText}
       />
     </>
