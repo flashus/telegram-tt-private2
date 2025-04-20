@@ -556,6 +556,32 @@ describe('Parse Edges4', () => {
     expect(htmlOutput).toBe(result);
   });
 
+  // <blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">das *bold quote**</blockquote>&gt;now we add to it
+  it('MD->AST blockquote with > added to bold node, proper ** case', () => {
+    const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">das **bold quote**</blockquote>>now we add to it',
+      `${makeBlockQuote('das <b>bold quote</b>\nnow we add to it')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
+  it('MD->AST blockquote with > added to bold node, complex case', () => {
+    const [inputMarkdown, result] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">das *bold quote**</blockquote>>now we add to it',
+      `${makeBlockQuote('das *bold quote**\nnow we add to it')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
+  // TODO: >word1\nword2\nword3 become single blockquote, FIX!
+  // TODO: first newline eaten up on mobile, like word1\nword2\nword3 -> word1word2\nword3
+
   it('MD->AST blockquote simple nested', () => {
     const [inputMarkdown, result] = ['>This is a quote\n>With text\n>>And a nested quote\n>Back to first level',
       `${makeBlockQuote(`This is a quote\nWith text\n${makeBlockQuote('And a nested quote')}\nBack to first level`)}\n`];

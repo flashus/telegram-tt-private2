@@ -395,8 +395,29 @@ function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boo
  *    <b>boldtxt<i>bolt_it</i></b><i>just italic</i>
  */
 export function normalizeTokens(tokens: Token[]): Token[] {
+  // Only convert singleton paired markdown markers (** __ ++ ~~ etc.) to plain text
+  const PAIR_MARKER_TYPES = new Set<TokenType>([
+    TokenType.BOLD_MARKER,
+    TokenType.ITALIC_MARKER,
+    TokenType.STRIKE_MARKER,
+    TokenType.UNDERLINE_MARKER,
+    TokenType.SPOILER_MARKER,
+    TokenType.CODE_MARKER,
+  ]);
+  const markerCounts: Partial<Record<TokenType, number>> = {};
+  tokens.forEach((tok) => {
+    if (PAIR_MARKER_TYPES.has(tok.type)) {
+      markerCounts[tok.type] = (markerCounts[tok.type] || 0) + 1;
+    }
+  });
+  const filteredTokens = tokens.map((tok) => (PAIR_MARKER_TYPES.has(tok.type) && markerCounts[tok.type] === 1
+    ? {
+      type: TokenType.TEXT, value: tok.value, start: tok.start, end: tok.end, attributes: tok.attributes,
+    }
+    : tok));
+
   // 1. Lift unpaired markdown & HTML tags from block boundaries
-  const { moved: frontMarkers, remaining: afterFront } = processBoundary([...tokens], true);
+  const { moved: frontMarkers, remaining: afterFront } = processBoundary([...filteredTokens], true);
   const { moved: backMarkers, remaining: coreTokens } = processBoundary(afterFront, false);
 
   // 2. Identify code regions within core content

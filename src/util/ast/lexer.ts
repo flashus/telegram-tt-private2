@@ -363,14 +363,14 @@ export class Lexer {
     //   2. (</blockquote>) - closing blockquote
     // Both followed by (<\w+[^>]*>) and (>)
     return input.replace(
-      /(\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)(>)/g,
+      /(\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)?(>)/g,
       (_, prefix, htmlTag, marker) => {
         if (prefix.startsWith('</blockquote>')) {
           // Add newline after </blockquote>
-          return `${prefix}\n${marker}${htmlTag}`;
+          return `${prefix}\n${marker}${htmlTag || ''}`;
         } else {
           // Normal newline case
-          return `${prefix}${marker}${htmlTag}`;
+          return `${prefix}${marker}${htmlTag || ''}`;
         }
       },
     );
