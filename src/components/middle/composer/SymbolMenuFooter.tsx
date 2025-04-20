@@ -13,7 +13,7 @@ type OwnProps = {
   activeTab: SymbolMenuTabs;
   onSwitchTab: (tab: SymbolMenuTabs) => void;
   onRemoveSymbol: () => void;
-  onSearchOpen: (type: 'stickers' | 'gifs') => void;
+  onSearchClick: () => void;
   isAttachmentModal?: boolean;
   isFolderIconMenu?: boolean;
   canSendPlainText?: boolean;
@@ -39,7 +39,7 @@ const SYMBOL_MENU_TAB_ICONS = {
 };
 
 const SymbolMenuFooter: FC<OwnProps> = ({
-  activeTab, onSwitchTab, onRemoveSymbol, onSearchOpen, isAttachmentModal,
+  activeTab, onSwitchTab, onRemoveSymbol, onSearchClick, isAttachmentModal,
   isFolderIconMenu, canSendPlainText, canSearch,
 }) => {
   const lang = useOldLang();
@@ -61,7 +61,7 @@ const SymbolMenuFooter: FC<OwnProps> = ({
   }
 
   const handleSearchOpen = useLastCallback(() => {
-    onSearchOpen(activeTab === SymbolMenuTabs.Stickers ? 'stickers' : 'gifs');
+    onSearchClick();
   });
 
   function stopPropagation(event: any) {
@@ -70,7 +70,7 @@ const SymbolMenuFooter: FC<OwnProps> = ({
 
   return (
     <div className="SymbolMenu-footer" onClick={stopPropagation} dir={lang.isRtl ? 'rtl' : undefined}>
-      {activeTab !== SymbolMenuTabs.Emoji && canSearch && (
+      {canSearch && (
         <Button
           className="symbol-search-button"
           ariaLabel={activeTab === SymbolMenuTabs.Stickers ? 'Search Stickers' : 'Search GIFs'}

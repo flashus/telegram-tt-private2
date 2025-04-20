@@ -711,8 +711,10 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     'shared-canvas-container',
   );
 
-  const listClassName = buildClassName(
+  const mainClassName = buildClassName(
     pickerStyles.main,
+    'combined-picker',
+    'main', // is needed in SymbolMenu for querySelector
     pickerStyles.main_customEmoji,
     IS_TOUCH_ENV ? 'no-scrollbar' : 'custom-scroll',
     pickerListClassName,
@@ -725,20 +727,22 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         ref={headerRef}
         className={headerClassName}
       >
-        <Button
-          className={buildClassName(
-            styles.symbolSetButton,
-            activeSetIndex === 0 && styles.activated,
-          )}
-          ariaLabel={oldLang('RecentStickers')}
-          round
-          faded
-          color="translucent"
-          // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => handleSelectStickerSet(0)}
-        >
-          <Icon name="recent" />
-        </Button>
+        {recentEmojiSet.data.count > 0 && (
+          <Button
+            className={buildClassName(
+              styles.symbolSetButton,
+              activeSetIndex === 0 && styles.activated,
+            )}
+            ariaLabel={oldLang('RecentStickers')}
+            round
+            faded
+            color="translucent"
+            // eslint-disable-next-line react/jsx-no-bind
+            onClick={() => handleSelectStickerSet(0)}
+          >
+            <Icon name="recent" />
+          </Button>
+        )}
         <EmojiCategoryCovers
           activeSetIndex={activeSetIndex}
           categoriesStartIndex={haveRecentEmojiSet ? 1 : 0}
@@ -758,7 +762,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
       <div
         ref={containerRef}
         onScroll={handleContentScroll}
-        className={listClassName}
+        className={mainClassName}
       >
         <div
           className={styles.searchContainer}

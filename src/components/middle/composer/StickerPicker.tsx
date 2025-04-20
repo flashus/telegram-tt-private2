@@ -2,11 +2,13 @@ import type { FC } from '../../../lib/teact/teact';
 import React, {
   memo, useEffect, useMemo,
   useRef,
+  useState,
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiChat, ApiSticker, ApiStickerSet } from '../../../api/types';
 import type { StickerSetOrReactionsSetOrRecent, ThreadId } from '../../../types';
+import type { EmojiGroupIconName } from '../../common/SymbolSearch';
 
 import {
   CHAT_STICKER_SET_ID,
@@ -21,14 +23,17 @@ import {
 import { isUserId } from '../../../global/helpers';
 import {
   selectChat, selectChatFullInfo, selectIsChatWithSelf, selectIsCurrentUserPremium, selectShouldLoopStickers,
+  selectTabState,
 } from '../../../global/selectors';
 import animateHorizontalScroll from '../../../util/animateHorizontalScroll';
 import buildClassName from '../../../util/buildClassName';
+import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { pickTruthy } from '../../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
 import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
 import { REM } from '../../common/helpers/mediaDimensions';
 
+import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 import useHorizontalScroll from '../../../hooks/useHorizontalScroll';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
@@ -41,6 +46,8 @@ import Avatar from '../../common/Avatar';
 import Icon from '../../common/icons/Icon';
 import StickerButton from '../../common/StickerButton';
 import StickerSet from '../../common/StickerSet';
+import SymbolSearch, { MSG_EMOJI_GROUP_TO_SEARCH_MAPPING } from '../../common/SymbolSearch';
+import StickerSearch from '../../right/StickerSearch';
 import Button from '../../ui/Button';
 import Loading from '../../ui/Loading';
 import StickerSetCover from './StickerSetCover';
@@ -75,9 +82,16 @@ type StateProps = {
   canAnimate?: boolean;
   isSavedMessages?: boolean;
   isCurrentUserPremium?: boolean;
+  stickerSearch: {
+    query?: string;
+    hash?: string;
+    resultIds?: string[];
+  };
 };
 
 const HEADER_BUTTON_WIDTH = 2.5 * REM; // px (including margin)
+
+const MAX_STICKER_QUERY_LENGTH = 30;
 
 const StickerPicker: FC<OwnProps & StateProps> = ({
   chat,
@@ -101,6 +115,7 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
   idPrefix,
   onStickerSelect,
   isForEffects,
+  stickerSearch,
 }) => {
   const {
     loadRecentStickers,
@@ -108,6 +123,7 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
     unfaveSticker,
     faveSticker,
     removeRecentSticker,
+    setStickerSearchQuery,
   } = getActions();
 
   // eslint-disable-next-line no-null/no-null
@@ -116,6 +132,8 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
   const headerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
   const sharedCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [groupSearchQueryKey, setGroupSearchQueryKey] = useState<EmojiGroupIconName | undefined>();
 
   const {
     handleScroll: handleContentScroll,
@@ -268,11 +286,36 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
     removeRecentSticker({ sticker });
   });
 
+  const handleSearchReset = useLastCallback(() => {
+    setGroupSearchQueryKey(undefined);
+    setStickerSearchQuery({});
+  });
+
+  const handleSearchQueryChange = useDebouncedCallback((value: string) => {
+    const newQuery = value.slice(0, MAX_STICKER_QUERY_LENGTH);
+    const lowercaseQuery = newQuery.toLowerCase();
+    setGroupSearchQueryKey(undefined);
+    setStickerSearchQuery({ query: lowercaseQuery });
+  }, [], 300, true);
+
+  const handleGroupSearchQueryChange = useLastCallback((value: EmojiGroupIconName) => {
+    setGroupSearchQueryKey(value);
+    setStickerSearchQuery({ query: MSG_EMOJI_GROUP_TO_SEARCH_MAPPING[value] });
+  });
+
+  const handleSelectStickerSet = (index: number) => {
+    handleSearchReset();
+    selectStickerSet(index);
+  };
+
   if (!chat) return undefined;
 
   function renderCover(stickerSet: StickerSetOrReactionsSetOrRecent, index: number) {
     const firstSticker = stickerSet.stickers?.[0];
-    const buttonClassName = buildClassName(styles.stickerCover, index === activeSetIndex && styles.activated);
+    const buttonClassName = buildClassName(
+      stickerSet.id === RECENT_SYMBOL_SET_ID ? styles.symbolSetButton : styles.stickerCover,
+      index === activeSetIndex && styles.activated,
+    );
     const withSharedCanvas = index < STICKER_PICKER_MAX_SHARED_COVERS;
 
     if (stickerSet.id === RECENT_SYMBOL_SET_ID
@@ -290,7 +333,7 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
           faded={stickerSet.id === RECENT_SYMBOL_SET_ID || stickerSet.id === FAVORITE_SYMBOL_SET_ID}
           color="translucent"
           // eslint-disable-next-line react/jsx-no-bind
-          onClick={() => selectStickerSet(index)}
+          onClick={() => handleSelectStickerSet(index)}
         >
           {stickerSet.id === RECENT_SYMBOL_SET_ID ? (
             <Icon name="recent" />
@@ -347,6 +390,14 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
     );
   }
 
+  const mainClassName = buildClassName(
+    styles.main,
+    'sticker-picker',
+    'main', // is needed in SymbolMenu for querySelector
+    IS_TOUCH_ENV ? 'no-scrollbar' : 'custom-scroll',
+    !isForEffects && styles.hasHeader,
+  );
+
   const headerClassName = buildClassName(
     styles.header,
     'no-scrollbar',
@@ -367,15 +418,25 @@ const StickerPicker: FC<OwnProps & StateProps> = ({
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onScroll={handleContentScroll}
-        className={
-          buildClassName(
-            styles.main,
-            IS_TOUCH_ENV ? 'no-scrollbar' : 'custom-scroll',
-            !isForEffects && styles.hasHeader,
-          )
-        }
+        className={mainClassName}
       >
-        {allSets.map((stickerSet, i) => (
+        <div
+          className={styles.searchContainer}
+        >
+          <SymbolSearch
+            className="search"
+            value={!groupSearchQueryKey ? stickerSearch.query : ''}
+            groupValue={groupSearchQueryKey}
+            onChange={handleSearchQueryChange}
+            onGroupValueChange={handleGroupSearchQueryChange}
+            onReset={handleSearchReset}
+            placeholder={lang('SearchStickersHint')}
+          />
+        </div>
+        {stickerSearch.query && (
+          <StickerSearch />
+        )}
+        {!stickerSearch.query && allSets.map((stickerSet, i) => (
           <StickerSet
             key={stickerSet.id}
             stickerSet={stickerSet}
@@ -419,6 +480,10 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId);
     const chatStickerSetId = !isUserId(chatId) ? selectChatFullInfo(global, chatId)?.stickerSet?.id : undefined;
 
+    const tabState = selectTabState(global, getCurrentTabId());
+
+    // const { featured } = global.stickers;
+
     return {
       chat,
       effectStickers: effect?.stickers,
@@ -431,6 +496,8 @@ export default memo(withGlobal<OwnProps>(
       isSavedMessages,
       isCurrentUserPremium: selectIsCurrentUserPremium(global),
       chatStickerSetId,
+      stickerSearch: tabState.stickerSearch,
+      // featuredSetIds: featured.setIds,
     };
   },
 )(StickerPicker));

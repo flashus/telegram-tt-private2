@@ -105,6 +105,32 @@ export const MSG_EMOJI_GROUPS: { id: EmojiGroupIconName; emojis: string[] }[] = 
   },
 ];
 
+export const MSG_EMOJI_GROUP_TO_SEARCH_MAPPING: Record<EmojiGroupIconName, string> = {
+  msg_emoji_heart: 'heart',
+  msg_emoji_like: 'like',
+  msg_emoji_dislike: 'dislike',
+  msg_emoji_party: 'party',
+  msg_emoji_haha: 'haha',
+  msg_emoji_omg: 'omg',
+  msg_emoji_sad: 'sad',
+  msg_emoji_angry: 'angry',
+  msg_emoji_neutral: 'neutral',
+  msg_emoji_what: 'what',
+  msg_emoji_tongue: 'tongue',
+  msg_emoji_vacation3: 'vacation',
+  msg_emoji_activities2: 'activities',
+  msg_emoji_away: 'away',
+  msg_emoji_bath: 'bath',
+  msg_emoji_busy: 'busy',
+  msg_emoji_food: 'food',
+  msg_emoji_happy: 'happy',
+  msg_emoji_hi2: 'hi',
+  msg_emoji_home: 'home',
+  msg_emoji_sleep: 'sleep',
+  msg_emoji_study: 'study',
+  msg_emoji_work: 'work',
+};
+
 const MSG_EMOJI_GROUP_BUTTON_WIDTH = 2.125 * REM; // Includes margins
 const SEARCH_HALF_WIDTH = 9 * REM;
 

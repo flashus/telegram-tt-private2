@@ -43,7 +43,6 @@ import ConfirmDialog from '../ui/ConfirmDialog';
 import DropdownMenu from '../ui/DropdownMenu';
 import MenuItem from '../ui/MenuItem';
 import MenuSeparator from '../ui/MenuSeparator';
-import SearchInput from '../ui/SearchInput';
 import Transition from '../ui/Transition';
 
 import './RightHeader.scss';
@@ -123,8 +122,6 @@ enum HeaderContent {
   ManageGroupNewAdminRights,
   ManageGroupMembers,
   ManageGroupAddAdmins,
-  StickerSearch,
-  GifSearch,
   PollResults,
   AddingMembers,
   ManageInvites,
@@ -148,8 +145,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
   isStoryStatistics,
   isMonetizationStatistics,
   isBoostStatistics,
-  isStickerSearch,
-  isGifSearch,
   isPollResults,
   isCreatingTopic,
   isEditingTopic,
@@ -161,8 +156,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
   isSelf,
   canManage,
   isChannel,
-  stickerSearchQuery,
-  gifSearchQuery,
   isEditingInvite,
   canViewStatistics,
   currentInviteInfo,
@@ -179,8 +172,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
   canUseGiftAdminFilter,
 }) => {
   const {
-    setStickerSearchQuery,
-    setGifSearchQuery,
     toggleManagement,
     openAddContactDialog,
     toggleStatistics,
@@ -213,14 +204,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
     deleteExportedChatInvite({ chatId: chatId!, link: currentInviteInfo!.link });
     onScreenSelect(ManagementScreens.Invites);
     closeDeleteDialog();
-  });
-
-  const handleStickerSearchQueryChange = useLastCallback((query: string) => {
-    setStickerSearchQuery({ query });
-  });
-
-  const handleGifSearchQueryChange = useLastCallback((query: string) => {
-    setGifSearchQuery({ query });
   });
 
   const handleAddContact = useLastCallback(() => {
@@ -270,10 +253,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
     ) : -1 // Never reached
   ) : isPollResults ? (
     HeaderContent.PollResults
-  ) : isStickerSearch ? (
-    HeaderContent.StickerSearch
-  ) : isGifSearch ? (
-    HeaderContent.GifSearch
   ) : isAddingChatMembers ? (
     HeaderContent.AddingMembers
   ) : isManagement ? (
@@ -455,24 +434,6 @@ const RightHeader: FC<OwnProps & StateProps> = ({
         return <h3 className="title">{isChannel ? oldLang('SubscribeRequests') : oldLang('MemberRequests')}</h3>;
       case HeaderContent.ManageGroupAddAdmins:
         return <h3 className="title">{oldLang('Channel.Management.AddModerator')}</h3>;
-      case HeaderContent.StickerSearch:
-        return (
-          <SearchInput
-            value={stickerSearchQuery}
-            placeholder={oldLang('SearchStickersHint')}
-            autoFocusSearch
-            onChange={handleStickerSearchQueryChange}
-          />
-        );
-      case HeaderContent.GifSearch:
-        return (
-          <SearchInput
-            value={gifSearchQuery}
-            placeholder={oldLang('SearchGifsTitle')}
-            autoFocusSearch
-            onChange={handleGifSearchQueryChange}
-          />
-        );
       case HeaderContent.Statistics:
         return <h3 className="title">{oldLang(isChannel ? 'ChannelStats.Title' : 'GroupStats.Title')}</h3>;
       case HeaderContent.MessageStatistics:
