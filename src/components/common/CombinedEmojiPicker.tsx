@@ -9,11 +9,13 @@ import type {
   ApiAvailableReaction, ApiEmojiStatusType, ApiReaction, ApiReactionWithPaid, ApiSticker, ApiStickerSet,
 } from '../../api/types';
 import type { StickerSetOrReactionsSetOrRecent } from '../../types';
+import type { IconName } from '../../types/icons';
 import type {
   EmojiData,
   EmojiModule,
   EmojiRawData,
 } from '../../util/emoji/emoji';
+import type { TSvgIconSet } from '../middle/composer/SvgIconSet';
 import type { EmojiGroupIconName } from './SymbolSearch';
 
 import {
@@ -34,6 +36,7 @@ import {
 } from '../../global/selectors';
 import animateHorizontalScroll from '../../util/animateHorizontalScroll';
 import buildClassName from '../../util/buildClassName';
+import { EMOTICON_TO_ICON_NAME_MAP } from '../../util/chatFolder';
 import { uncompressEmoji } from '../../util/emoji/emoji';
 import { pickTruthy } from '../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -53,6 +56,7 @@ import { useStickerPickerObservers } from './hooks/useStickerPickerObservers';
 
 import EmojiCategory from '../middle/composer/EmojiCategory';
 import StickerSetCover from '../middle/composer/StickerSetCover';
+import SvgIconSet from '../middle/composer/SvgIconSet';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 import CombinedEmojiSet from './CombinedEmojiSet';
@@ -66,6 +70,7 @@ import pickerStyles from '../middle/composer/StickerPicker.module.scss';
 import styles from './CombinedEmojiPicker.module.scss';
 
 type OwnProps = {
+  withSvgIconSet?: boolean;
   className?: string;
   chatId?: string;
   pickerListClassName?: string;
@@ -77,6 +82,7 @@ type OwnProps = {
   isStatusPicker?: boolean;
   isReactionPicker?: boolean;
   isTranslucent?: boolean;
+  onSvgIconSelect?: (svgIcon: IconName) => void;
   onEmojiSelect: (emoji: string, name: string) => void;
   onCustomEmojiSelect: (sticker: ApiSticker) => void;
   onReactionSelect?: (reaction: ApiReactionWithPaid) => void;
@@ -113,12 +119,14 @@ export type CombinedEmojiSetData = StickerSetOrReactionsSetOrRecent & {
 };
 
 enum EmojiSetType {
+  SvgIcon,
   Combined,
   Emoji,
   CustomEmoji,
 }
 
 type EmojiSet =
+| { data: TSvgIconSet; type: EmojiSetType.SvgIcon }
 | { data: EmojiCategory; type: EmojiSetType.Emoji }
 | { data: CombinedEmojiSetData; type: EmojiSetType.Combined }
 | { data: ApiStickerSet | StickerSetOrReactionsSetOrRecent; type: EmojiSetType.CustomEmoji };
@@ -145,11 +153,18 @@ const STICKER_SET_IDS_WITH_COVER = new Set([
 
 const LEADING_EMOJI_REGEXP = /^(\p{Emoji}\uFE0F|\p{Emoji_Presentation})/gu;
 
+const SVG_ICONS_SET: TSvgIconSet = {
+  id: 'icons',
+  name: 'Icons',
+  icons: Object.values(EMOTICON_TO_ICON_NAME_MAP),
+};
+
 let emojiDataPromise: Promise<EmojiModule>;
 let emojiRawData: EmojiRawData;
 let emojiData: EmojiData;
 
 const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
+  withSvgIconSet,
   className,
   recentEmojis,
   pickerListClassName,
@@ -179,6 +194,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
   defaultStatusIconsId,
   defaultTagReactions,
   isWithPaidReaction,
+  onSvgIconSelect,
   onEmojiSelect,
   onCustomEmojiSelect,
   onReactionSelect,
@@ -275,6 +291,13 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
     const sets: EmojiSet[] = [];
 
+    if (withSvgIconSet) {
+      sets.push({
+        data: SVG_ICONS_SET,
+        type: EmojiSetType.SvgIcon,
+      });
+    }
+
     if (recentEmojiSet.data.count > 0) {
       sets.push(recentEmojiSet);
     }
@@ -294,7 +317,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     }
 
     return sets;
-  }, [recentEmojiSet, allCustomEmojiSets, categories]);
+  }, [recentEmojiSet, allCustomEmojiSets, categories, withSvgIconSet]);
 
   const haveRecentEmojiSet = recentEmojiSet.data.count > 0;
   const categoriesActive = categories && activeSetIndex >= (haveRecentEmojiSet ? 1 : 0)
@@ -346,6 +369,8 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     areAddedLoaded
     && allSets.filter((set) => {
       switch (set.type) {
+        case EmojiSetType.SvgIcon:
+          return set.data.icons?.length;
         case EmojiSetType.Emoji:
           return set.data.emojis?.length;
         case EmojiSetType.CustomEmoji:
@@ -441,6 +466,10 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
       type: EmojiSetType.Combined,
     };
   }, [searchQuery, groupSearchQueryKey, allCustomEmojiSets, emojis]);
+
+  const handleSvgIconSelect = useLastCallback((icon: IconName) => {
+    onSvgIconSelect?.(icon);
+  });
 
   const handleEmojiSelect = useLastCallback((emoji: string, name: string) => {
     onEmojiSelect(emoji, name);
@@ -542,6 +571,19 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
   function renderSet(set: EmojiSet, i: number, allEmojis: AllEmojis) {
     switch (set.type) {
+      case EmojiSetType.SvgIcon: {
+        return (
+          <SvgIconSet
+            key={set.data.id}
+            idPrefix={prefix}
+            set={set.data}
+            index={i}
+            observeIntersection={observeIntersectionForSet}
+            shouldRender={activeSetIndex >= i - 1 && activeSetIndex <= i + 1}
+            onSvgIconSelect={handleSvgIconSelect}
+          />
+        );
+      }
       case EmojiSetType.Emoji: {
         return (
           <EmojiCategory
@@ -719,7 +761,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
         className={listClassName}
       >
         <div
-          className="search-input-container"
+          className={styles.searchContainer}
         >
           <SymbolSearch
             className="search"
