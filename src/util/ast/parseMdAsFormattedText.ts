@@ -50,6 +50,8 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
       document = mergeAdjacentQuoteNodesWithNewline(document) as DocumentNode;
       document = removeInheritedFormatting(document) as DocumentNode;
       document = unwrapDivNodes(document) as DocumentNode;
+      // Merge adjacent same-style formatting nodes (e.g. split by divs)
+      document = mergeAdjacentSameStyleNodes(document) as DocumentNode;
     }
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -149,7 +151,7 @@ function cleanupAST(node: ASTNode): ASTNode {
     const content = curr.children || [];
     let rebuilt: ASTNode[] = content;
     for (const t of unique) {
-      rebuilt = [{ type: t, children: rebuilt } as FormattingNode];
+      rebuilt = [{ type: t, children: rebuilt } as ASTNode];
     }
     return rebuilt[0];
   }
@@ -181,28 +183,40 @@ function removeInheritedFormatting(node: ASTNode, ancestors: Set<string> = new S
 
 function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
   if (!ast.children) return ast;
-  const newChildren = [];
+  const newChildren: ASTNode[] = [];
   let i = 0;
   while (i < ast.children.length) {
     const node = ast.children[i];
-    if (
-      node.type === NodeType.QUOTE
-      && i + 2 < ast.children.length
-      && ast.children[i + 1].type === NodeType.TEXT
-      && (ast.children[i + 1] as TextNode).value === '\n'
-      && ast.children[i + 2].type === NodeType.QUOTE
-    ) {
-      // Merge quoteNode + "\n" + quoteNode
-      const mergedQuoteNode = {
-        ...node,
-        children: [
-          ...(node.children || []),
-          ast.children[i + 1], // the newline text node
-          ...(ast.children[i + 2].children || []),
-        ],
-      };
-      newChildren.push(mergedQuoteNode);
-      i += 3; // skip the next two nodes
+    if (node.type === NodeType.QUOTE) {
+      // accumulate a run of adjacent quotes separated by newlines
+      const accumulated: ASTNode[] = [...(node.children || [])];
+      let j = i + 1;
+      while (j < ast.children.length) {
+        // newline-separated quote
+        if (
+          ast.children[j].type === NodeType.TEXT &&
+          (ast.children[j] as TextNode).value === '\n' &&
+          j + 1 < ast.children.length &&
+          ast.children[j + 1].type === NodeType.QUOTE
+        ) {
+          const nextQuote = ast.children[j + 1] as ASTNode;
+          accumulated.push(ast.children[j]);
+          accumulated.push(...(nextQuote.children || []));
+          j += 2;
+          continue;
+        }
+        // directly adjacent quote, insert a newline
+        if (ast.children[j].type === NodeType.QUOTE) {
+          const nextQuote = ast.children[j] as ASTNode;
+          accumulated.push({ type: NodeType.TEXT, value: '\n' } as TextNode);
+          accumulated.push(...(nextQuote.children || []));
+          j++;
+          continue;
+        }
+        break;
+      }
+      newChildren.push({ ...node, children: accumulated });
+      i = j;
     } else {
       newChildren.push(node);
       i++;
@@ -248,5 +262,89 @@ function unwrapDivNodes(ast: DocumentNode): DocumentNode {
     }
     return result;
   };
+  return { ...ast, children: process(ast.children) };
+}
+
+// // Helper: compare two chains
+// function arraysEqual(a: string[], b: string[]): boolean {
+//   if (a.length !== b.length) return false;
+//   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+//   return true;
+// }
+
+// // Extract nested formatting chain from a node
+// function getStyleChain(node: ASTNode): string[] {
+//   const chain: string[] = [];
+//   let curr: ASTNode | undefined = node;
+//   while (isFormattingNode(curr.type) && curr.children && curr.children.length === 1) {
+//     chain.push(curr.type);
+//     curr = curr.children[0];
+//   }
+//   return chain;
+// }
+
+// // Extract leaf children under formatting wrappers
+// function getLeafChildren(node: ASTNode): ASTNode[] {
+//   let curr: ASTNode = node;
+//   while (isFormattingNode(curr.type) && curr.children && curr.children.length === 1) {
+//     curr = curr.children[0];
+//   }
+//   return curr.children ?? [curr];
+// }
+
+/** Merge adjacent formatting nodes with identical style chains */
+export function mergeAdjacentSameStyleNodes(ast: DocumentNode): DocumentNode {
+  function process(nodes: ASTNode[]): ASTNode[] {
+    const result: ASTNode[] = [];
+    let i = 0;
+    while (i < nodes.length) {
+      const node = nodes[i];
+      // if this is a formatting wrapper (e.g. BOLD, ITALIC, UNDERLINE, etc.)
+      if (isFormattingNode(node.type) && node.children) {
+        const style = node.type;
+        const isNewline = (n: ASTNode): boolean => n.type === NodeType.TEXT && (n as TextNode).value === '\n';
+        // gather a run of the same wrapper type
+        let j = i + 1;
+        // include style wrappers, allowing intermediate newlines only if followed by style
+        while (j < nodes.length) {
+          if (nodes[j].type === style) {
+            j++;
+            continue;
+          }
+          if (isNewline(nodes[j]) && j + 1 < nodes.length && nodes[j + 1].type === style) {
+            j++;
+            continue;
+          }
+          break;
+        }
+        if (j - i > 1) {
+          // merge all children of that run
+          let combined: ASTNode[] = [];
+          for (let k = i; k < j; k++) {
+            if (nodes[k].type === style) {
+              combined.push(...nodes[k].children!);
+            } else if (isNewline(nodes[k])) {
+              combined.push(nodes[k]);
+            }
+          }
+          // recurse into the merged content
+          combined = process(combined);
+          result.push({ type: style, children: combined });
+          i = j;
+          continue;
+        }
+        // single wrapper—just recurse inside it
+        node.children = process(node.children);
+        result.push(node);
+        i++;
+      } else {
+        // leaf or non‑formatting node
+        if (node.children) node.children = process(node.children);
+        result.push(node);
+        i++;
+      }
+    }
+    return result;
+  }
   return { ...ast, children: process(ast.children) };
 }

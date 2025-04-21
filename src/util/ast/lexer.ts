@@ -359,18 +359,20 @@ export class Lexer {
   // eslint-disable-next-line class-methods-use-this
   private preprocessRawMarkdown(input: string): string {
     // Regex matches:
-    //   1. (\n\s*) - newline and spaces
+    //   1. (^|\n\s*) - start-of-string or newline and spaces
     //   2. (</blockquote>) - closing blockquote
     // Both followed by (<\w+[^>]*>) and (>)
     return input.replace(
-      /(\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)?(>)/g,
+      /(^|\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)?(>)/g,
       (_, prefix, htmlTag, marker) => {
+        // const sep = htmlTag ? ' ' : '';
+        const sep = '';
         if (prefix.startsWith('</blockquote>')) {
           // Add newline after </blockquote>
-          return `${prefix}\n${marker}${htmlTag || ''}`;
+          return `${prefix}\n${marker}${sep}${htmlTag || ''}`;
         } else {
-          // Normal newline case
-          return `${prefix}${marker}${htmlTag || ''}`;
+          // Start-of-input or normal newline case
+          return `${prefix}${marker}${sep}${htmlTag || ''}`;
         }
       },
     );

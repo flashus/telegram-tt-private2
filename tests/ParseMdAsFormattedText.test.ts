@@ -1138,6 +1138,69 @@ describe('ParseMixedMarkdownAndHTML', () => {
     expect(htmlOutput).toBe(htmlResult);
   });
 
+  // one more test with divs "**bold and __italic<div>dsfdsfds</div><div>end italic__**</div>"
+  it('one more test with divs', () => {
+    const [inputMarkdown, htmlResult] = ['**bold and __italic<div>dsfdsfds</div><div>end italic__**</div>',
+      '<b>bold and <i>italic\ndsfdsfds\nend italic</i></b>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // "** bold __italic\nStill same\nNow also ++underlined\nJuan continue** now it and und++ now just italic__"
+  it('works with multiple lines owerflowing markdown', () => {
+    const [inputMarkdown, htmlResult] = ['** bold __italic\nStill same\nNow also ++underlined\nJuan continue** now it and und++ now just italic__',
+      '<b> bold <i>italic\nStill same\nNow also <u>underlined\nJuan continue</u></i></b><i><u> now it and und</u> now just italic</i>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // <div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;"><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">some</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;quote<br>pla</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">in</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;txt</blockquote></div>
+  it('works with multiple blockquotes merging into one', () => {
+    const [inputMarkdown, htmlResult] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">some</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;quote<br>pla</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">in</blockquote><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">&nbsp;txt</blockquote>',
+      '<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\nsome\n quote\npla\nin\n txt\n::after\n</blockquote>\n'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // "<b>&gt;bold and <i>italicThat is mixed with &gt;divs newlines</i></b><i>&nbsp;italic <u>under</u></i>"
+  it('works with &gt; instead of >', () => {
+    const [inputMarkdown, htmlResult] = ['<b>&gt;bold and <i>italicThat is mixed with &gt;divs newlines</i></b><i>&nbsp;italic <u>under</u></i>',
+      '<blockquote class="quote quote-like quote-like-border quote-like-icon" dir="auto">\n::before\n<b>bold and <i>italicThat is mixed with &gt;divs newlines</i></b><i> italic <u>under</u></i>\n::after\n</blockquote>\n'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // "Ggg<blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">bold and italicThat <br>is mixed <br>with<br> &gt;divs&nbsp;</blockquote><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\"><br>newlines<br> italic<br> under</blockquote>"
+
+  // "**bold __italic\nalso some bold ++underlined\nalso++__**"
+  // "**bold __italic<div>also some bold ++underlined</div><div>also++__**</div>"
+  it('works with multiple lines separated by divs merging into one keeping md', () => {
+    const [inputMarkdown, htmlResult] = ['**bold __italic<div>also some bold ++underlined</div><div>also++__**</div>',
+      '<b>bold <i>italic\nalso some bold <u>underlined\nalso</u></i></b>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
   it('should parse html/md mix with proper ast enclosed tags', () => {
     const inputHtmlMarkdown = '<div id="editable-message-text" class="form-control allow-selection touched" contenteditable="true" role="textbox" dir="auto" tabindex="0" aria-label="Message" style="transition: color 50ms linear !important;">GitHub has a very handy guide on how to do this, but it doesn\'t cover what to do if you want to include it all in one line <p>for automation purposes. <br>> It warns that <b>adding the token to the clone URL will store it in plaintext in</b>&nbsp;<code class="text-entity-code">.git/config</code>. This is <i>obviously a security risk for almost every use case, but since I plan on deleting the</i>&nbsp;repository and revoking the token when I\'m done, <b>I don\'t care.</b></p></div>';
 
