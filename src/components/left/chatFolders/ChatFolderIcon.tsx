@@ -15,6 +15,7 @@ type OwnProps = {
   iconEmojiText?: ApiFormattedText;
   iconName: IconName;
   className?: string;
+  size?: number;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 };
 
@@ -22,6 +23,7 @@ const ChatFolderIcon = ({
   iconEmojiText,
   iconName,
   className,
+  size = 32,
   onClick,
 }: OwnProps) => {
   return (
@@ -32,7 +34,7 @@ const ChatFolderIcon = ({
         && (
           <CustomEmoji
             documentId={iconEmojiText.entities![0].documentId}
-            size={32}
+            size={size}
           />
         )}
       {iconEmojiText && iconEmojiText?.entities?.length === 0 && renderTextWithEntities({
