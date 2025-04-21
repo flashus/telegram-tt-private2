@@ -1187,6 +1187,29 @@ describe('ParseMixedMarkdownAndHTML', () => {
   });
 
   // "Ggg<blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">bold and italicThat <br>is mixed <br>with<br> &gt;divs&nbsp;</blockquote><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\"><br>newlines<br> italic<br> under</blockquote>"
+  // >quote1\ntext\n>quote2
+  it('works with >quote1\\ntext\\n>quote2 into 2 separate quotes', () => {
+    const [inputMarkdown, htmlResult] = ['>quote1\ntext\n>quote2',
+      `${makeBlockQuote('quote1')}\ntext\n${makeBlockQuote('quote2')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // "&gt;quote1<div>text</div><div>&gt;quote2</div>"
+  it('works with "&gt;quote1<div>text</div><div>&gt;quote2</div>" into 2 separate quotes', () => {
+    const [inputMarkdown, htmlResult] = ['&gt;quote1<div>text</div><div>&gt;quote2</div>',
+      `${makeBlockQuote('quote1')}\ntext\n${makeBlockQuote('quote2')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
 
   // "**bold __italic\nalso some bold ++underlined\nalso++__**"
   // "**bold __italic<div>also some bold ++underlined</div><div>also++__**</div>"

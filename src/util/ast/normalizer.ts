@@ -406,6 +406,52 @@ function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boo
  *    <b>boldtxt<i>bolt_it</i></b><i>just italic</i>
  */
 export function normalizeTokens(tokens: Token[]): Token[] {
+  // unwrap plain <div>…</div> pairs into newline + content, depth-aware
+  tokens = (() => {
+    const out: Token[] = [];
+    let i = 0;
+    while (i < tokens.length) {
+      const tok = tokens[i];
+      if (
+        tok.type === TokenType.HTML_TAG
+        && tok.attributes?.tagName.toLowerCase() === 'div'
+        && !tok.attributes.isClosing
+        && Array.isArray(tok.attributes.attributes)
+        && tok.attributes.attributes.length === 0
+      ) {
+        // found plain <div> open
+        let depth = 1;
+        const inner: Token[] = [];
+        let j = i + 1;
+        for (; j < tokens.length; j++) {
+          const t2 = tokens[j];
+          if (
+            t2.type === TokenType.HTML_TAG
+            && t2.attributes?.tagName.toLowerCase() === 'div'
+          ) {
+            if (t2.attributes.isClosing) {
+              depth--;
+              if (depth === 0) { j++; break; } // skip this closing
+            } else {
+              depth++;
+            }
+            inner.push(t2);
+          } else {
+            inner.push(t2);
+          }
+        }
+        // emit newline + inner tokens, skip wrapper tags
+        out.push({ type: TokenType.NEWLINE, value: '\n', start: tok.start, end: tok.end });
+        out.push(...inner);
+        i = j;
+        continue;
+      }
+      out.push(tok);
+      i++;
+    }
+    return out;
+  })();
+
   // Only convert singleton paired markdown markers (** __ ++ ~~ etc.) to plain text
   const PAIR_MARKER_TYPES = new Set<TokenType>([
     TokenType.BOLD_MARKER,
