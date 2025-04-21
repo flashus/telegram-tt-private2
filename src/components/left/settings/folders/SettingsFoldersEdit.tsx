@@ -85,6 +85,7 @@ const SUBMIT_TIMEOUT = 500;
 const INITIAL_CHATS_LIMIT = 5;
 
 const SYMBOL_MENU_FULL_SCREEN_WIDTH_FROM = 600;
+const MENU_SCREEN_WIDTH_THRESHOLD = 750;
 
 export const ERROR_NO_TITLE = 'Please provide a title for this folder.';
 export const ERROR_NO_CHATS = 'ChatList.Filter.Error.Empty';
@@ -186,6 +187,31 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     isActive,
     onBack,
   });
+
+  useEffect(() => {
+    const handleMenuPosition = () => {
+      const menuBubble = document.querySelector('.SymbolMenu.Menu .bubble') as HTMLElement;
+      if (!menuBubble) return;
+
+      if (window.innerWidth < MENU_SCREEN_WIDTH_THRESHOLD) {
+        const offset = window.innerWidth - MENU_SCREEN_WIDTH_THRESHOLD;
+        menuBubble.style.setProperty('--offset-x', `${offset}px`);
+      } else {
+        menuBubble.style.setProperty('--offset-x', `${0}px`);
+      }
+    };
+
+    if (isSymbolMenuOpen) {
+      // initial
+      handleMenuPosition();
+
+      window.addEventListener('resize', handleMenuPosition);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleMenuPosition);
+    };
+  }, [isSymbolMenuOpen]);
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const { currentTarget } = event;
