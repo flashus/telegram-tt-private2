@@ -1,16 +1,18 @@
 import type { FC } from '../../../lib/teact/teact';
 import React, {
-  memo, useEffect, useLayoutEffect, useRef, useState,
+  memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../global';
 
 import type { ApiSticker, ApiVideo } from '../../../api/types';
 import type { GlobalActions } from '../../../global';
 import type { ThreadId } from '../../../types';
+import type { IconName } from '../../../types/icons';
 import type { MenuPositionOptions } from '../../ui/Menu';
 
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { selectIsContextMenuTranslucent, selectTabState } from '../../../global/selectors';
+import animateScroll from '../../../util/animateScroll';
 import buildClassName from '../../../util/buildClassName';
 import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
 
@@ -45,6 +47,7 @@ export type OwnProps = {
   idPrefix: string;
   onLoad: () => void;
   onClose: () => void;
+  onSvgIconSelect?: (svgIcon: IconName) => void;
   onEmojiSelect: (emoji: string) => void;
   onCustomEmojiSelect: (emoji: ApiSticker) => void;
   onStickerSelect?: (
@@ -62,6 +65,7 @@ export type OwnProps = {
   className?: string;
   isAttachmentModal?: boolean;
   canSendPlainText?: boolean;
+  isFolderIconMenu?: boolean;
 }
 & MenuPositionOptions;
 
@@ -85,8 +89,10 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
   canSendPlainText,
   className,
   isBackgroundTranslucent,
+  isFolderIconMenu,
   onLoad,
   onClose,
+  onSvgIconSelect,
   onEmojiSelect,
   onCustomEmojiSelect,
   onStickerSelect,
@@ -104,6 +110,9 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
 
   const [handleMouseEnter, handleMouseLeave] = useMouseInside(isOpen, onClose, undefined, isMobile);
   const { shouldRender, transitionClassNames } = useShowTransitionDeprecated(isOpen, onClose, false, false);
+
+  // eslint-disable-next-line no-null/no-null
+  const pickerContainerRef = useRef<HTMLDivElement>(null);
 
   const lang = useOldLang();
 
@@ -182,10 +191,41 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
     onCustomEmojiSelect(emoji);
   });
 
-  const handleSearch = useLastCallback((type: 'stickers' | 'gifs') => {
-    onClose();
-    onSearchOpen(type);
-  });
+  const handleSearchClick = useCallback(() => {
+    if (!pickerContainerRef.current) {
+      return;
+    }
+
+    let currentPickerScrollable;
+    switch (activeTab) {
+      case SymbolMenuTabs.Emoji:
+        currentPickerScrollable = pickerContainerRef.current
+          .querySelector('.main.combined-picker.no-scrollbar, .main.combined-picker.custom-scroll') as HTMLDivElement;
+        break;
+      case SymbolMenuTabs.Stickers:
+        currentPickerScrollable = pickerContainerRef.current
+          .querySelector('.main.sticker-picker.no-scrollbar, .main.sticker-picker.custom-scroll') as HTMLDivElement;
+        break;
+      case SymbolMenuTabs.GIFs:
+        currentPickerScrollable = pickerContainerRef.current
+          .querySelector('.main.gif-picker.no-scrollbar, .main.gif-picker.custom-scroll') as HTMLDivElement;
+    }
+
+    if (!currentPickerScrollable) {
+      return;
+    }
+
+    const searchInput = currentPickerScrollable.querySelector('.search input') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+    }
+
+    animateScroll({
+      container: currentPickerScrollable,
+      element: searchInput,
+      position: 'start',
+    });
+  }, [activeTab]);
 
   const handleStickerSelect = useLastCallback((
     sticker: ApiSticker, isSilent?: boolean, shouldSchedule?: boolean, canUpdateStickerSetsOrder?: boolean,
@@ -198,11 +238,13 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
       case SymbolMenuTabs.Emoji:
         return (
           <CombinedEmojiPicker
+            withSvgIconSet={isFolderIconMenu}
             className="picker-tab"
             isHidden={!isOpen || !isActive}
             idPrefix={idPrefix}
             loadAndPlay={isOpen && (isActive || isFrom)}
             chatId={chatId}
+            onSvgIconSelect={onSvgIconSelect}
             onEmojiSelect={handleEmojiSelect}
             onCustomEmojiSelect={handleCustomEmojiSelect}
           />
@@ -242,7 +284,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
 
   const content = (
     <>
-      <div className="SymbolMenu-main" onClick={stopPropagation}>
+      <div ref={pickerContainerRef} className="SymbolMenu-main" onClick={stopPropagation}>
         {isActivated && (
           <Transition
             name="slide"
@@ -271,8 +313,9 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
         onSwitchTab={setActiveTab}
         onRemoveSymbol={onRemoveSymbol}
         canSearch={isMessageComposer}
-        onSearchOpen={handleSearch}
+        onSearchClick={handleSearchClick}
         isAttachmentModal={isAttachmentModal}
+        isFolderIconMenu={isFolderIconMenu}
         canSendPlainText={canSendPlainText}
       />
     </>
@@ -312,7 +355,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
     <Menu
       isOpen={isOpen}
       onClose={onClose}
-      withPortal={isAttachmentModal}
+      withPortal={isAttachmentModal || isFolderIconMenu}
       className={buildClassName('SymbolMenu', className)}
       onCloseAnimationEnd={onClose}
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
@@ -320,7 +363,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
       noCloseOnBackdrop={!IS_TOUCH_ENV}
       noCompact
       // eslint-disable-next-line react/jsx-props-no-spreading
-      {...(isAttachmentModal ? menuPositionOptions : {
+      {...(isAttachmentModal || isFolderIconMenu ? menuPositionOptions : {
         positionX: 'left',
         positionY: 'bottom',
       })}

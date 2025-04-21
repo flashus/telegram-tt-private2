@@ -75,5 +75,6 @@
   "--color-hover-overlay": ["#00000006", "#ffffff06"],
   "--color-background-main-header-column": ["#212121", "#161616"],
   "--color-background-main-header-column-hover": ["#272727", "#1a1a1a"],
-  "--color-text-over-primary-bg": ["#FFFFFF", "#FFFFFF"]
+  "--color-text-over-primary-bg": ["#FFFFFF", "#FFFFFF"],
+  "--color-background-compact-menu-search": ["#DCE8D8B6", "#313131DD"]
 }

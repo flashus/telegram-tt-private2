@@ -13,36 +13,34 @@ type OwnProps = {
   activeTab: SymbolMenuTabs;
   onSwitchTab: (tab: SymbolMenuTabs) => void;
   onRemoveSymbol: () => void;
-  onSearchOpen: (type: 'stickers' | 'gifs') => void;
+  onSearchClick: () => void;
   isAttachmentModal?: boolean;
+  isFolderIconMenu?: boolean;
   canSendPlainText?: boolean;
   canSearch?: boolean;
 };
 
 export enum SymbolMenuTabs {
   'Emoji',
-  'CustomEmoji',
   'Stickers',
   'GIFs',
 }
 
 export const SYMBOL_MENU_TAB_TITLES: Record<SymbolMenuTabs, string> = {
   [SymbolMenuTabs.Emoji]: 'Emoji',
-  [SymbolMenuTabs.CustomEmoji]: 'StickersList.EmojiItem',
   [SymbolMenuTabs.Stickers]: 'AccDescrStickers',
   [SymbolMenuTabs.GIFs]: 'GifsTab',
 };
 
 const SYMBOL_MENU_TAB_ICONS = {
   [SymbolMenuTabs.Emoji]: 'icon-smile',
-  [SymbolMenuTabs.CustomEmoji]: 'icon-favorite',
   [SymbolMenuTabs.Stickers]: 'icon-stickers',
   [SymbolMenuTabs.GIFs]: 'icon-gifs',
 };
 
 const SymbolMenuFooter: FC<OwnProps> = ({
-  activeTab, onSwitchTab, onRemoveSymbol, onSearchOpen, isAttachmentModal,
-  canSendPlainText, canSearch,
+  activeTab, onSwitchTab, onRemoveSymbol, onSearchClick, isAttachmentModal,
+  isFolderIconMenu, canSendPlainText, canSearch,
 }) => {
   const lang = useOldLang();
 
@@ -63,7 +61,7 @@ const SymbolMenuFooter: FC<OwnProps> = ({
   }
 
   const handleSearchOpen = useLastCallback(() => {
-    onSearchOpen(activeTab === SymbolMenuTabs.Stickers ? 'stickers' : 'gifs');
+    onSearchClick();
   });
 
   function stopPropagation(event: any) {
@@ -72,7 +70,7 @@ const SymbolMenuFooter: FC<OwnProps> = ({
 
   return (
     <div className="SymbolMenu-footer" onClick={stopPropagation} dir={lang.isRtl ? 'rtl' : undefined}>
-      {activeTab !== SymbolMenuTabs.Emoji && activeTab !== SymbolMenuTabs.CustomEmoji && canSearch && (
+      {canSearch && (
         <Button
           className="symbol-search-button"
           ariaLabel={activeTab === SymbolMenuTabs.Stickers ? 'Search Stickers' : 'Search GIFs'}
@@ -86,10 +84,10 @@ const SymbolMenuFooter: FC<OwnProps> = ({
       )}
 
       {canSendPlainText && renderTabButton(SymbolMenuTabs.Emoji)}
-      {!isAttachmentModal && renderTabButton(SymbolMenuTabs.Stickers)}
-      {!isAttachmentModal && renderTabButton(SymbolMenuTabs.GIFs)}
+      {!(isAttachmentModal || isFolderIconMenu) && renderTabButton(SymbolMenuTabs.Stickers)}
+      {!(isAttachmentModal || isFolderIconMenu) && renderTabButton(SymbolMenuTabs.GIFs)}
 
-      {(activeTab === SymbolMenuTabs.Emoji || activeTab === SymbolMenuTabs.CustomEmoji) && (
+      {activeTab === SymbolMenuTabs.Emoji && (
         <Button
           className="symbol-delete-button"
           onClick={onRemoveSymbol}
