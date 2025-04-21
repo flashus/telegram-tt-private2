@@ -503,7 +503,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
       }
     }
 
-    if (!isComposing && e.key === 'Enter' && e.shiftKey) {
+    if (!isComposing && e.key === 'Enter' && (e.shiftKey || isMobileDevice)) {
       const selection = window.getSelection();
       if (!selection) return;
       const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
