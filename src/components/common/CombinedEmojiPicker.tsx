@@ -291,13 +291,6 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
     const sets: EmojiSet[] = [];
 
-    if (withSvgIconSet) {
-      sets.push({
-        data: SVG_ICONS_SET,
-        type: EmojiSetType.SvgIcon,
-      });
-    }
-
     if (recentEmojiSet.data.count > 0) {
       sets.push(recentEmojiSet);
     }
@@ -317,7 +310,7 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
     }
 
     return sets;
-  }, [recentEmojiSet, allCustomEmojiSets, categories, withSvgIconSet]);
+  }, [recentEmojiSet, allCustomEmojiSets, categories]);
 
   const haveRecentEmojiSet = recentEmojiSet.data.count > 0;
   const categoriesActive = categories && activeSetIndex >= (haveRecentEmojiSet ? 1 : 0)
@@ -571,19 +564,6 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
 
   function renderSet(set: EmojiSet, i: number, allEmojis: AllEmojis) {
     switch (set.type) {
-      case EmojiSetType.SvgIcon: {
-        return (
-          <SvgIconSet
-            key={set.data.id}
-            idPrefix={prefix}
-            set={set.data}
-            index={i}
-            observeIntersection={observeIntersectionForSet}
-            shouldRender={activeSetIndex >= i - 1 && activeSetIndex <= i + 1}
-            onSvgIconSelect={handleSvgIconSelect}
-          />
-        );
-      }
       case EmojiSetType.Emoji: {
         return (
           <EmojiCategory
@@ -778,6 +758,17 @@ const CombinedEmojiPicker: FC<OwnProps & StateProps> = ({
             placeholder="Search Emoji"
           />
         </div>
+        {withSvgIconSet && (
+          <SvgIconSet
+            key={SVG_ICONS_SET.id}
+            idPrefix={prefix}
+            set={SVG_ICONS_SET}
+            index={0}
+            observeIntersection={observeIntersectionForSet}
+            shouldRender={activeSetIndex >= 0 && activeSetIndex <= 1}
+            onSvgIconSelect={handleSvgIconSelect}
+          />
+        )}
         {!willSearch && allSets.map((set, i) => renderSet(set, i, emojis))}
         {willSearch && filteredEmojiSet && renderSet(filteredEmojiSet, 0, emojis)}
         {willSearch && !filteredEmojiSet && renderNoResults()}
