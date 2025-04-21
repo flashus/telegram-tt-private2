@@ -1211,11 +1211,35 @@ describe('ParseMixedMarkdownAndHTML', () => {
     expect(htmlOutput).toBe(htmlResult);
   });
 
+  // "<blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">quote1<br>continue quot<br>e fed!!!!!!!!!!!<br><br>nextlinedsfdf dfsd</blockquote><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\"><br>fsdffds<br> gfdfg fdgdf gdfg dfg dffg</blockquote><br>sdfsd<br>plain txt<br><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">quote2</blockquote>"
+  it('works with blockquotes glued together', () => {
+    const [inputMarkdown, htmlResult] = ['<blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">quote1<br>continue quot<br>e fed!!!!!!!!!!!<br><br>nextlinedsfdf dfsd</blockquote><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\"><br>fsdffds<br> gfdfg fdgdf gdfg dfg dffg</blockquote><br>sdfsd<br>plain txt<br><blockquote class=\"blockquote\" data-entity-type=\"MessageEntityBlockquote\">quote2</blockquote>',
+      `${makeBlockQuote('quote1\ncontinue quot\ne fed!!!!!!!!!!!\n\nnextlinedsfdf dfsd\n\nfsdffds\n gfdfg fdgdf gdfg dfg dffg')}\n\nsdfsd\nplain txt\n${makeBlockQuote('quote2')}\n`];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
   // "**bold __italic\nalso some bold ++underlined\nalso++__**"
   // "**bold __italic<div>also some bold ++underlined</div><div>also++__**</div>"
   it('works with multiple lines separated by divs merging into one keeping md', () => {
     const [inputMarkdown, htmlResult] = ['**bold __italic<div>also some bold ++underlined</div><div>also++__**</div>',
       '<b>bold <i>italic\nalso some bold <u>underlined\nalso</u></i></b>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(htmlResult);
+  });
+
+  // "<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">quote1<br>continue quot<br>e fed!!!!!!!!!!!<br><br>nextlinedsfdf dfsd<br>fsdffds<br> gfdfg fdgdf gdfg dfg dffg sdfsd</blockquote>&gt;this new line should be swallowed by blockquote\n<br>plain txt<br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">quote2</blockquote>"
+  it('should swallow >text after blockquote into blockquote', () => {
+    const [inputMarkdown, htmlResult] = ['<blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">quote1<br>continue quot<br>e fed!!!!!!!!!!!<br><br>nextlinedsfdf dfsd<br>fsdffds<br> gfdfg fdgdf gdfg dfg dffg sdfsd</blockquote>&gt;this new line should be swallowed by blockquote\n<br>plain txt<br><blockquote class="blockquote" data-entity-type="MessageEntityBlockquote">quote2</blockquote>',
+      `${makeBlockQuote('quote1\ncontinue quot\ne fed!!!!!!!!!!!\n\nnextlinedsfdf dfsd\nfsdffds\n gfdfg fdgdf gdfg dfg dffg sdfsd\nthis new line should be swallowed by blockquote')}\n\nplain txt\n${makeBlockQuote('quote2')}\n`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
 
     expect(ast.type).toBe(NodeType.DOCUMENT);

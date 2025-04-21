@@ -69,6 +69,9 @@ export function preparePastedHtml(html: string) {
     // Fix newlines
     if (node.tagName === 'BR') node.replaceWith('\n');
     if (node.tagName === 'P') node.appendChild(document.createTextNode('\n'));
+    // Preserve block boundaries: append newline for non-entity DIV and for list items
+    if (node.tagName === 'DIV' && !node.dataset.entityType) node.appendChild(document.createTextNode('\n'));
+    if (node.tagName === 'LI') node.appendChild(document.createTextNode('\n'));
     if (node.tagName === 'IMG' && !node.dataset.entityType) node.replaceWith(node.getAttribute('alt') || '');
     // We do not intercept copy logic, so we remove some nodes here
     if (node.dataset.ignoreOnPaste) node.remove();
