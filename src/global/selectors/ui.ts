@@ -51,10 +51,6 @@ export function selectRightColumnContentKey<T extends GlobalState>(
     RightColumnContent.BoostStatistics
   ) : tabState.monetizationStatistics ? (
     RightColumnContent.MonetizationStatistics
-  ) : tabState.stickerSearch.query !== undefined ? (
-    RightColumnContent.StickerSearch
-  ) : tabState.gifSearch.query !== undefined ? (
-    RightColumnContent.GifSearch
   ) : tabState.newChatMembersProgress !== NewChatMembersProgress.Closed ? (
     RightColumnContent.AddingMembers
   ) : tabState.isChatInfoShown && tabState.messageLists.length ? (

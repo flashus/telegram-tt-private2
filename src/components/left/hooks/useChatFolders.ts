@@ -173,8 +173,8 @@ export default function useChatFolders({
   ]);
 
   const handleSwitchChatFolder = useLastCallback((index: number) => {
-    onLeftColumnContentChange(LeftColumnContent.ChatList);
     setActiveChatFolder({ activeChatFolder: index }, { forceOnHeavyAnimation: true });
+    onLeftColumnContentChange(LeftColumnContent.ChatList);
   });
 
   // Prevent `activeTab` pointing at non-existing folder after update

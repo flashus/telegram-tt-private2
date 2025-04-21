@@ -167,54 +167,60 @@ export class Lexer {
   }
 
   private parseHtmlAttribute(pos: number): { attrName: string; attrValue: string; nextPos: number } | undefined {
-    let tempPos = pos;
+    let i = pos;
+    // parse attribute name
+    const nameMatch = this.input.slice(i).match(/^([A-Za-z][A-Za-z0-9_-]*)/);
+    if (!nameMatch) return undefined;
+    const attrName = nameMatch[1];
+    i += attrName.length;
 
-    const attrNameMatch = this.input.slice(tempPos).match(/^([^\s=<>\/,.]+)/);
-    if (!attrNameMatch) return undefined;
-    const attrName = attrNameMatch[1];
+    // detect '=' (immediate or after spaces)
+    const nameEnd = i;
+    let eqPos: number | undefined;
+    if (this.input[nameEnd] === '=') {
+      eqPos = nameEnd;
+    } else {
+      const skipPos = this.skipWhitespace(nameEnd);
+      if (this.input[skipPos] === '=') eqPos = skipPos;
+    }
+    if (eqPos === undefined) {
+      // no value
+      return { attrName, attrValue: '', nextPos: nameEnd };
+    }
+    // process '='
+    const spacedBefore = eqPos !== nameEnd;
+    i = eqPos + 1;
+    if (spacedBefore) {
+      // require quoted if spaces before '='
+      i = this.skipWhitespace(i);
+    }
 
-    tempPos += attrName.length;
-    tempPos = this.skipWhitespace(tempPos);
-
-    let attrValue = '';
-    if (this.input[tempPos] === '=') {
-      tempPos++; // Skip '='
-      tempPos = this.skipWhitespace(tempPos);
-
-      if (this.input[tempPos] === '"' || this.input[tempPos] === "'") {
-        const quote = this.input[tempPos];
-        tempPos++;
-        const valueStart = tempPos;
-
-        // { begin escaped processing
-        while (tempPos < this.input.length && this.input[tempPos] !== quote) {
-          if (this.input[tempPos] === '\\'
-            && tempPos + 1 < this.input.length
-            && (this.input[tempPos + 1] === '"'
-              || this.input[tempPos + 1] === "'"
-              || this.input[tempPos + 1] === '\\')) {
-            tempPos++;
-          }
-          tempPos++;
+    // parse value
+    if (this.input[i] === '"' || this.input[i] === "'") {
+      const quote = this.input[i++];
+      const startVal = i;
+      while (i < this.input.length && this.input[i] !== quote) {
+        if (this.input[i] === '\\' && i + 1 < this.input.length && (this.input[i + 1] === quote || this.input[i + 1] === '\\')) {
+          i++;
         }
-        attrValue = this.input.slice(valueStart, tempPos);
-        attrValue = attrValue.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, '\\'); // Handle escaped quotes
-        // } end escaped processing
-
-        if (this.input[tempPos] === quote) {
-          tempPos++;
-        }
-      } else {
-        const valueMatch = this.input.slice(tempPos).match(/^[^\s>\/]+/);
-        if (valueMatch) {
-          attrValue = valueMatch[0];
-          tempPos += attrValue.length;
-        } else {
-          return undefined; // Attributes must have values if an equals sign is present.
-        }
+        i++;
+      }
+      const raw = this.input.slice(startVal, i);
+      if (this.input[i] === quote) i++;
+      const attrValue = raw.replace(/\\(["'\\])/g, '$1');
+      return { attrName, attrValue, nextPos: i };
+    }
+    // unquoted allowed only if immediate '=' (no spaces)
+    if (!spacedBefore) {
+      const match = this.input.slice(i).match(/^[^\s>\/]+/);
+      if (match) {
+        const attrValue = match[0];
+        i += attrValue.length;
+        return { attrName, attrValue, nextPos: i };
       }
     }
-    return { attrName, attrValue, nextPos: tempPos };
+    // invalid syntax
+    return undefined;
   }
 
   private skipWhitespace(pos: number): number {
@@ -352,16 +358,23 @@ export class Lexer {
    */
   // eslint-disable-next-line class-methods-use-this
   private preprocessRawMarkdown(input: string): string {
-    // Regex explanation:
-    //   (\n\s*)         - Captures a newline and any following whitespace.
-    //   (<\w+[^>]*>)     - Captures an HTML opening tag (e.g. "<i>")
-    //   (>)             - Captures a literal '>' immediately following the tag.
-    //
-    // Replacement:
-    //   We put the marker (">") immediately after the newline,
-    //   add a space, then insert the HTML tag.
-    return input.replace(/(\n\s*)(<\w+[^>]*>)(>)/g, (_, newlineAndSpace, htmlTag, marker) => {
-      return `${newlineAndSpace + marker} ${htmlTag}`;
-    });
+    // Regex matches:
+    //   1. (^|\n\s*) - start-of-string or newline and spaces
+    //   2. (</blockquote>) - closing blockquote
+    // Both followed by (<\w+[^>]*>) and (>)
+    return input.replace(
+      /(^|\n\s*|<\/blockquote>\s*)(<\w+[^>]*>)?(>)/g,
+      (_, prefix, htmlTag, marker) => {
+        // const sep = htmlTag ? ' ' : '';
+        const sep = '';
+        if (prefix.startsWith('</blockquote>')) {
+          // Add newline after </blockquote>
+          return `${prefix}\n${marker}${sep}${htmlTag || ''}`;
+        } else {
+          // Start-of-input or normal newline case
+          return `${prefix}${marker}${sep}${htmlTag || ''}`;
+        }
+      },
+    );
   }
 }

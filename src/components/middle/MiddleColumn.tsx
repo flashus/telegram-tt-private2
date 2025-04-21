@@ -63,7 +63,8 @@ import {
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
-import { TwallpaperWebGL } from '../../util/twallpaper-webgl';
+import { TWallpaperWebGL } from '../../util/twallpaper-webgl';
+import { animatorBaseColorScheme } from '../../util/twallpaper-webgl/config';
 import {
   IS_ANDROID, IS_ELECTRON, IS_IOS, IS_SAFARI, IS_TRANSLATION_SUPPORTED, MASK_IMAGE_DISABLED,
 } from '../../util/windowEnvironment';
@@ -170,7 +171,7 @@ function isVideo(item: DataTransferItem) {
 
 const LAYER_ANIMATION_DURATION_MS = 450 + ANIMATION_END_DELAY;
 
-const twallpaperAnimator = new TwallpaperWebGL();
+const twallpaperAnimator = TWallpaperWebGL.getInstance();
 
 function MiddleColumn({
   leftColumnRef,
@@ -514,7 +515,7 @@ function MiddleColumn({
   );
   const withExtraShift = Boolean(isMessagingDisabled || isSelectModeActive);
 
-  twallpaperAnimator.initCanvas(bgCanvasRef.current);
+  twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorBaseColorScheme[theme]);
 
   return (
     <div

@@ -28,7 +28,7 @@ import {
 } from '../../../util/windowEnvironment';
 import renderText from '../../common/helpers/renderText';
 import { blockQuoteAllowedTags, sanitizeHTML } from './helpers/cleanHtml';
-import { getExpectedParentElementRecursive, isQuoteEnd, isSelectionInsideInput } from './helpers/selection';
+import { getExpectedParentElementRecursive, isDeepBlockquoteEnd, isSelectionInsideInput } from './helpers/selection';
 
 import useAppLayout from '../../../hooks/useAppLayout';
 import useDerivedState from '../../../hooks/useDerivedState';
@@ -486,7 +486,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
           || !(nextOuterElement instanceof HTMLElement)
           || nextOuterElement.tagName !== blockquoteTag)
       ) {
-        const isAtQuoteEnd = isQuoteEnd(selectionRange, parentElement);
+        const isAtQuoteEnd = isDeepBlockquoteEnd(selectionRange, parentElement);
         if (isAtQuoteEnd) {
           e.preventDefault();
           const content = nextOuterElement instanceof HTMLElement
@@ -503,31 +503,27 @@ const MessageInput: FC<OwnProps & StateProps> = ({
       }
     }
 
-    if (!isComposing && e.key === 'Enter' && e.shiftKey) {
+    if (!isComposing && e.key === 'Enter' && (e.shiftKey || isMobileDevice)) {
       const selection = window.getSelection();
-      if (!selection) {
-        return;
-      }
+      if (!selection) return;
       const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
-      // Exit if blockquote is not found
-      if (!blockquote) {
-        return;
-      }
-      const range = selection.getRangeAt(0);
-
-      const isAtQuoteEnd = isQuoteEnd(range, blockquote);
-      const isAfterBlockquoteComponent = range.endContainer?.parentElement === blockquote?.parentElement?.parentElement;
-      const isAfterBlockquoteElement = range.endContainer?.parentElement === blockquote?.parentElement;
-      if (!(isAtQuoteEnd || isAfterBlockquoteComponent || isAfterBlockquoteElement)) {
-        return;
-      }
-
+      if (!blockquote) return;
       e.preventDefault();
-
-      if (isAtQuoteEnd) {
+      const range = selection.getRangeAt(0);
+      const blockEnd = document.createRange();
+      blockEnd.selectNodeContents(blockquote);
+      blockEnd.collapse(false);
+      const isEnd = isDeepBlockquoteEnd(range, blockquote)
+        || range.compareBoundaryPoints(Range.END_TO_END, blockEnd) >= 0;
+      if (isEnd) {
+        // exit blockquote
         range.setEndAfter(blockquote);
+      } else {
+        // newline inside blockquote
+        range.collapse(false);
       }
       insertHtmlInSelection('\n');
+      return;
     }
 
     if (!isComposing && e.key === 'Enter' && !e.shiftKey) {

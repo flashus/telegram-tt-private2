@@ -186,14 +186,19 @@ export class EntityRenderer {
    */
   private renderChildren(children: ASTNode[]): ApiFormattedText {
     const result: ApiFormattedText = { text: '', entities: [] };
-    for (const child of children) {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
       const childResult = this.render(child);
-      // Adjust each entity’s offset by the current text length.
-      childResult.entities?.forEach((entity) => {
-        entity.offset += result.text.length;
-      });
+      // Adjust each entity’s offset relative to current text
+      childResult.entities?.forEach((entity) => { entity.offset += result.text.length; });
       result.text += childResult.text;
       result.entities?.push(...(childResult.entities ?? []));
+      // If this child is a nested quote, add a newline when not the last child
+      if (child.type === NodeType.QUOTE && i < children.length - 1) {
+        if (!childResult.text.endsWith('\n')) {
+          result.text += '\n';
+        }
+      }
     }
     return result;
   }

@@ -1,7 +1,10 @@
 /* eslint-disable no-useless-escape */
 import type { ApiFormattedText } from '../../api/types';
-import type { DocumentNode } from './node';
+import type {
+  ASTNode, DocumentNode, HtmlTagNode, TextNode,
+} from './node';
 
+import { NodeType } from './astEnums';
 import { Lexer } from './lexer';
 import { normalizeTokens } from './normalizer';
 import { Parser } from './parser';
@@ -15,12 +18,12 @@ export function cleanHtml(html: string) {
   cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
 
   // Replace <div><br></div> with newline (new line in Safari)
-  cleanedHtml = cleanedHtml.replace(/<div><br([^>]*)?><\/div>/g, '\n');
+  // cleanedHtml = cleanedHtml.replace(/<div><br([^>]*)?><\/div>/g, '\n');
   // Replace <br> with newline
   cleanedHtml = cleanedHtml.replace(/<br([^>]*)?>/g, '\n');
 
-  // Strip redundant <div> tags
-  cleanedHtml = cleanedHtml.replace(/<\/div>(\s*)<div>/g, '\n');
+  // // Strip redundant <div> tags
+  // cleanedHtml = cleanedHtml.replace(/<\/div>(\s*)<div>/g, '\n');
   // cleanedHtml = cleanedHtml.replace(/<div>/g, '\n');
   // cleanedHtml = cleanedHtml.replace(/<\/div>/g, '');
 
@@ -46,6 +49,15 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
   let document: DocumentNode | undefined;
   try {
     document = parser.parseDocument();
+    if (document) {
+      document = cleanupAST(document) as DocumentNode;
+      document = unwrapDivNodes(document) as DocumentNode;
+      document = mergeAdjacentQuoteNodesWithNewline(document) as DocumentNode;
+      document = removeInheritedFormatting(document) as DocumentNode;
+      // document = unwrapDivNodes(document) as DocumentNode;
+      // Merge adjacent same-style formatting nodes (e.g. split by divs)
+      document = mergeAdjacentSameStyleNodes(document) as DocumentNode;
+    }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e);
@@ -88,4 +100,267 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
     return { text: inputText, entities: [] };
   }
   return renderASTToEntities(ast);
+}
+
+// AST cleanup: flatten nested formatting, merge duplicates, and reorder formatting chains
+type FormattingNode = ASTNode & { children: ASTNode[] };
+function isFormattingNode(type: string): boolean {
+  return [NodeType.BOLD, NodeType.ITALIC, NodeType.UNDERLINE, NodeType.STRIKE, NodeType.SPOILER].includes(type as any);
+}
+
+// Formatting priority (lower = inner)
+const FORMAT_PRIORITY: Record<string, number> = {
+  [NodeType.STRIKE]: 0,
+  [NodeType.UNDERLINE]: 1,
+  [NodeType.ITALIC]: 2,
+  [NodeType.BOLD]: 3,
+  [NodeType.SPOILER]: 4,
+};
+
+function cleanupAST(node: ASTNode): ASTNode {
+  if (!node.children) return node;
+  // 1) Recursively clean children
+  let children = node.children.map(cleanupAST);
+  // 2) Flatten nested same‑type formatting
+  function flattenSameType(nodes: ASTNode[]): ASTNode[] {
+    return nodes.flatMap((n) => {
+      if (n.children) {
+        n = { ...n, children: flattenSameType(n.children) };
+      }
+      if (isFormattingNode(n.type) && n.children) {
+        const newChildren: ASTNode[] = [];
+        for (const c of n.children) {
+          if (c.type === n.type && c.children) {
+            newChildren.push(...c.children);
+          } else {
+            newChildren.push(c);
+          }
+        }
+        return [{ ...n, children: newChildren }];
+      }
+      return [n];
+    });
+  }
+  children = flattenSameType(children);
+  // 3) Remove empty formatting nodes
+  children = children.filter((c) => !(isFormattingNode(c.type) && (!c.children || c.children.length === 0)));
+  // 4) Merge adjacent same‑type siblings
+  const merged: ASTNode[] = [];
+  for (const c of children) {
+    const last = merged[merged.length - 1];
+    if (last && last.type === c.type && isFormattingNode(c.type) && (c as FormattingNode).children) {
+      (last as FormattingNode).children.push(...(c as FormattingNode).children);
+    } else {
+      merged.push(c);
+    }
+  }
+  // 5) Bubble‑up & reorder nested chains
+  if (isFormattingNode(node.type) && merged.length === 1 && isFormattingNode(merged[0].type)) {
+    const chain: string[] = [];
+    let curr: FormattingNode = { type: node.type, children: merged };
+    chain.push(curr.type);
+    while (isFormattingNode(curr.children[0].type) && curr.children.length === 1) {
+      curr = curr.children[0] as FormattingNode;
+      chain.push(curr.type);
+    }
+    const unique = Array.from(new Set(chain)).sort((a, b) => FORMAT_PRIORITY[a] - FORMAT_PRIORITY[b]);
+    const content = curr.children || [];
+    let rebuilt: ASTNode[] = content;
+    for (const t of unique) {
+      rebuilt = [{ type: t, children: rebuilt } as ASTNode];
+    }
+    return rebuilt[0];
+  }
+  node.children = merged;
+  return node;
+}
+
+// Remove inherited nested formatting wrappers
+function removeInheritedFormatting(node: ASTNode, ancestors: Set<string> = new Set()): ASTNode | ASTNode[] {
+  if (!node.children) return node;
+  let newAncestors = ancestors;
+  if (isFormattingNode(node.type)) {
+    if (ancestors.has(node.type)) {
+      // drop redundant wrapper, keep children
+      return node.children.flatMap((c) => removeInheritedFormatting(c, ancestors) as ASTNode);
+    }
+    newAncestors = new Set(ancestors);
+    newAncestors.add(node.type);
+  }
+  const newChildren: ASTNode[] = [];
+  for (const child of node.children) {
+    const processed = removeInheritedFormatting(child, newAncestors);
+    if (Array.isArray(processed)) newChildren.push(...processed);
+    else newChildren.push(processed);
+  }
+  node.children = newChildren;
+  return node;
+}
+
+function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
+  if (!ast.children) return ast;
+  const newChildren: ASTNode[] = [];
+  let i = 0;
+  while (i < ast.children.length) {
+    const node = ast.children[i];
+    if (node.type === NodeType.QUOTE) {
+      // accumulate a run of adjacent quotes separated by newlines
+      const accumulated: ASTNode[] = [...(node.children || [])];
+      let j = i + 1;
+      while (j < ast.children.length) {
+        // newline-separated quote
+        if (
+          ast.children[j].type === NodeType.TEXT
+          && (ast.children[j] as TextNode).value === '\n'
+          && j + 1 < ast.children.length
+          && ast.children[j + 1].type === NodeType.QUOTE
+        ) {
+          const nextQuote = ast.children[j + 1] as ASTNode;
+          accumulated.push(ast.children[j]);
+          accumulated.push(...(nextQuote.children || []));
+          j += 2;
+          continue;
+        }
+        // directly adjacent quote, insert a newline
+        if (ast.children[j].type === NodeType.QUOTE) {
+          const nextQuote = ast.children[j] as ASTNode;
+          accumulated.push({ type: NodeType.TEXT, value: '\n' } as TextNode);
+          accumulated.push(...(nextQuote.children || []));
+          j++;
+          continue;
+        }
+        break;
+      }
+      newChildren.push({ ...node, children: accumulated });
+      i = j;
+    } else {
+      newChildren.push(node);
+      i++;
+    }
+  }
+  return { ...ast, children: newChildren };
+}
+
+// Unwrap <div> AST nodes: emit newline before content for normal divs, but preserve custom emoji divs
+function unwrapDivNodes(ast: DocumentNode): DocumentNode {
+  const process = (nodes: ASTNode[]): ASTNode[] => {
+    const result: ASTNode[] = [];
+    for (const node of nodes) {
+      if (
+        node.type === NodeType.HTML_TAG
+        && (node as HtmlTagNode).tagName.toLowerCase() === 'div'
+      ) {
+        const htmlTag = node as HtmlTagNode;
+        const attrs = Array.isArray(htmlTag.attributes)
+          ? (htmlTag.attributes as { key: string; value: string }[])
+          : [];
+        const entityType = attrs.find((a) => a.key === 'data-entity-type')?.value;
+        if (entityType === 'MessageEntityCustomEmoji') {
+          // Preserve custom emoji div
+          const clone: ASTNode = {
+            ...node,
+            children: htmlTag.children ? process(htmlTag.children) : [],
+          };
+          result.push(clone);
+        } else {
+          // Unwrap normal div: emit newline and recurse
+          result.push({ type: NodeType.TEXT, value: '\n' } as TextNode);
+          result.push(...process(htmlTag.children || []));
+        }
+      } else if (node.children) {
+        // Recurse into other nodes, preserving wrappers
+        const clone: ASTNode = { ...node, children: process(node.children) };
+        result.push(clone);
+      } else {
+        // Leaf node
+        result.push(node);
+      }
+    }
+    return result;
+  };
+  return { ...ast, children: process(ast.children) };
+}
+
+// // Helper: compare two chains
+// function arraysEqual(a: string[], b: string[]): boolean {
+//   if (a.length !== b.length) return false;
+//   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+//   return true;
+// }
+
+// // Extract nested formatting chain from a node
+// function getStyleChain(node: ASTNode): string[] {
+//   const chain: string[] = [];
+//   let curr: ASTNode | undefined = node;
+//   while (isFormattingNode(curr.type) && curr.children && curr.children.length === 1) {
+//     chain.push(curr.type);
+//     curr = curr.children[0];
+//   }
+//   return chain;
+// }
+
+// // Extract leaf children under formatting wrappers
+// function getLeafChildren(node: ASTNode): ASTNode[] {
+//   let curr: ASTNode = node;
+//   while (isFormattingNode(curr.type) && curr.children && curr.children.length === 1) {
+//     curr = curr.children[0];
+//   }
+//   return curr.children ?? [curr];
+// }
+
+/** Merge adjacent formatting nodes with identical style chains */
+export function mergeAdjacentSameStyleNodes(ast: DocumentNode): DocumentNode {
+  function process(nodes: ASTNode[]): ASTNode[] {
+    const result: ASTNode[] = [];
+    let i = 0;
+    while (i < nodes.length) {
+      const node = nodes[i];
+      // if this is a formatting wrapper (e.g. BOLD, ITALIC, UNDERLINE, etc.)
+      if (isFormattingNode(node.type) && node.children) {
+        const style = node.type;
+        const isNewline = (n: ASTNode): boolean => n.type === NodeType.TEXT && (n as TextNode).value === '\n';
+        // gather a run of the same wrapper type
+        let j = i + 1;
+        // include style wrappers, allowing intermediate newlines only if followed by style
+        while (j < nodes.length) {
+          if (nodes[j].type === style) {
+            j++;
+            continue;
+          }
+          if (isNewline(nodes[j]) && j + 1 < nodes.length && nodes[j + 1].type === style) {
+            j++;
+            continue;
+          }
+          break;
+        }
+        if (j - i > 1) {
+          // merge all children of that run
+          let combined: ASTNode[] = [];
+          for (let k = i; k < j; k++) {
+            if (nodes[k].type === style) {
+              combined.push(...nodes[k].children!);
+            } else if (isNewline(nodes[k])) {
+              combined.push(nodes[k]);
+            }
+          }
+          // recurse into the merged content
+          combined = process(combined);
+          result.push({ type: style, children: combined });
+          i = j;
+          continue;
+        }
+        // single wrapper—just recurse inside it
+        node.children = process(node.children);
+        result.push(node);
+        i++;
+      } else {
+        // leaf or non‑formatting node
+        if (node.children) node.children = process(node.children);
+        result.push(node);
+        i++;
+      }
+    }
+    return result;
+  }
+  return { ...ast, children: process(ast.children) };
 }

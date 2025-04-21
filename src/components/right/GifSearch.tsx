@@ -28,8 +28,6 @@ import GifButton from '../common/GifButton';
 import InfiniteScroll from '../ui/InfiniteScroll';
 import Loading from '../ui/Loading';
 
-import './GifSearch.scss';
-
 type OwnProps = {
   onClose: NoneToVoidFunction;
   isActive: boolean;
@@ -45,6 +43,7 @@ type StateProps = {
   isSavedMessages?: boolean;
   canPostInChat?: boolean;
   currentMessageList?: MessageList;
+  className?: string;
 };
 
 const PRELOAD_BACKWARDS = 96; // GIF Search bot results are multiplied by 24
@@ -61,6 +60,7 @@ const GifSearch: FC<OwnProps & StateProps> = ({
   isSavedMessages,
   canPostInChat,
   currentMessageList,
+  className,
   onClose,
 }) => {
   const {
@@ -147,10 +147,10 @@ const GifSearch: FC<OwnProps & StateProps> = ({
   const hasResults = Boolean(query !== undefined && results && results.length);
 
   return (
-    <div className="GifSearch" dir={lang.isRtl ? 'rtl' : undefined}>
+    <>
       <InfiniteScroll
         ref={containerRef}
-        className={buildClassName('gif-container custom-scroll', hasResults && 'grid')}
+        className={buildClassName('gif-container custom-scroll', className, hasResults && 'grid')}
         items={results}
         itemSelector=".GifButton"
         preloadBackwards={PRELOAD_BACKWARDS}
@@ -160,7 +160,7 @@ const GifSearch: FC<OwnProps & StateProps> = ({
         {renderContent()}
       </InfiniteScroll>
       {calendar}
-    </div>
+    </>
   );
 };
 

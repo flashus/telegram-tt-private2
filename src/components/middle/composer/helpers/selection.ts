@@ -40,6 +40,38 @@ export function isQuoteEnd(range: Range, blockquote: HTMLElement | null | undefi
   return isAtQuoteEnd;
 }
 
+/**
+ * Checks if the selection end is effectively at the blockquote's end,
+ * even if it's inside nested formatting tags or whitespace.
+ */
+export function isDeepBlockquoteEnd(range: Range, blockquote: HTMLElement): boolean {
+  let container: Node = range.endContainer;
+  const offset = range.endOffset;
+  // Validate at end of current node
+  if (container.nodeType === Node.TEXT_NODE) {
+    if (offset < (container.textContent?.length || 0)) {
+      return false;
+    }
+  } else if (container.nodeType === Node.ELEMENT_NODE) {
+    if (offset < container.childNodes.length) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  // Ascend to blockquote, ensuring no following siblings at each level
+  while (container && container !== blockquote) {
+    const parent = container.parentNode;
+    if (!parent) break;
+    const idx = Array.prototype.indexOf.call(parent.childNodes, container);
+    if (idx < parent.childNodes.length - 1) {
+      return false;
+    }
+    container = parent;
+  }
+  return container === blockquote;
+}
+
 export function getExpectedParentElementRecursive(
   expectedTagName: string,
   element: Node | HTMLElement | null | undefined,
