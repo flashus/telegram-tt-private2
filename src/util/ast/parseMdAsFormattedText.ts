@@ -47,9 +47,10 @@ export function parseMarkdownToAST(inputText: string): DocumentNode | undefined 
     document = parser.parseDocument();
     if (document) {
       document = cleanupAST(document) as DocumentNode;
+      document = unwrapDivNodes(document) as DocumentNode;
       document = mergeAdjacentQuoteNodesWithNewline(document) as DocumentNode;
       document = removeInheritedFormatting(document) as DocumentNode;
-      document = unwrapDivNodes(document) as DocumentNode;
+      // document = unwrapDivNodes(document) as DocumentNode;
       // Merge adjacent same-style formatting nodes (e.g. split by divs)
       document = mergeAdjacentSameStyleNodes(document) as DocumentNode;
     }
@@ -194,10 +195,10 @@ function mergeAdjacentQuoteNodesWithNewline(ast: DocumentNode): DocumentNode {
       while (j < ast.children.length) {
         // newline-separated quote
         if (
-          ast.children[j].type === NodeType.TEXT &&
-          (ast.children[j] as TextNode).value === '\n' &&
-          j + 1 < ast.children.length &&
-          ast.children[j + 1].type === NodeType.QUOTE
+          ast.children[j].type === NodeType.TEXT
+          && (ast.children[j] as TextNode).value === '\n'
+          && j + 1 < ast.children.length
+          && ast.children[j + 1].type === NodeType.QUOTE
         ) {
           const nextQuote = ast.children[j + 1] as ASTNode;
           accumulated.push(ast.children[j]);
