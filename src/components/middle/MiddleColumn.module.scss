@@ -108,8 +108,8 @@
     mask: center repeat;
     -webkit-mask-size: 510px auto;
     mask-size: 510px auto;
-    -webkit-mask-image: url('../../assets/chat-bg-astronaut_cats.svg');
-    mask-image: url('../../assets/chat-bg-astronaut_cats.svg');
+    -webkit-mask-image: var(--chat-bg-astronaut_cats);
+    mask-image: var(--chat-bg-astronaut_cats);
     opacity: 0.3;
   }
 }
@@ -123,7 +123,7 @@
   mix-blend-mode: soft-light;
   background: center repeat;
   background-size: 510px auto;
-  background-image: url('../../assets/chat-bg-astronaut_cats.svg');
+  background-image: var(--chat-bg-astronaut_cats);
   opacity: 0.5;
 
   :global(html.theme-dark) & {
