@@ -2,6 +2,14 @@ import type { Token } from './token';
 
 import { TokenType } from './astEnums';
 
+// Custom-emoji <div> should not be treated as formatting tag boundary
+function isCustomEmojiDiv(token: Token): boolean {
+  return token.type === TokenType.HTML_TAG
+    && token.attributes?.tagName.toLowerCase() === 'div'
+    && Array.isArray(token.attributes.attributes)
+    && token.attributes.attributes.some((a) => a.key === 'data-entity-type' && a.value === 'MessageEntityCustomEmoji');
+}
+
 // A set of token types that represent markdown markers we want to "lift"
 const MARKDOWN_MARKER_TYPES = new Set([
   TokenType.BOLD_MARKER,
@@ -45,7 +53,8 @@ function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[];
           && tokens[0].attributes
           && !tokens[0].attributes.isClosing
           && !tokens[0].attributes.isSelfClosing
-          && FORMATTING_HTML_TAGS.has(tokens[0].attributes.tagName))
+          && FORMATTING_HTML_TAGS.has(tokens[0].attributes.tagName.toLowerCase())
+          && !isCustomEmojiDiv(tokens[0]))
       )
     ) {
       const marker = tokens[0];
@@ -72,7 +81,7 @@ function processBoundary(tokens: Token[], fromFront: boolean): { moved: Token[];
           && tokens[tokens.length - 1].attributes
           && tokens[tokens.length - 1].attributes?.isClosing
           && !tokens[tokens.length - 1].attributes?.isSelfClosing
-          && FORMATTING_HTML_TAGS.has(tokens[tokens.length - 1].attributes!.tagName))
+          && FORMATTING_HTML_TAGS.has(tokens[tokens.length - 1].attributes!.tagName.toLowerCase()))
       )
     ) {
       const marker = tokens[tokens.length - 1];
@@ -332,6 +341,29 @@ function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boo
       }
       continue;
     }
+    // Treat <div> as block boundary: close and reopen all open tags/markers
+    if (token.type === TokenType.HTML_TAG
+      && token.attributes?.tagName.toLowerCase() === 'div'
+      && !token.attributes.isSelfClosing
+    ) {
+      const savedStack = [...stack];
+      // close all open entries
+      for (let k = stack.length - 1; k >= 0; k--) {
+        const ent = stack[k];
+        if (ent.type === 'html') {
+          result.push(createClosingTag(ent.token));
+        } else {
+          result.push(ent.token);
+        }
+      }
+      // emit the div tag
+      result.push(token);
+      // reopen saved entries
+      for (const ent of savedStack) {
+        result.push(ent.token);
+      }
+      continue;
+    }
     // Other tokens
     result.push(token);
   }
@@ -346,27 +378,6 @@ function balanceHtmlMdTags(tokens: Token[], isInCodeRegion: (pos: number) => boo
   }
   return result;
 }
-
-// // Remove consecutive duplicate HTML tags
-// function compressDuplicateTags(tokens: Token[]): Token[] {
-//   const result: Token[] = [];
-//   for (const token of tokens) {
-//     const last = result[result.length - 1];
-//     if (
-//       last
-//       && token.type === TokenType.HTML_TAG
-//       && last.type === TokenType.HTML_TAG
-//       && token.value === last.value
-//       && token.attributes?.tagName === last.attributes?.tagName
-//       && token.attributes?.isClosing === last.attributes?.isClosing
-//       && token.attributes?.isSelfClosing === last.attributes?.isSelfClosing
-//     ) {
-//       continue;
-//     }
-//     result.push(token);
-//   }
-//   return result;
-// }
 
 /**
  * Recursively normalize a token stream so that markdown markers and HTML tags that
@@ -426,8 +437,6 @@ export function normalizeTokens(tokens: Token[]): Token[] {
     || coreTokens[pos]?.attributes?.isCodeContent === true;
 
   // 3. Balance interleaved HTML tags and markdown markers in core
-  // let balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
-  // balanced = compressDuplicateTags(balanced);
   const balanced = balanceHtmlMdTags(coreTokens, isInCodeRegion);
 
   // 4. Reassemble with lifted boundary markers
