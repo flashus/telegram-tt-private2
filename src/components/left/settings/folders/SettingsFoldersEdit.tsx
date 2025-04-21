@@ -15,6 +15,7 @@ import { STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
 import { isUserId } from '../../../../global/helpers';
 import { selectCanShareFolder } from '../../../../global/selectors';
 import { selectCurrentLimit } from '../../../../global/selectors/limits';
+import buildClassName from '../../../../util/buildClassName';
 import {
   getChatFolderEmojiText,
   getChatFolderIconName,
@@ -29,6 +30,7 @@ import { findIntersectionWithSet } from '../../../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
 import { CUSTOM_PEER_EXCLUDED_CHAT_TYPES, CUSTOM_PEER_INCLUDED_CHAT_TYPES } from '../../../../util/objects/customPeer';
 import { LOCAL_TGS_URLS } from '../../../common/helpers/animatedAssets';
+import { REM } from '../../../common/helpers/mediaDimensions';
 
 import {
   selectChatFilters,
@@ -43,13 +45,14 @@ import GroupChatInfo from '../../../common/GroupChatInfo';
 import Icon from '../../../common/icons/Icon';
 import PrivateChatInfo from '../../../common/PrivateChatInfo';
 import SymbolMenuButton from '../../../middle/composer/SymbolMenuButton';
+import Button from '../../../ui/Button';
 import FloatingActionButton from '../../../ui/FloatingActionButton';
 import InputText from '../../../ui/InputText';
 import ListItem from '../../../ui/ListItem';
 import Spinner from '../../../ui/Spinner';
 import ChatFolderIcon from '../../chatFolders/ChatFolderIcon';
 
-import './SettingsFoldersEdit.scss';
+import styles from './SettingsFoldersEdit.module.scss';
 
 type OwnProps = {
   isMobile?: boolean;
@@ -80,6 +83,8 @@ type StateProps = {
 const SUBMIT_TIMEOUT = 500;
 
 const INITIAL_CHATS_LIMIT = 5;
+
+const SYMBOL_MENU_FULL_SCREEN_WIDTH_FROM = 600;
 
 export const ERROR_NO_TITLE = 'Please provide a title for this folder.';
 export const ERROR_NO_CHATS = 'ChatList.Filter.Error.Empty';
@@ -119,6 +124,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   const [isExcludedChatsListExpanded, setIsExcludedChatsListExpanded] = useState(false);
 
   const [isSymbolMenuOpen, openSymbolMenu, closeSymbolMenu] = useFlag();
+
+  const [isSymbolMenuOverlayVisible, setIsSymbolMenuOverlayVisible] = useState(false);
+  const willRenderOverlay = isMobile && window.screen.width <= SYMBOL_MENU_FULL_SCREEN_WIDTH_FROM;
 
   useEffect(() => {
     if (isRemoved) {
@@ -271,6 +279,18 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     });
   });
 
+  const handleSymbolMenuOpen = useCallback(() => {
+    if (isMobile && willRenderOverlay) {
+      setIsSymbolMenuOverlayVisible(true);
+    }
+    openSymbolMenu();
+  }, [isMobile, willRenderOverlay, openSymbolMenu]);
+
+  const handleCloseOverlay = useCallback(() => {
+    setIsSymbolMenuOverlayVisible(false);
+    closeSymbolMenu();
+  }, [closeSymbolMenu]);
+
   function renderChatType(key: string, mode: 'included' | 'excluded') {
     const chatType = mode === 'included'
       ? CUSTOM_PEER_INCLUDED_CHAT_TYPES.find(({ type: typeKey }) => typeKey === key)
@@ -338,8 +358,47 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     );
   }
 
+  const rootClassName = buildClassName(
+    styles.root,
+    'settings-fab-wrapper',
+    isMobile && styles.mobile,
+    isSymbolMenuOpen && 'symbol-menu-open',
+  );
+
   return (
-    <div className="settings-fab-wrapper">
+    <div className={rootClassName}>
+
+      {isMobile && willRenderOverlay && (
+        <div className={buildClassName('symbol-menu-overlay', isSymbolMenuOverlayVisible && 'visible')}>
+          <div className="settings-folder-icon">
+            <ChatFolderIcon
+              iconEmojiText={getChatFolderEmojiText(state.folder, state.folderId, !state.isTouched)}
+              iconName={getChatFolderIconName(state.folder)}
+              size={10 * REM}
+            />
+          </div>
+          <div className="settings-folder-name-input-wrapper">
+            <Button
+              round
+              size="smaller"
+              color="translucent"
+              onClick={handleCloseOverlay}
+              className="back-button"
+              ariaLabel={lang('Back')}
+            >
+              <Icon name="arrow-left" />
+            </Button>
+            <InputText
+              className="settings-folder-name-input"
+              label={lang('FilterNameHint')}
+              value={getChatFolderTitle(state.folder).text}
+              onChange={handleChange}
+              error={state.error && state.error === ERROR_NO_TITLE ? ERROR_NO_TITLE : undefined}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="settings-content no-border custom-scroll">
         <div className="settings-content-header">
           <AnimatedIcon
@@ -375,7 +434,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
                 isMobile={isMobile}
                 isReady
                 isSymbolMenuOpen={isSymbolMenuOpen}
-                openSymbolMenu={openSymbolMenu}
+                openSymbolMenu={handleSymbolMenuOpen}
                 closeSymbolMenu={closeSymbolMenu}
                 canSendPlainText
                 onSvgIconSelect={handleSvgIconSelect}
