@@ -505,36 +505,25 @@ const MessageInput: FC<OwnProps & StateProps> = ({
 
     if (!isComposing && e.key === 'Enter' && e.shiftKey) {
       const selection = window.getSelection();
-      if (!selection) {
-        return;
-      }
+      if (!selection) return;
       const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
-      // Exit if blockquote is not found
-      if (!blockquote) {
-        return;
-      }
-      const range = selection.getRangeAt(0);
-
-      // Determine if at deep quote end (handles nested tags)
-      const isAtQuoteEnd = isDeepBlockquoteEnd(range, blockquote);
-      const blockEndRange = document.createRange();
-      blockEndRange.selectNodeContents(blockquote);
-      blockEndRange.collapse(false);
-      const isAtBlockquoteContentEnd = range.compareBoundaryPoints(Range.END_TO_END, blockEndRange) >= 0;
-      const isAfterBlockquoteComponent = range.endContainer?.parentElement === blockquote?.parentElement?.parentElement;
-      const isAfterBlockquoteElement = range.endContainer?.parentElement === blockquote?.parentElement;
-      if (!(isAtQuoteEnd || isAtBlockquoteContentEnd || isAfterBlockquoteComponent || isAfterBlockquoteElement)) {
-        return;
-      }
-
+      if (!blockquote) return;
       e.preventDefault();
-      // Insert newline: exit quote if at end-of-blockquote, else stay inside
-      if (isAtQuoteEnd || isAtBlockquoteContentEnd) {
+      const range = selection.getRangeAt(0);
+      const blockEnd = document.createRange();
+      blockEnd.selectNodeContents(blockquote);
+      blockEnd.collapse(false);
+      const isEnd = isDeepBlockquoteEnd(range, blockquote)
+        || range.compareBoundaryPoints(Range.END_TO_END, blockEnd) >= 0;
+      if (isEnd) {
+        // exit blockquote
         range.setEndAfter(blockquote);
       } else {
+        // newline inside blockquote
         range.collapse(false);
       }
       insertHtmlInSelection('\n');
+      return;
     }
 
     if (!isComposing && e.key === 'Enter' && !e.shiftKey) {
