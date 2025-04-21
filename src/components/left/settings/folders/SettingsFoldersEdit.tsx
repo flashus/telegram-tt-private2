@@ -1,6 +1,6 @@
 import type { FC } from '../../../../lib/teact/teact';
 import React, {
-  memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../../../global';
 
@@ -128,6 +128,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   const [isSymbolMenuOverlayVisible, setIsSymbolMenuOverlayVisible] = useState(false);
   const willRenderOverlay = isMobile && window.screen.width <= SYMBOL_MENU_FULL_SCREEN_WIDTH_FROM;
 
+  // eslint-disable-next-line no-null/no-null
+  const inputTextRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (isRemoved) {
       onReset();
@@ -252,6 +255,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   }, [onSaveFolder, onOpenInvite, state.isTouched]);
 
   const handleSvgIconSelect = useLastCallback((iconName: IconName) => {
+    if (isMobile && willRenderOverlay) {
+      inputTextRef.current?.blur();
+    }
     dispatch({
       type: 'patchFolder',
       payload: patchChatFolderWithSvgIcon(state.folder, iconName),
@@ -259,6 +265,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   });
 
   const handleCustomEmojiIconSelect = useLastCallback((emoji: ApiSticker) => {
+    if (isMobile && willRenderOverlay) {
+      inputTextRef.current?.blur();
+    }
     dispatch({
       type: 'patchFolder',
       payload: patchChatFolderWithEmoji(state.folder, emoji.emoji, emoji.id),
@@ -266,6 +275,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   });
 
   const handleEmojiIconSelect = useLastCallback((emoji: string) => {
+    if (isMobile && willRenderOverlay) {
+      inputTextRef.current?.blur();
+    }
     dispatch({
       type: 'patchFolder',
       payload: patchChatFolderWithEmoji(state.folder, emoji),
@@ -273,6 +285,9 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   });
 
   const handleRemoveSymbol = useLastCallback(() => {
+    if (isMobile && willRenderOverlay) {
+      inputTextRef.current?.blur();
+    }
     dispatch({
       type: 'patchFolder',
       payload: patchChatFolderWithEmoji(state.folder, undefined),
@@ -282,6 +297,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   const handleSymbolMenuOpen = useCallback(() => {
     if (isMobile && willRenderOverlay) {
       setIsSymbolMenuOverlayVisible(true);
+      inputTextRef.current?.blur();
     }
     openSymbolMenu();
   }, [isMobile, willRenderOverlay, openSymbolMenu]);
@@ -389,6 +405,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
               <Icon name="arrow-left" />
             </Button>
             <InputText
+              ref={inputTextRef}
               className="settings-folder-name-input"
               label={lang('FilterNameHint')}
               value={getChatFolderTitle(state.folder).text}
