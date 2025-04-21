@@ -9,12 +9,9 @@ import { throttle } from '../../util/schedulers';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import useOldLang from '../../hooks/useOldLang';
 
 import Loading from '../ui/Loading';
 import StickerSetResult from './StickerSetResult';
-
-import './StickerSearch.scss';
 
 type OwnProps = {
   onClose: NoneToVoidFunction;
@@ -45,12 +42,13 @@ const StickerSearch: FC<OwnProps & StateProps> = ({
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const lang = useOldLang();
-
   const {
     observe: observeIntersection,
   } = useIntersectionObserver({ rootRef: containerRef, throttleMs: INTERSECTION_THROTTLE });
 
+  // TODO! Check - after moving StickerSearch to StickerPicker -
+  // maybe, throttle must be removed - there is no Transition
+  //
   // Due to the parent Transition, this component never gets unmounted,
   // that's why we use throttled API call on every update.
   useEffect(() => {
@@ -59,50 +57,44 @@ const StickerSearch: FC<OwnProps & StateProps> = ({
     });
   });
 
+  // TODO! Check - after moving StickerSearch to StickerPicker -
+  // maybe, this hook must be removed - no back / close state in StickerPicker (?)
   useHistoryBack({
     isActive,
     onBack: onClose,
   });
 
-  function renderContent() {
-    if (query === undefined) {
-      return undefined;
-    }
-
-    if (!query && featuredIds) {
-      return featuredIds.map((id) => (
-        <StickerSetResult
-          key={id}
-          stickerSetId={id}
-          observeIntersection={observeIntersection}
-          isModalOpen={isModalOpen}
-        />
-      ));
-    }
-
-    if (resultIds) {
-      if (!resultIds.length) {
-        return <p className="helper-text" dir="auto">Nothing found.</p>;
-      }
-
-      return resultIds.map((id) => (
-        <StickerSetResult
-          key={id}
-          stickerSetId={id}
-          observeIntersection={observeIntersection}
-          isModalOpen={isModalOpen}
-        />
-      ));
-    }
-
-    return <Loading />;
+  if (query === undefined) {
+    return undefined;
   }
 
-  return (
-    <div ref={containerRef} className="StickerSearch custom-scroll" dir={lang.isRtl ? 'rtl' : undefined}>
-      {renderContent()}
-    </div>
-  );
+  if (!query && featuredIds) {
+    return featuredIds.map((id) => (
+      <StickerSetResult
+        key={id}
+        stickerSetId={id}
+        observeIntersection={observeIntersection}
+        isModalOpen={isModalOpen}
+      />
+    ));
+  }
+
+  if (resultIds) {
+    if (!resultIds.length) {
+      return <p className="helper-text" dir="auto">Nothing found.</p>;
+    }
+
+    return resultIds.map((id) => (
+      <StickerSetResult
+        key={id}
+        stickerSetId={id}
+        observeIntersection={observeIntersection}
+        isModalOpen={isModalOpen}
+      />
+    ));
+  }
+
+  return <Loading />;
 };
 
 export default memo(withGlobal(

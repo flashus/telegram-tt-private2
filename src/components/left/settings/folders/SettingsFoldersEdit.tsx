@@ -42,12 +42,14 @@ import AnimatedIcon from '../../../common/AnimatedIcon';
 import GroupChatInfo from '../../../common/GroupChatInfo';
 import Icon from '../../../common/icons/Icon';
 import PrivateChatInfo from '../../../common/PrivateChatInfo';
+import SymbolMenuButton from '../../../middle/composer/SymbolMenuButton';
 import FloatingActionButton from '../../../ui/FloatingActionButton';
 import InputText from '../../../ui/InputText';
 import ListItem from '../../../ui/ListItem';
 import Spinner from '../../../ui/Spinner';
 import ChatFolderIcon from '../../chatFolders/ChatFolderIcon';
-import SettingsFolderIconButton from './SettingsFolderIconButton';
+
+import './SettingsFoldersEdit.scss';
 
 type OwnProps = {
   isMobile?: boolean;
@@ -72,6 +74,7 @@ type StateProps = {
   maxInviteLinks: number;
   maxChatLists: number;
   chatListCount: number;
+  currentUserId: string;
 };
 
 const SUBMIT_TIMEOUT = 500;
@@ -84,15 +87,8 @@ export const ERROR_NO_CHATS = 'ChatList.Filter.Error.Empty';
 const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   isMobile,
   state,
-  dispatch,
-  onAddIncludedChats,
-  onAddExcludedChats,
-  onShareFolder,
-  onOpenInvite,
   isActive,
-  onReset,
   isRemoved,
-  onBack,
   loadedActiveChatIds,
   isOnlyInvites,
   loadedArchivedChatIds,
@@ -100,7 +96,15 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   maxInviteLinks,
   maxChatLists,
   chatListCount,
+  currentUserId,
+  dispatch,
+  onAddIncludedChats,
+  onAddExcludedChats,
+  onShareFolder,
+  onOpenInvite,
   onSaveFolder,
+  onReset,
+  onBack,
 }) => {
   const {
     loadChatlistInvites,
@@ -260,6 +264,13 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     });
   });
 
+  const handleRemoveSymbol = useLastCallback(() => {
+    dispatch({
+      type: 'patchFolder',
+      payload: patchChatFolderWithEmoji(state.folder, undefined),
+    });
+  });
+
   function renderChatType(key: string, mode: 'included' | 'excluded') {
     const chatType = mode === 'included'
       ? CUSTOM_PEER_INCLUDED_CHAT_TYPES.find(({ type: typeKey }) => typeKey === key)
@@ -352,7 +363,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
               error={state.error && state.error === ERROR_NO_TITLE ? ERROR_NO_TITLE : undefined}
             />
             <div className="settings-folder-icon">
-              <SettingsFolderIconButton
+              <SymbolMenuButton
                 icon={(
                   <ChatFolderIcon
                     className="inside-input-correction"
@@ -360,16 +371,20 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
                     iconName={getChatFolderIconName(state.folder)}
                   />
                 )}
+                chatId={currentUserId}
                 isMobile={isMobile}
                 isReady
                 isSymbolMenuOpen={isSymbolMenuOpen}
                 openSymbolMenu={openSymbolMenu}
                 closeSymbolMenu={closeSymbolMenu}
-                onCustomEmojiSelect={handleCustomEmojiIconSelect}
+                canSendPlainText
                 onSvgIconSelect={handleSvgIconSelect}
+                onCustomEmojiSelect={handleCustomEmojiIconSelect}
+                onRemoveSymbol={handleRemoveSymbol}
                 onEmojiSelect={handleEmojiIconSelect}
                 inputCssSelector=".settings-folder-name-input"
                 idPrefix="settings-folder-icon"
+                isFolderIconMenu
               />
             </div>
           </div>
@@ -469,6 +484,7 @@ export default memo(withGlobal<OwnProps>(
     const { listIds } = global.chats;
     const { byId, invites } = global.chatFolders;
     const chatListCount = Object.values(byId).reduce((acc, el) => acc + (el.isChatList ? 1 : 0), 0);
+    const currentUserId = global.currentUserId!;
 
     return {
       loadedActiveChatIds: listIds.active,
@@ -478,6 +494,7 @@ export default memo(withGlobal<OwnProps>(
       maxInviteLinks: selectCurrentLimit(global, 'chatlistInvites'),
       maxChatLists: selectCurrentLimit(global, 'chatlistJoined'),
       chatListCount,
+      currentUserId,
     };
   },
 )(SettingsFoldersEdit));
