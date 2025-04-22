@@ -98,6 +98,7 @@
   }
 
   --pattern-image: var(--chat-bg-astronaut_cats);
+
   @include mixins.set-pattern-image;
 
   .backgroundCanvas {
@@ -117,7 +118,7 @@
       opacity: 0.3;
     }
   }
-  
+
   .backgroundPattern {
     position: absolute;
     top: 0;
