@@ -3,7 +3,10 @@
 // Also, mask handling is cut atm
 // Also, shaders were extracted as simple strings to avoid using new webpack plugin for raw glsl
 
+import type { TBGPatternColorScheme } from '../../types';
+
 import { distance } from './util';
+import { contrastColor } from './contrast-color';
 import { fragmentShader } from './fragment-shader';
 import { hexToVec3 } from './hex-to-vec3';
 import { loadShaders } from './load-shaders';
@@ -11,6 +14,8 @@ import { vertexShader } from './vertex-shader';
 
 export class TWallpaperWebGL {
   static instance: TWallpaperWebGL;
+
+  static multitonInstances: Record<string, TWallpaperWebGL> = {};
 
   private initialized: boolean;
 
@@ -85,13 +90,22 @@ export class TWallpaperWebGL {
 
   public initCanvas(
     gradientCanvas: HTMLCanvasElement | null | undefined,
-    colorScheme: { color1: string; color2: string; color3: string; color4: string },
+    colorScheme: TBGPatternColorScheme,
   ): void {
     if (!gradientCanvas) {
       this.initialized = false;
       return;
     }
     if (this.gradientCanvas === gradientCanvas) {
+      // check new color scheme
+      if (!this.colors
+        || colorScheme.color1 !== this.colors.color1.toString()
+        || colorScheme.color2 !== this.colors.color2.toString()
+        || colorScheme.color3 !== this.colors.color3.toString()
+        || colorScheme.color4 !== this.colors.color4.toString()
+      ) {
+        this.setColorScheme(colorScheme);
+      }
       return;
     }
     this.gradientCanvas = gradientCanvas;
@@ -209,12 +223,7 @@ export class TWallpaperWebGL {
     return this.initialized;
   }
 
-  public setColorScheme(newColors: {
-    color1: string;
-    color2: string;
-    color3: string;
-    color4: string;
-  }): void {
+  public setColorScheme(newColors: TBGPatternColorScheme): void {
     this.colors = {
       color1: hexToVec3(newColors.color1),
       color2: hexToVec3(newColors.color2),
@@ -300,5 +309,111 @@ export class TWallpaperWebGL {
       this.instance = new TWallpaperWebGL();
     }
     return this.instance;
+  }
+
+  public static getMultitonInstance(key: string): TWallpaperWebGL {
+    if (!this.multitonInstances[key]) {
+      this.multitonInstances[key] = new TWallpaperWebGL();
+    }
+    return this.multitonInstances[key];
+  }
+
+  public deinit(): void {
+    if (this.initialized) {
+      this.initialized = false;
+      this.animating = false;
+      this.colors = undefined;
+    }
+
+    if (this.gl) {
+      this.gl = undefined;
+    }
+  }
+
+  public static renderPreview(
+    gradientCanvas: HTMLCanvasElement | null | undefined,
+    colorScheme: TBGPatternColorScheme,
+  ): void {
+    if (!gradientCanvas) {
+      return;
+    }
+
+    const ctx = gradientCanvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const width = gradientCanvas.width;
+    const height = gradientCanvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const minDim = Math.min(width, height);
+
+    // overlap colors settings
+    ctx.globalCompositeOperation = 'color';
+    // Preview does not produce the best result. Maybe, picking some other composite operation option could help
+    // "color" |
+    // "color-burn" |
+    // "color-dodge" |
+    // "copy" |
+    // "darken" |
+    // "destination-atop" |
+    // "destination-in" |
+    // "destination-out" |
+    // "destination-over" |
+    // "difference" |
+    // "exclusion" |
+    // "hard-light" |
+    // "hue" |
+    // "lighten" |
+    // "lighter" |
+    // "luminosity" |
+    // "multiply" |
+    // "overlay" |
+    // "saturation" |
+    // "screen" |
+    // "soft-light" |
+    // "source-atop" |
+    // "source-in" |
+    // "source-out" |
+    // "source-over" |
+    // "xor";
+
+    const radgrad = ctx.createRadialGradient(0, 0, 1, 0, 0, minDim);
+    radgrad.addColorStop(0, colorScheme.color1);
+    radgrad.addColorStop(1, `${colorScheme.color1}40`);
+
+    const radgrad2 = ctx.createRadialGradient(0, height, 1, 0, height, minDim);
+    radgrad2.addColorStop(0, colorScheme.color2);
+    radgrad2.addColorStop(1, `${colorScheme.color2}40`);
+
+    const radgrad3 = ctx.createRadialGradient(width, 0, 1, width, 0, minDim);
+    radgrad3.addColorStop(0, colorScheme.color3);
+    radgrad3.addColorStop(1, `${colorScheme.color3}40`);
+
+    const radgrad4 = ctx.createRadialGradient(width, height, 1, width, height, minDim);
+    radgrad4.addColorStop(0, colorScheme.color4);
+    radgrad4.addColorStop(1, `${colorScheme.color4}40`);
+
+    ctx.fillStyle = radgrad4;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = radgrad3;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = radgrad2;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = radgrad;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  public static contrastInvertedMaskColors({
+    color1, color2, color3, color4,
+  }: TBGPatternColorScheme): TBGPatternColorScheme {
+    return {
+      color1: contrastColor(color1),
+      color2: contrastColor(color2),
+      color3: contrastColor(color3),
+      color4: contrastColor(color4),
+    };
   }
 }

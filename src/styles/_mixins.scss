@@ -165,3 +165,63 @@
     box-shadow: none;
   }
 }
+
+@mixin set-pattern-image() {
+  &.chat-bg-animals {
+    --pattern-image: var(--chat-bg-animals);
+  }
+  &.chat-bg-astronaut_cats {
+    --pattern-image: var(--chat-bg-astronaut_cats);
+  }
+  &.chat-bg-beach {
+    --pattern-image: var(--chat-bg-beach);
+  }
+  &.chat-bg-cats_and_dogs {
+    --pattern-image: var(--chat-bg-cats_and_dogs);
+  }
+  &.chat-bg-christmas {
+    --pattern-image: var(--chat-bg-christmas);
+  }
+  &.chat-bg-fantasy {
+    --pattern-image: var(--chat-bg-fantasy);
+  }
+  &.chat-bg-games {
+    --pattern-image: var(--chat-bg-games);
+  }
+  &.chat-bg-late_night_delight {
+    --pattern-image: var(--chat-bg-late_night_delight);
+  }
+  &.chat-bg-magic {
+    --pattern-image: var(--chat-bg-magic);
+  }
+  &.chat-bg-math {
+    --pattern-image: var(--chat-bg-math);
+  }
+  &.chat-bg-paris {
+    --pattern-image: var(--chat-bg-paris);
+  }
+  &.chat-bg-snowflakes {
+    --pattern-image: var(--chat-bg-snowflakes);
+  }
+  &.chat-bg-space {
+    --pattern-image: var(--chat-bg-space);
+  }
+  &.chat-bg-star_wars {
+    --pattern-image: var(--chat-bg-star_wars);
+  }
+  &.chat-bg-sweets {
+    --pattern-image: var(--chat-bg-sweets);
+  }
+  &.chat-bg-tattoos {
+    --pattern-image: var(--chat-bg-tattoos);
+  }
+  &.chat-bg-underwater_world {
+    --pattern-image: var(--chat-bg-underwater_world);
+  }
+  &.chat-bg-unicorn {
+    --pattern-image: var(--chat-bg-unicorn);
+  }
+  &.chat-bg-zoo {
+    --pattern-image: var(--chat-bg-zoo);
+  }
+}
