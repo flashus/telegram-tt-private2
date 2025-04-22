@@ -4,7 +4,7 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import type { ISettings, TimeFormat } from '../../../types';
+import type { ISettings, LiveFormat, TimeFormat } from '../../../types';
 import type { IRadioOption } from '../../ui/RadioGroup';
 import { SettingsScreens } from '../../../types';
 
@@ -35,7 +35,8 @@ type StateProps =
     'messageTextSize' |
     'animationLevel' |
     'messageSendKeyCombo' |
-    'timeFormat'
+    'timeFormat' |
+    'liveFormat'
   )> & {
     theme: ISettings['theme'];
     shouldUseSystemTheme: boolean;
@@ -50,6 +51,7 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
   timeFormat,
   theme,
   shouldUseSystemTheme,
+  liveFormat,
 }) => {
   const {
     setSettingOption,
@@ -88,6 +90,12 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     },
   ] : undefined;
 
+  const liveFormatOptions: IRadioOption<LiveFormat>[] = [
+    { value: 'on', label: 'On'/* lang('SettingsLiveFormatOn') */ },
+    { value: 'off', label: 'Off'/* lang('SettingsLiveFormatOff') */ },
+    { value: 'combo', label: 'Combo (cmd + f)' /* lang('SettingsLiveFormatCombo') */ },
+  ];
+
   const handleMessageTextSizeChange = useCallback((newSize: number) => {
     document.documentElement.style.setProperty(
       '--composer-text-size', `${Math.max(newSize, IS_IOS ? 16 : 15)}px`,
@@ -115,6 +123,10 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
 
   const handleMessageSendComboChange = useCallback((newCombo: string) => {
     setSettingOption({ messageSendKeyCombo: newCombo as ISettings['messageSendKeyCombo'] });
+  }, [setSettingOption]);
+
+  const handleLiveFormatChange = useCallback((newValue: LiveFormat) => {
+    setSettingOption({ liveFormat: newValue });
   }, [setSettingOption]);
 
   const [isTrayIconEnabled, setIsTrayIconEnabled] = useState(false);
@@ -198,6 +210,18 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
           />
         </div>
       )}
+
+      <div className="settings-item">
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>
+          {'Live message formatting' /* {lang('SettingsTimeFormat')} */}
+        </h4>
+        <RadioGroup
+          name="liveformat"
+          options={liveFormatOptions}
+          selected={liveFormat}
+          onChange={handleLiveFormatChange as (value: string) => void}
+        />
+      </div>
     </div>
   );
 };
@@ -214,6 +238,7 @@ export default memo(withGlobal<OwnProps>(
         'isSensitiveEnabled',
         'canChangeSensitive',
         'timeFormat',
+        'liveFormat',
       ]),
       theme,
       shouldUseSystemTheme,

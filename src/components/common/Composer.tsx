@@ -36,6 +36,7 @@ import type {
   IAnchorPosition,
   InlineBotSettings,
   ISettings,
+  LiveFormat,
   MessageList,
   MessageListType,
   ThreadId,
@@ -153,7 +154,7 @@ import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import usePaidMessageConfirmation from '../middle/composer/hooks/usePaidMessageConfirmation';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
 import useVoiceRecording from '../middle/composer/hooks/useVoiceRecording';
-import useInlineMarkdown from './hooks/useInlineMarkdown';
+import useLiveFormatting from './hooks/useLiveFormatting';
 import { useUndoRedo } from './hooks/useUndoRedo';
 
 import AttachmentModal from '../middle/composer/AttachmentModal.async';
@@ -294,6 +295,7 @@ type StateProps =
     isPaymentMessageConfirmDialogOpen: boolean;
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
+    liveFormat: LiveFormat;
   };
 
 enum MainButtonState {
@@ -416,6 +418,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   isPaymentMessageConfirmDialogOpen,
   starsBalance,
   isStarsBalanceModalOpen,
+  liveFormat,
 }) => {
   const {
     sendMessage,
@@ -844,11 +847,11 @@ const Composer: FC<OwnProps & StateProps> = ({
     editingDraft,
   );
 
-  useInlineMarkdown({
+  useLiveFormatting({
     getHtml,
     setHtml,
     editableInputId,
-    // insertHtmlAndUpdateCursor,
+    liveFormat,
   });
 
   // Handle chat change (should be placed after `useDraft` and `useEditing`)
@@ -2360,7 +2363,7 @@ export default memo(withGlobal<OwnProps>(
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove,
+      shouldPaidMessageAutoApprove, liveFormat,
     } = global.settings.byKey;
     const {
       forwardMessages: { messageIds: forwardMessageIds },
@@ -2516,6 +2519,7 @@ export default memo(withGlobal<OwnProps>(
       isPaymentMessageConfirmDialogOpen: tabState.isPaymentMessageConfirmDialogOpen,
       starsBalance,
       isStarsBalanceModalOpen,
+      liveFormat,
     };
   },
 )(Composer));

@@ -92,6 +92,7 @@ export type LangCode = (
 );
 
 export type TimeFormat = '24h' | '12h';
+export type LiveFormat = 'on' | 'off' | 'combo';
 
 export interface ISettings {
   theme: ThemeKey;
@@ -120,6 +121,7 @@ export interface ISettings {
   isSensitiveEnabled?: boolean;
   canChangeSensitive?: boolean;
   timeFormat: TimeFormat;
+  liveFormat: LiveFormat;
   wasTimeFormatSetManually: boolean;
   isConnectionStatusMinimized: boolean;
   shouldArchiveAndMuteNewNonContact?: boolean;
