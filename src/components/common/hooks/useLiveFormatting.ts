@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef } from '../../../lib/teact/teact';
 
+import type { LiveFormat } from '../../../types';
 import type { Signal } from '../../../util/signals';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
 import { parseHtmlAsFormattedTextWithCursorSelection } from '../../../util/parseHtmlAsFormattedText';
 import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
+
+const EDIT_KEYS = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
+const DELETE_KEYS = ['Backspace', 'Delete'];
+const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+const COMBO_KEY = 'f';
 
 export const getCaretCharacterOffsets = (el: HTMLElement): { start: number; end: number } => {
   const sel = window.getSelection();
@@ -93,36 +100,94 @@ const restoreCursorSelection = (
 };
 
 // Map HTML tag names to ApiMessageEntityTypes
-const formattingTagEntityType: Record<string, ApiMessageEntityTypes> = {
-  B: ApiMessageEntityTypes.Bold,
-  STRONG: ApiMessageEntityTypes.Bold,
-  I: ApiMessageEntityTypes.Italic,
-  EM: ApiMessageEntityTypes.Italic,
-  INS: ApiMessageEntityTypes.Underline,
-  U: ApiMessageEntityTypes.Underline,
-  S: ApiMessageEntityTypes.Strike,
-  STRIKE: ApiMessageEntityTypes.Strike,
-  DEL: ApiMessageEntityTypes.Strike,
-  CODE: ApiMessageEntityTypes.Code,
-  PRE: ApiMessageEntityTypes.Pre,
-  BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
+// const formattingTagEntityType: Record<string, ApiMessageEntityTypes> = {
+//   B: ApiMessageEntityTypes.Bold,
+//   STRONG: ApiMessageEntityTypes.Bold,
+//   I: ApiMessageEntityTypes.Italic,
+//   EM: ApiMessageEntityTypes.Italic,
+//   INS: ApiMessageEntityTypes.Underline,
+//   U: ApiMessageEntityTypes.Underline,
+//   S: ApiMessageEntityTypes.Strike,
+//   STRIKE: ApiMessageEntityTypes.Strike,
+//   DEL: ApiMessageEntityTypes.Strike,
+//   CODE: ApiMessageEntityTypes.Code,
+//   PRE: ApiMessageEntityTypes.Pre,
+//   BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
+// };
+
+// Determine focused entities directly from DOM to avoid offset mismatches caused by existing raw markers
+const detectFocusedEntities = (selection: Selection, inputElement: HTMLElement): ApiMessageEntityTypes[] => {
+  if (!selection?.anchorNode) return [];
+  let node: Node | null = selection.anchorNode;
+  // If caret is inside a marker span – treat as outside any entity
+  if ((node as HTMLElement).parentElement?.classList.contains('md-marker')) {
+    return [];
+  }
+  // If caret is exactly at the start of wrapper (<span class="md-wrapper">) consider it outside
+  if ((node as HTMLElement).parentElement?.classList.contains('md-wrapper') && selection.anchorOffset === 0) {
+    return [];
+  }
+  const types: ApiMessageEntityTypes[] = [];
+  // Walk up until we reach the editable element
+  while (node && node !== inputElement) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = (node as HTMLElement).tagName;
+      switch (tag) {
+        case 'B':
+        case 'STRONG':
+          types.push(ApiMessageEntityTypes.Bold);
+          break;
+        case 'I':
+        case 'EM':
+          types.push(ApiMessageEntityTypes.Italic);
+          break;
+        case 'U':
+        case 'INS':
+          types.push(ApiMessageEntityTypes.Underline);
+          break;
+        case 'S':
+        case 'STRIKE':
+        case 'DEL':
+          types.push(ApiMessageEntityTypes.Strike);
+          break;
+        case 'CODE':
+          types.push(ApiMessageEntityTypes.Code);
+          break;
+        case 'PRE':
+          types.push(ApiMessageEntityTypes.Pre);
+          break;
+        case 'BLOCKQUOTE':
+          types.push(ApiMessageEntityTypes.Blockquote);
+          break;
+        default:
+      }
+    }
+    node = node.parentNode;
+  }
+  return types;
 };
 
-const useInlineMarkdown = ({
+const useLiveFormatting = ({
   getHtml,
   setHtml,
   editableInputId,
+  liveFormat,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
   editableInputId: string;
+  liveFormat: LiveFormat;
 }) => {
   const restored = useRef(false);
   const lastFocusedEntitiesRef = useRef<ApiMessageEntityTypes[]>([]);
+  // eslint-disable-next-line no-null/no-null
+  const inputRef = useRef<HTMLElement | null>(null);
 
   const clearRawMarkersMode = useCallback(() => {
-    const el = document.getElementById(editableInputId);
-    if (!el) return;
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
     const cursor = getCursorSelection(el);
     const html = getHtml();
     const { formattedText, newSelection } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
@@ -131,12 +196,17 @@ const useInlineMarkdown = ({
       setHtml(cleanHtml);
       restoreCursorSelection(el, newSelection, () => { restored.current = true; });
     }
-  }, [editableInputId, getHtml, setHtml]);
+  }, [getHtml, setHtml]);
 
   const applyInlineEdit = useCallback(() => {
-    const el = document.getElementById(editableInputId);
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
     const sel = window.getSelection();
-    if (!el || !sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
+    if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) {
+      return;
+    }
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
     const { formattedText, newSelection, focusedEntities } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
@@ -184,69 +254,21 @@ const useInlineMarkdown = ({
       // Restore selection at adjusted position
       restoreCursorSelection(el, adjustedSelection, () => {});
     }
-  }, [editableInputId, getHtml, setHtml]);
+  }, [getHtml, setHtml]);
 
   const showRawMarkers = useCallback(() => {
-    const el = document.getElementById(editableInputId);
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
     const sel = window.getSelection();
-    if (!el || !sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
+    if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) {
+      return;
+    }
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
 
-    // Determine focused entities directly from DOM to avoid offset mismatches caused by existing raw markers
-    const detectFocusedEntities = (): ApiMessageEntityTypes[] => {
-      const sel = window.getSelection();
-      if (!sel?.anchorNode) return [];
-      let node: Node | null = sel.anchorNode;
-      // If caret is inside a marker span – treat as outside any entity
-      if ((node as HTMLElement).parentElement?.classList.contains('md-marker')) {
-        return [];
-      }
-      // If caret is exactly at the start of wrapper (<span class="md-wrapper">) consider it outside
-      if ((node as HTMLElement).parentElement?.classList.contains('md-wrapper') && sel.anchorOffset === 0) {
-        return [];
-      }
-      const types: ApiMessageEntityTypes[] = [];
-      // Walk up until we reach the editable element
-      while (node && node !== el) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const tag = (node as HTMLElement).tagName;
-          switch (tag) {
-            case 'B':
-            case 'STRONG':
-              types.push(ApiMessageEntityTypes.Bold);
-              break;
-            case 'I':
-            case 'EM':
-              types.push(ApiMessageEntityTypes.Italic);
-              break;
-            case 'U':
-            case 'INS':
-              types.push(ApiMessageEntityTypes.Underline);
-              break;
-            case 'S':
-            case 'STRIKE':
-            case 'DEL':
-              types.push(ApiMessageEntityTypes.Strike);
-              break;
-            case 'CODE':
-              types.push(ApiMessageEntityTypes.Code);
-              break;
-            case 'PRE':
-              types.push(ApiMessageEntityTypes.Pre);
-              break;
-            case 'BLOCKQUOTE':
-              types.push(ApiMessageEntityTypes.Blockquote);
-              break;
-            default:
-          }
-        }
-        node = node.parentNode;
-      }
-      return types;
-    };
-
-    const focusedEntities = detectFocusedEntities();
+    const focusedEntities = detectFocusedEntities(sel, el);
 
     // Parse formatted text (offsets may mismatch but we only need formattedText for rendering)
     const { formattedText, newSelection } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
@@ -293,33 +315,36 @@ const useInlineMarkdown = ({
       const adjustedSelection = { start: newSelection.start + shift, end: newSelection.end + shift };
       restoreCursorSelection(el, adjustedSelection, () => {});
     }
-  }, [editableInputId, getHtml, setHtml]);
+  }, [getHtml, setHtml]);
 
   useEffect(() => {
-    const el = document.getElementById(editableInputId);
-    if (!el) {
-      // No element found: return a no-op cleanup fn so return type is always a function
-      return (): void => {};
+    inputRef.current = document.getElementById(editableInputId);
+  }, [editableInputId]);
+
+  useEffect(() => {
+    if (liveFormat !== 'on' || !inputRef.current) {
+      return;
     }
 
-    const onKeyUp = (e: KeyboardEvent): void => {
-      const editKeys = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
-      const deleteKeys = ['Backspace', 'Delete'];
-      const navKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
-
-      if (editKeys.includes(e.key)) {
+    const handleKeyUp = (e: KeyboardEvent): void => {
+      if (EDIT_KEYS.includes(e.key)) {
         applyInlineEdit();
-      } else if (deleteKeys.includes(e.key)) {
-        const el = document.getElementById(editableInputId);
+      } else if (DELETE_KEYS.includes(e.key)) {
+        const el = inputRef.current;
+        if (!el) {
+          return;
+        }
         const sel = window.getSelection();
-        if (!el || !sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
+        if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) {
+          return;
+        }
         const node = sel.anchorNode;
         const offset = sel.anchorOffset;
         // Deleting at end of a formatted segment: remove its wrapper directly
         if (
-          node.nodeType === Node.TEXT_NODE &&
-          node.parentElement &&
-          offset === (node.textContent?.length ?? 0)
+          node.nodeType === Node.TEXT_NODE
+          && node.parentElement
+          && offset === (node.textContent?.length ?? 0)
         ) {
           const wrapper = (node.parentElement as HTMLElement).closest('.md-wrapper');
           if (wrapper) {
@@ -338,27 +363,56 @@ const useInlineMarkdown = ({
         // Default deletion: update formatting and refresh markers
         applyInlineEdit();
         showRawMarkers();
-      } else if (navKeys.includes(e.key)) {
+      } else if (NAV_KEYS.includes(e.key)) {
         showRawMarkers();
       }
     };
-    const onMouseUp = (): void => {
+
+    const handleMouseUp = (): void => {
       applyInlineEdit();
     };
-    const onBlur = (): void => {
+
+    const handleBlur = (): void => {
       clearRawMarkersMode();
     };
-    el.addEventListener('keyup', onKeyUp);
-    el.addEventListener('mouseup', onMouseUp);
-    el.addEventListener('blur', onBlur);
+
+    inputRef.current.addEventListener('keyup', handleKeyUp);
+    inputRef.current.addEventListener('mouseup', handleMouseUp);
+    inputRef.current.addEventListener('blur', handleBlur);
+    // eslint-disable-next-line consistent-return
     return () => {
-      el.removeEventListener('keyup', onKeyUp);
-      el.removeEventListener('mouseup', onMouseUp);
-      el.removeEventListener('blur', onBlur);
+      if (!inputRef.current) {
+        return;
+      }
+      inputRef.current.removeEventListener('keyup', handleKeyUp);
+      inputRef.current.removeEventListener('mouseup', handleMouseUp);
+      inputRef.current.removeEventListener('blur', handleBlur);
     };
-  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers, clearRawMarkersMode]);
+  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers, clearRawMarkersMode, liveFormat]);
+
+  useEffect(() => {
+    if (liveFormat !== 'combo' || !inputRef.current) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (liveFormat === 'combo' && e.key.toLowerCase() === COMBO_KEY && (e.metaKey || e.ctrlKey) && e.altKey) {
+        applyInlineEdit();
+      }
+    };
+
+    inputRef.current.addEventListener('keydown', handleKeyDown);
+
+    // eslint-disable-next-line consistent-return
+    return () => {
+      if (!inputRef.current) {
+        return;
+      }
+      inputRef.current.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editableInputId, applyInlineEdit, liveFormat]);
 
   return { applyInlineEdit, clearRawMarkersMode };
 };
 
-export default useInlineMarkdown;
+export default useLiveFormatting;
