@@ -79,11 +79,24 @@ export type PerformanceType = {
   [key in PerformanceTypeKey]: boolean;
 };
 
+export type BGPatternScheme = {
+  colorScheme: {
+    color1: string;
+    color2: string;
+    color3: string;
+    color4: string;
+  };
+  name: string;
+  displayedName: string;
+};
+
 export interface IThemeSettings {
   background?: string;
   backgroundColor?: string;
   patternColor?: string;
   isBlurred?: boolean;
+  patternScheme?: BGPatternScheme;
+  invertMask?: boolean;
 }
 
 export type LangCode = (
