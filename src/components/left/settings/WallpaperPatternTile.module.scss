@@ -19,14 +19,14 @@
     right: 0;
     overflow: hidden;
   }
-  
+
   .canvas {
     top: 0;
     left: 0;
     height: 100%;
     width: 100%;
     position: absolute;
-  
+
     &.inverted {
       -webkit-mask: center repeat;
       mask: center repeat;
@@ -37,7 +37,7 @@
       opacity: 0.3;
     }
   }
-  
+
   .pattern {
     position: absolute;
     top: 0;
@@ -49,15 +49,14 @@
     background-size: 310px auto;
     background-image: var(--pattern-image);
     opacity: 0.5;
-  
-  
+
     &.inverted {
       background-image: none;
       opacity: initial;
       filter: none;
     }
   }
-  
+
   &.selected {
     &::after {
       content: "";
@@ -70,7 +69,7 @@
       border: 2px solid var(--color-primary);
       opacity: 1;
     }
-  
+
     .background {
       transform: scale(0.9);
     }
