@@ -21,16 +21,19 @@ export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = 
   BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
 };
 
+const ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'ins', 'u', 's', 'strike', 'del', 'code', 'pre', 'blockquote'];
+const SANITIZE_SCRIPT_REGEX = /<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi;
+const SANITIZE_TAGS_REGEX = /<(\/)?([a-z][a-z0-9]*)(\s[^>]*)?>/gi;
+
 // Simple sanitize: allow only basic markdown HTML tags, strip others and attributes
 function sanitizeHtml(input: string): string {
-  const allowedTags = ['b', 'strong', 'i', 'em', 'ins', 'u', 's', 'strike', 'del', 'code', 'pre', 'blockquote'];
   // remove <script> and <style> blocks
-  let output = input.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  let output = input.replace(SANITIZE_SCRIPT_REGEX, '');
   // strip disallowed tags and attributes
-  output = output.replace(/<(\/)?([a-z][a-z0-9]*)(\s[^>]*)?>/gi,
+  output = output.replace(SANITIZE_TAGS_REGEX,
     (_match, slash, tagName) => {
       const tn = tagName.toLowerCase();
-      return allowedTags.includes(tn) ? `<${slash || ''}${tn}>` : '';
+      return ALLOWED_TAGS.includes(tn) ? `<${slash || ''}${tn}>` : '';
     });
   return output;
 }
@@ -41,14 +44,12 @@ export default function parseHtmlAsFormattedText(
   // Sanitize input HTML
   // const safeHtml = sanitizeHtml(html);
   const safeHtml = html;
-  if (process.env.NODE_ENV === 'development') {
-    console.log('WILL PARSE LENGTH:', safeHtml.length, 'CALLER:', caller);
-  }
+
+  // TODO !!!! remove all logs. process check unnecessary - no console is allowed in prod
+  console.log('WILL PARSE LENGTH:', safeHtml.length, 'CALLER:', caller);
   const res = parseMarkdownHtmlToEntities(safeHtml);
-  if (process.env.NODE_ENV === 'development') {
-    console.log('parseHtmlAsFormattedText took', performance.now() - (performance.now() || 0));
-  }
   return res;
+  // return parseMarkdownHtmlToEntities(safeHtml);
 }
 
 export const parseHtmlAsFormattedTextWithCursorSelection = (
