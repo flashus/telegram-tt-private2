@@ -1,0 +1,78 @@
+@use '../../../styles/mixins';
+
+.root {
+  height: 0;
+  padding-bottom: 100%;
+  cursor: var(--custom-cursor, pointer);
+  position: relative;
+  overflow: hidden;
+
+  --pattern-image: var(--chat-bg-astronaut_cats);
+
+  @include mixins.set-pattern-image;
+
+  .background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    overflow: hidden;
+  }
+  
+  .canvas {
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+  
+    &.inverted {
+      -webkit-mask: center repeat;
+      mask: center repeat;
+      -webkit-mask-size: 310px auto;
+      mask-size: 310px auto;
+      -webkit-mask-image: var(--pattern-image);
+      mask-image: var(--pattern-image);
+      opacity: 0.3;
+    }
+  }
+  
+  .pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    mix-blend-mode: soft-light;
+    background: center repeat;
+    background-size: 310px auto;
+    background-image: var(--pattern-image);
+    opacity: 0.5;
+  
+  
+    &.inverted {
+      background-image: none;
+      opacity: initial;
+      filter: none;
+    }
+  }
+  
+  &.selected {
+    &::after {
+      content: "";
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      border: 2px solid var(--color-primary);
+      opacity: 1;
+    }
+  
+    .background {
+      transform: scale(0.9);
+    }
+  }
+}
