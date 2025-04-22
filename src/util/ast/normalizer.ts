@@ -441,7 +441,9 @@ export function normalizeTokens(tokens: Token[]): Token[] {
           }
         }
         // emit newline + inner tokens, skip wrapper tags
-        out.push({ type: TokenType.NEWLINE, value: '\n', start: tok.start, end: tok.end });
+        out.push({
+          type: TokenType.NEWLINE, value: '\n', start: tok.start, end: tok.end,
+        });
         out.push(...inner);
         i = j;
         continue;
