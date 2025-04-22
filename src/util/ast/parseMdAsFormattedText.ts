@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-escape */
-import type { ApiFormattedText } from '../../api/types';
+import type { ApiFormattedText, ApiMessageEntityTypes } from '../../api/types';
 import type {
   ASTNode, DocumentNode, HtmlTagNode, TextNode,
 } from './node';
@@ -90,12 +90,31 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
 export function parseMarkdownHtmlToEntitiesWithCursorSelection(
   inputText: string,
   cursorSelection: { start: number; end: number },
-): ApiFormattedText {
+): {
+    formattedText: ApiFormattedText;
+    newSelection: { start: number; end: number };
+    focusedEntities: ApiMessageEntityTypes[];
+  } {
   const ast = parseMarkdownToAST(inputText);
+  const { start, end } = cursorSelection;
   if (!ast) {
-    return { text: inputText, entities: [] };
+    return {
+      formattedText: { text: inputText, entities: [] },
+      newSelection: { start, end },
+      focusedEntities: [],
+    };
   }
-  return renderASTToEntities(ast);
+  const formattedText = renderASTToEntities(ast);
+  const focusedEntities: ApiMessageEntityTypes[] = (formattedText.entities ?? [])
+    // Use exclusive end boundary so entity is active for start < offset+length
+    .filter((e) => e.offset <= start && start < e.offset + e.length)
+    .map((e) => e.type as ApiMessageEntityTypes);
+
+  return {
+    formattedText,
+    newSelection: { start, end },
+    focusedEntities,
+  };
 }
 
 // AST cleanup: flatten nested formatting, merge duplicates, and reorder formatting chains

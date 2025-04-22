@@ -21,24 +21,42 @@ export const ENTITY_CLASS_BY_NODE_NAME: Record<string, ApiMessageEntityTypes> = 
   BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
 };
 
+// Simple sanitize: allow only basic markdown HTML tags, strip others and attributes
+function sanitizeHtml(input: string): string {
+  const allowedTags = ['b', 'strong', 'i', 'em', 'ins', 'u', 's', 'strike', 'del', 'code', 'pre', 'blockquote'];
+  // remove <script> and <style> blocks
+  let output = input.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  // strip disallowed tags and attributes
+  output = output.replace(/<(\/)?([a-z][a-z0-9]*)(\s[^>]*)?>/gi,
+    (_match, slash, tagName) => {
+      const tn = tagName.toLowerCase();
+      return allowedTags.includes(tn) ? `<${slash || ''}${tn}>` : '';
+    });
+  return output;
+}
+
 export default function parseHtmlAsFormattedText(
   html: string, caller: string,
 ): ApiFormattedText {
-  const now = performance.now();
-  console.log('WILL PARSE THIS MUCH: ', html.length);
-  console.log('CALLER: ', caller);
-  const res = parseMarkdownHtmlToEntities(html);
-  console.log('parseHtmlAsFormattedText', performance.now() - now);
-
+  // Sanitize input HTML
+  // const safeHtml = sanitizeHtml(html);
+  const safeHtml = html;
+  if (process.env.NODE_ENV === 'development') {
+    console.log('WILL PARSE LENGTH:', safeHtml.length, 'CALLER:', caller);
+  }
+  const res = parseMarkdownHtmlToEntities(safeHtml);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('parseHtmlAsFormattedText took', performance.now() - (performance.now() || 0));
+  }
   return res;
-  // return parseMarkdownHtmlToEntities(html);
 }
 
 export const parseHtmlAsFormattedTextWithCursorSelection = (
   html: string,
   cursorSelection: { start: number; end: number },
-): ApiFormattedText => {
-  return parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursorSelection);
+): ReturnType<typeof parseMarkdownHtmlToEntitiesWithCursorSelection> => {
+  const safeHtml = sanitizeHtml(html);
+  return parseMarkdownHtmlToEntitiesWithCursorSelection(safeHtml, cursorSelection);
 };
 
 export function fixImageContent(fragment: HTMLDivElement) {

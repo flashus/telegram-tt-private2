@@ -235,23 +235,43 @@ export function renderTextWithEntities({
   return result;
 }
 
-export function getTextWithEntitiesAsHtml(formattedText?: ApiFormattedText) {
+export function getTextWithEntitiesAsHtml(
+  formattedText?: ApiFormattedText,
+  opts: { rawMarkersFor?: ApiMessageEntityTypes[] } = {},
+) {
   const { text, entities } = formattedText || {};
   if (!text) {
     return '';
   }
 
+  // Render base HTML with tags
   const result = renderTextWithEntities({
     text,
     entities,
     shouldRenderAsHtml: true,
   });
+  let html = Array.isArray(result) ? result.join('') : result;
 
-  if (Array.isArray(result)) {
-    return result.join('');
+  // Inject raw markdown markers around focused entities
+  const { rawMarkersFor } = opts;
+  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Bold)) {
+    html = html.replace(/<b>([\s\S]*?)<\/b>/g, '<span class="md-wrapper md-bold"><span class="md-marker">**</span><b>$1</b><span class="md-marker">**</span></span>');
   }
+  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Italic)) {
+    html = html.replace(/<i>([\s\S]*?)<\/i>/g, '<span class="md-wrapper md-italic"><span class="md-marker">__</span><i>$1</i><span class="md-marker">__</span></span>');
+  }
+  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Underline)) {
+    html = html.replace(/<u>([\s\S]*?)<\/u>/g, '<span class="md-wrapper md-underline"><span class="md-marker">__</span><u>$1</u><span class="md-marker">__</span></span>');
+  }
+  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Strike)) {
+    html = html.replace(/<s>([\s\S]*?)<\/s>/g, '<span class="md-wrapper md-strike"><span class="md-marker">~~</span><s>$1</s><span class="md-marker">~~</span></span>');
+  }
+  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Code)) {
+    html = html.replace(/<code>([\s\S]*?)<\/code>/g, '<span class="md-wrapper md-code"><span class="md-marker">`</span><code>$1</code><span class="md-marker">`</span></span>');
+  }
+  // TODO: add other entity types as needed
 
-  return result;
+  return html;
 }
 
 function renderMessagePart({
