@@ -58,7 +58,7 @@
     }
   }
   
-  .selected {
+  &.selected {
     &::after {
       content: "";
       display: block;
