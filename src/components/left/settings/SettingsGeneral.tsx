@@ -92,8 +92,8 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
 
   const liveFormatOptions: IRadioOption<LiveFormat>[] = [
     { value: 'on', label: 'On'/* lang('SettingsLiveFormatOn') */ },
+    { value: 'combo', label: 'Combo (cmd + alt + f)' /* lang('SettingsLiveFormatCombo') */ },
     { value: 'off', label: 'Off'/* lang('SettingsLiveFormatOff') */ },
-    { value: 'combo', label: 'Combo (cmd + f)' /* lang('SettingsLiveFormatCombo') */ },
   ];
 
   const handleMessageTextSizeChange = useCallback((newSize: number) => {
