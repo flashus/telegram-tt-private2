@@ -10,6 +10,7 @@ import type {
 } from '../../api/types';
 import type {
   ActiveEmojiInteraction,
+  BGPatternScheme,
   MessageListType,
   ThemeKey,
   ThreadId,
@@ -128,6 +129,8 @@ type StateProps = {
   customBackground?: string;
   backgroundColor?: string;
   patternColor?: string;
+  patternScheme?: BGPatternScheme;
+  invertMask?: boolean;
   isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
   isBackgroundBlurred?: boolean;
@@ -192,6 +195,8 @@ function MiddleColumn({
   theme,
   backgroundColor,
   patternColor,
+  patternScheme,
+  invertMask,
   isLeftColumnShown,
   isRightColumnShown,
   isBackgroundBlurred,
@@ -449,6 +454,7 @@ function MiddleColumn({
     isRightColumnShown && styles.withRightColumn,
     IS_ELECTRON && !(renderingChatId && renderingThreadId) && styles.draggable,
     !showMainBg && styles.animatedBg,
+    patternScheme && patternScheme.name && styles[patternScheme.name],
   );
 
   const bgCanvasClassName = buildClassName(
@@ -457,6 +463,7 @@ function MiddleColumn({
     backgroundColor && styles.customBgColor,
     isRightColumnShown && styles.withRightColumn,
     showMainBg && 'hidden',
+    invertMask && styles.inverted,
   );
 
   const bgPatternClassName = buildClassName(
@@ -465,6 +472,7 @@ function MiddleColumn({
     backgroundColor && styles.customBgColor,
     isRightColumnShown && styles.withRightColumn,
     showMainBg && 'hidden',
+    invertMask && styles.inverted,
   );
 
   const messagingDisabledClassName = buildClassName(
@@ -515,7 +523,10 @@ function MiddleColumn({
   );
   const withExtraShift = Boolean(isMessagingDisabled || isSelectModeActive);
 
-  twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorBaseColorScheme[theme]);
+  const animatorColorScheme = patternScheme && patternScheme.colorScheme
+    ? patternScheme.colorScheme
+    : animatorBaseColorScheme[theme];
+  twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorColorScheme);
 
   return (
     <div
@@ -766,7 +777,12 @@ export default memo(withGlobal<OwnProps>(
   (global, { isMobile }): StateProps => {
     const theme = selectTheme(global);
     const {
-      isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
+      isBlurred: isBackgroundBlurred,
+      background: customBackground,
+      backgroundColor,
+      patternColor,
+      patternScheme,
+      invertMask,
     } = global.settings.themes[theme] || {};
 
     const {
@@ -782,6 +798,8 @@ export default memo(withGlobal<OwnProps>(
       customBackground,
       backgroundColor,
       patternColor,
+      patternScheme,
+      invertMask,
       isLeftColumnShown,
       isRightColumnShown: selectIsRightColumnShown(global, isMobile),
       isBackgroundBlurred,
