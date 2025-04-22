@@ -1,3 +1,5 @@
+@use '../../styles/mixins';
+
 .background {
   position: absolute;
   top: 0;
@@ -94,42 +96,45 @@
       mix-blend-mode: unset;
     }
   }
-}
 
-.backgroundCanvas {
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  position: absolute;
+  --pattern-image: var(--chat-bg-astronaut_cats);
+  @include mixins.set-pattern-image;
 
-  :global(html.theme-dark) & {
-    -webkit-mask: center repeat;
-    mask: center repeat;
-    -webkit-mask-size: 510px auto;
-    mask-size: 510px auto;
-    -webkit-mask-image: var(--chat-bg-astronaut_cats);
-    mask-image: var(--chat-bg-astronaut_cats);
-    opacity: 0.3;
+  .backgroundCanvas {
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+
+    &.inverted {
+      -webkit-mask: center repeat;
+      mask: center repeat;
+      -webkit-mask-size: 510px auto;
+      mask-size: 510px auto;
+      -webkit-mask-image: var(--pattern-image);
+      mask-image: var(--pattern-image);
+      opacity: 0.3;
+    }
   }
-}
+  
+  .backgroundPattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    mix-blend-mode: soft-light;
+    background: center repeat;
+    background-size: 510px auto;
+    background-image: var(--pattern-image);
+    opacity: 0.5;
 
-.backgroundPattern {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  mix-blend-mode: soft-light;
-  background: center repeat;
-  background-size: 510px auto;
-  background-image: var(--chat-bg-astronaut_cats);
-  opacity: 0.5;
-
-  :global(html.theme-dark) & {
-    background-image: none;
-    opacity: initial;
-    filter: none;
+    &.inverted {
+      background-image: none;
+      opacity: initial;
+      filter: none;
+    }
   }
 }
 
