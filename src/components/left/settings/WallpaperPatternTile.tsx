@@ -3,7 +3,7 @@ import React, {
   memo, useEffect, useRef,
 } from '../../../lib/teact/teact';
 
-import type { BGPatternScheme } from '../../../types';
+import type { TBGPatternScheme } from '../../../types';
 
 import buildClassName from '../../../util/buildClassName';
 import { TWallpaperWebGL } from '../../../util/twallpaper-webgl';
@@ -15,8 +15,8 @@ import styles from './WallpaperPatternTile.module.scss';
 type OwnProps = {
   invertMask: boolean;
   isSelected: boolean;
-  backgroundPatternScheme: BGPatternScheme;
-  onClick: (backgroundPatternScheme: BGPatternScheme) => void;
+  backgroundPatternScheme: TBGPatternScheme;
+  onClick: (backgroundPatternScheme: TBGPatternScheme) => void;
 };
 
 const WallpaperPatternTile: FC<OwnProps> = ({

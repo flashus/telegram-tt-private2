@@ -79,13 +79,15 @@ export type PerformanceType = {
   [key in PerformanceTypeKey]: boolean;
 };
 
-export type BGPatternScheme = {
-  colorScheme: {
-    color1: string;
-    color2: string;
-    color3: string;
-    color4: string;
-  };
+export type TBGPatternColorScheme = {
+  color1: string;
+  color2: string;
+  color3: string;
+  color4: string;
+};
+
+export type TBGPatternScheme = {
+  colorScheme: TBGPatternColorScheme;
   name: string;
   displayedName: string;
 };
@@ -95,7 +97,7 @@ export interface IThemeSettings {
   backgroundColor?: string;
   patternColor?: string;
   isBlurred?: boolean;
-  patternScheme?: BGPatternScheme;
+  patternScheme?: TBGPatternScheme;
   invertMask?: boolean;
 }
 

@@ -5,7 +5,7 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiWallpaper } from '../../../api/types';
-import type { BGPatternScheme, ThemeKey } from '../../../types';
+import type { TBGPatternScheme, ThemeKey } from '../../../types';
 import { SettingsScreens, UPLOADING_WALLPAPER_SLUG } from '../../../types';
 
 import { DARK_THEME_PATTERN_COLOR, DEFAULT_PATTERN_COLOR } from '../../../config';
@@ -26,7 +26,7 @@ import WallpaperTile from './WallpaperTile';
 
 import './SettingsGeneralBackground.scss';
 
-export const BG_PATTERN_SCHEMAS: BGPatternScheme[] = [
+export const BG_PATTERN_SCHEMAS: TBGPatternScheme[] = [
   {
     colorScheme: {
       color1: '#e8ecc1', color2: '#9fc68b', color3: '#c9d6a2', color4: '#7ba676',
@@ -170,7 +170,7 @@ type OwnProps = {
 
 type StateProps = {
   background?: string;
-  patternScheme?: BGPatternScheme;
+  patternScheme?: TBGPatternScheme;
   isBlurred?: boolean;
   invertMask?: boolean;
   loadedWallpapers?: ApiWallpaper[];
@@ -236,8 +236,14 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps> = ({
     });
   }, [setThemeSettings, theme]);
 
-  const handleWallPaperPatternSelect = useCallback((newPatternScheme: BGPatternScheme) => {
-    setThemeSettings({ theme: themeRef.current!, patternScheme: newPatternScheme });
+  const handleWallPaperPatternSelect = useCallback((newPatternScheme: TBGPatternScheme) => {
+    setThemeSettings({
+      theme: themeRef.current!,
+      patternScheme: newPatternScheme,
+      background: undefined,
+      backgroundColor: undefined,
+      patternColor: themeRef.current === 'dark' ? DARK_THEME_PATTERN_COLOR : DEFAULT_PATTERN_COLOR,
+    });
   }, [setThemeSettings]);
 
   const handleWallPaperSelect = useCallback((slug: string) => {
@@ -248,7 +254,12 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps> = ({
         .then((color) => {
           const patternColor = getPatternColor(color);
           const rgbColor = `#${rgb2hex(color)}`;
-          setThemeSettings({ theme: themeRef.current!, backgroundColor: rgbColor, patternColor });
+          setThemeSettings({
+            theme: themeRef.current!,
+            backgroundColor: rgbColor,
+            patternColor,
+            patternScheme: BG_PATTERN_SCHEMAS[0],
+          });
         });
     }
   }, [loadedWallpapers, setThemeSettings]);
@@ -312,8 +323,8 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps> = ({
           {BG_PATTERN_SCHEMAS.map((pattern) => (
             <WallpaperPatternTile
               key={pattern.name}
-              invertMask={theme === 'dark'}
-              isSelected={patternScheme?.name === pattern.name}
+              invertMask={invertMask ?? false}
+              isSelected={!background && patternScheme?.name === pattern.name}
               backgroundPatternScheme={pattern}
               onClick={handleWallPaperPatternSelect}
             />

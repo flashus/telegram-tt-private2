@@ -10,8 +10,8 @@ import type {
 } from '../../api/types';
 import type {
   ActiveEmojiInteraction,
-  BGPatternScheme,
   MessageListType,
+  TBGPatternScheme,
   ThemeKey,
   ThreadId,
 } from '../../types';
@@ -129,7 +129,7 @@ type StateProps = {
   customBackground?: string;
   backgroundColor?: string;
   patternColor?: string;
-  patternScheme?: BGPatternScheme;
+  patternScheme?: TBGPatternScheme;
   invertMask?: boolean;
   isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
@@ -523,9 +523,12 @@ function MiddleColumn({
   );
   const withExtraShift = Boolean(isMessagingDisabled || isSelectModeActive);
 
-  const animatorColorScheme = patternScheme && patternScheme.colorScheme
+  let animatorColorScheme = patternScheme && patternScheme.colorScheme
     ? patternScheme.colorScheme
     : animatorBaseColorScheme[theme];
+  if (invertMask) {
+    animatorColorScheme = TWallpaperWebGL.contrastInvertedMaskColors(animatorColorScheme);
+  }
   twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorColorScheme);
 
   return (

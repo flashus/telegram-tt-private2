@@ -3,7 +3,10 @@
 // Also, mask handling is cut atm
 // Also, shaders were extracted as simple strings to avoid using new webpack plugin for raw glsl
 
+import type { TBGPatternColorScheme } from '../../types';
+
 import { distance } from './util';
+import { contrastColor } from './contrast-color';
 import { fragmentShader } from './fragment-shader';
 import { hexToVec3 } from './hex-to-vec3';
 import { loadShaders } from './load-shaders';
@@ -87,7 +90,7 @@ export class TWallpaperWebGL {
 
   public initCanvas(
     gradientCanvas: HTMLCanvasElement | null | undefined,
-    colorScheme: { color1: string; color2: string; color3: string; color4: string },
+    colorScheme: TBGPatternColorScheme,
   ): void {
     if (!gradientCanvas) {
       this.initialized = false;
@@ -220,12 +223,7 @@ export class TWallpaperWebGL {
     return this.initialized;
   }
 
-  public setColorScheme(newColors: {
-    color1: string;
-    color2: string;
-    color3: string;
-    color4: string;
-  }): void {
+  public setColorScheme(newColors: TBGPatternColorScheme): void {
     this.colors = {
       color1: hexToVec3(newColors.color1),
       color2: hexToVec3(newColors.color2),
@@ -334,7 +332,7 @@ export class TWallpaperWebGL {
 
   public static renderPreview(
     gradientCanvas: HTMLCanvasElement | null | undefined,
-    colorScheme: { color1: string; color2: string; color3: string; color4: string },
+    colorScheme: TBGPatternColorScheme,
   ): void {
     if (!gradientCanvas) {
       return;
@@ -354,6 +352,7 @@ export class TWallpaperWebGL {
 
     // overlap colors settings
     ctx.globalCompositeOperation = 'color';
+    // Preview does not produce the best result. Maybe, picking some other composite operation option could help
     // "color" |
     // "color-burn" |
     // "color-dodge" |
@@ -405,5 +404,16 @@ export class TWallpaperWebGL {
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = radgrad;
     ctx.fillRect(0, 0, width, height);
+  }
+
+  public static contrastInvertedMaskColors({
+    color1, color2, color3, color4,
+  }: TBGPatternColorScheme): TBGPatternColorScheme {
+    return {
+      color1: contrastColor(color1),
+      color2: contrastColor(color2),
+      color3: contrastColor(color3),
+      color4: contrastColor(color4),
+    };
   }
 }

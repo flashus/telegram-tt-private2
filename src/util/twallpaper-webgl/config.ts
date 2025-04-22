@@ -1,16 +1,8 @@
+import type { TBGPatternColorScheme } from '../../types';
+
 export const animatorBaseColorScheme: {
-  light: {
-    color1: string;
-    color2: string;
-    color3: string;
-    color4: string;
-  };
-  dark: {
-    color1: string;
-    color2: string;
-    color3: string;
-    color4: string;
-  };
+  light: TBGPatternColorScheme;
+  dark: TBGPatternColorScheme;
 } = {
   light: {
     color1: '#e8ecc1',
