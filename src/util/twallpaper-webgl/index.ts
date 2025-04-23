@@ -216,7 +216,6 @@ export class TWallpaperWebGL {
     };
 
     this.initialized = true;
-    this.renderGradientCanvas();
   }
 
   public get isInitialized(): boolean {
@@ -245,7 +244,7 @@ export class TWallpaperWebGL {
     this.gl.uniform3fv(this.color4Loc, newColorsVec3.color4);
   }
 
-  private renderGradientCanvas(): void {
+  public renderGradientCanvas(): void {
     if (!this.gl || !this.colors) {
       return;
     }
