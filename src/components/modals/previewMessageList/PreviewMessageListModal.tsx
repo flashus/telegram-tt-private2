@@ -1,6 +1,6 @@
 import type { FC } from '../../../lib/teact/teact';
 import React, {
-  memo, useEffect, useMemo, useState,
+  memo, useEffect, useMemo, useRef, useState,
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
@@ -12,9 +12,11 @@ import type {
 import type { TabState } from '../../../global/types';
 import type {
   PreviewMessageListType,
+  TBGPatternScheme,
   ThemeKey,
 } from '../../../types/index';
 
+import { ANIMATION_END_DELAY } from '../../../config';
 import { isChatChannel } from '../../../global/helpers';
 import {
   selectCanAnimateInterface,
@@ -29,13 +31,18 @@ import {
   selectTheme,
 } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
+import buildStyle from '../../../util/buildStyle';
 import { debounce } from '../../../util/schedulers';
+import { TWallpaperWebGL } from '../../../util/twallpaper-webgl';
+import { animatorBaseColorScheme } from '../../../util/twallpaper-webgl/config';
 import { getSelectionAsFormattedText } from '../../middle/message/helpers/getSelectionAsFormattedText';
 
+import useAppLayout from '../../../hooks/useAppLayout';
 import useCustomBackground from '../../../hooks/useCustomBackground';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
+import usePrevDuringAnimation from '../../../hooks/usePrevDuringAnimation';
 
 import Button from '../../ui/Button';
 import ListItem from '../../ui/ListItem';
@@ -50,6 +57,8 @@ type StateProps = {
   customBackground?: string;
   backgroundColor?: string;
   patternColor?: string;
+  patternScheme?: TBGPatternScheme;
+  invertMask?: boolean;
   isBackgroundBlurred?: boolean;
   sender?: ApiPeer;
   isSenderChannel?: boolean;
@@ -70,12 +79,20 @@ export type OwnProps = {
   modal: TabState['previewMessageListModal'];
 };
 
+const DEBOUNCE_SELECTION_CHANGE = 300;
+
+const LAYER_ANIMATION_DURATION_MS = 450 + ANIMATION_END_DELAY;
+
+const twallpaperAnimator = TWallpaperWebGL.getMultitonInstance('previewMessageListModal');
+
 const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
   modal,
   theme,
   customBackground,
   backgroundColor,
-  // patternColor,
+  patternColor,
+  patternScheme,
+  invertMask,
   isBackgroundBlurred,
   sender,
   isSenderChannel,
@@ -108,6 +125,11 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
   const [activeTab, setActiveTab] = useState<number>(0);
   const [replyHasQuote, setReplyHasQuote] = useState<boolean>(replyInfo?.isQuote ?? false);
 
+  const { isMobile } = useAppLayout();
+
+  // eslint-disable-next-line no-null/no-null
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const lang = useLang();
   const oldLang = useOldLang();
 
@@ -115,6 +137,10 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
     forwardsNoAuthors: forwardsNoAuthors ?? false,
     forwardsNoCaptions: forwardsNoCaptions ?? false,
   }), [forwardsNoAuthors, forwardsNoCaptions]);
+
+  const closeAnimationDuration = isMobile ? LAYER_ANIMATION_DURATION_MS : undefined;
+
+  const renderingBgCanvas = usePrevDuringAnimation(bgCanvasRef, closeAnimationDuration);
 
   const previewData: {
     title: string;
@@ -380,16 +406,6 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
     );
   }
 
-  const customBackgroundValue = useCustomBackground(theme, customBackground);
-
-  const bgClassName = buildClassName(
-    styles.contentBackground,
-    styles.withTransition,
-    customBackground && styles.customBgImage,
-    backgroundColor && styles.customBgColor,
-    customBackground && isBackgroundBlurred && styles.blurred,
-  );
-
   useEffect(() => {
     if (type === 'forward' || modal === undefined) {
       return;
@@ -410,7 +426,7 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
       setReplyHasQuote(canQuoteSelection ?? false);
     }
 
-    const debouncedOnSelectionChange = debounce(onSelectionChange, 30, false);
+    const debouncedOnSelectionChange = debounce(onSelectionChange, DEBOUNCE_SELECTION_CHANGE, false);
 
     window.document.addEventListener('selectionchange', debouncedOnSelectionChange);
 
@@ -419,6 +435,58 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
       window.document.removeEventListener('selectionchange', debouncedOnSelectionChange);
     };
   }, [replyMessage?.content.text?.text, selection, type, modal]);
+
+  const customBackgroundValue = useCustomBackground(theme, customBackground);
+
+  const showMainBg = !renderingBgCanvas || !twallpaperAnimator.isInitialized
+    || customBackground || backgroundColor;
+
+  const containerClassName = buildClassName(
+    styles.container,
+    'custom-scroll',
+  );
+
+  const bgClassName = buildClassName(
+    styles.contentBackground,
+    styles.withTransition,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    customBackground && isBackgroundBlurred && styles.blurred,
+    !showMainBg && styles.animatedBg,
+    patternScheme && patternScheme.name && styles[patternScheme.name],
+  );
+
+  const bgCanvasClassName = buildClassName(
+    styles.backgroundCanvas,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    showMainBg && 'hidden',
+    invertMask && styles.inverted,
+  );
+
+  const bgPatternClassName = buildClassName(
+    styles.backgroundPattern,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    showMainBg && 'hidden',
+    invertMask && styles.inverted,
+  );
+
+  useEffect(() => {
+    if (!modal) {
+      return;
+    }
+
+    let animatorColorScheme = patternScheme && patternScheme.colorScheme
+      ? patternScheme.colorScheme
+      : animatorBaseColorScheme[theme];
+    if (invertMask) {
+      animatorColorScheme = TWallpaperWebGL.contrastInvertedMaskColors(animatorColorScheme);
+    }
+
+    twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorColorScheme);
+    twallpaperAnimator.renderGradientCanvas();
+  }, [modal, patternScheme, theme, invertMask]);
 
   return (
     <Modal
@@ -431,11 +499,23 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
       footer={renderFooter()}
     >
       {Boolean(modal) && Boolean(previewData.type) && (
-        <>
+        <div
+          className={containerClassName}
+          style={buildStyle(
+            `--pattern-color: ${patternColor}`,
+            backgroundColor && `--theme-background-color: ${backgroundColor}`,
+          )}
+        >
           <div
             className={bgClassName}
             style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
-          />
+          >
+            <canvas
+              className={bgCanvasClassName}
+              ref={bgCanvasRef}
+            />
+            <div className={bgPatternClassName} />
+          </div>
           <PreviewMessageList
             chatId={modal.chatId}
             threadId={modal.threadId}
@@ -449,7 +529,7 @@ const PreviewMessageListModal: FC<OwnProps & StateProps> = ({
             messagesById={previewData.messagesById}
             forwardsNoCaptions={forwardsNoCaptions}
           />
-        </>
+        </div>
       )}
     </Modal>
   );
@@ -463,7 +543,12 @@ export default memo(withGlobal<OwnProps>(
     }
 
     const {
-      isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
+      isBlurred: isBackgroundBlurred,
+      background: customBackground,
+      backgroundColor,
+      patternColor,
+      patternScheme,
+      invertMask,
     } = global.settings.themes[theme] || {};
 
     const {
@@ -547,6 +632,8 @@ export default memo(withGlobal<OwnProps>(
       customBackground,
       backgroundColor,
       patternColor,
+      patternScheme,
+      invertMask,
       isBackgroundBlurred,
       sender,
       isSenderChannel,

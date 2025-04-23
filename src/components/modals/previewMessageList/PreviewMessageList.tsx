@@ -35,6 +35,7 @@ import Loading from '../../ui/Loading';
 import PreviewMessageListContent from './PreviewMessageListContent';
 
 import '../../middle/MessageList.scss';
+import styles from './PreviewMessageList.module.scss';
 
 /**
  * Reasons to make a component that is separate from MessageList:
@@ -244,7 +245,8 @@ const PreviewMessageList: FC<OwnProps & StateProps> = ({
   const noAvatars = Boolean(!withUsers || (isChannelChat && !isChannelWithAvatars));
 
   const className = buildClassName(
-    'PreviewMessageList MessageList custom-scroll',
+    styles.root,
+    'PreviewMessageList MessageList',
     withBottomShift && 'with-bottom-shift',
     withDefaultBg && 'with-default-bg',
     isSelectModeActive && 'select-mode-active',
@@ -262,6 +264,7 @@ const PreviewMessageList: FC<OwnProps & StateProps> = ({
     >
       {hasMessages ? (
         <PreviewMessageListContent
+          className={styles.previewMessageListContent}
           chatId={chatId}
           isComments={isComments}
           isChannelChat={false}

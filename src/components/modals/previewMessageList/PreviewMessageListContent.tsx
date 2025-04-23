@@ -12,6 +12,7 @@ import {
   isOwnMessage,
   isServiceNotificationMessage,
 } from '../../../global/helpers';
+import buildClassName from '../../../util/buildClassName';
 import { compact } from '../../../util/iteratees';
 import { isAlbum } from '../../middle/helpers/groupMessages';
 
@@ -21,6 +22,7 @@ import useMessageObservers from '../../middle/hooks/useMessageObservers';
 import PreviewMessage from './PreviewMessage';
 
 interface OwnProps {
+  className?: string;
   chatId: string;
   threadId: ThreadId;
   messageGroups: MessageDateGroup[];
@@ -38,6 +40,7 @@ interface OwnProps {
 }
 
 const PreviewMessageListContent: FC<OwnProps> = ({
+  className,
   chatId,
   threadId,
   messageGroups,
@@ -165,7 +168,7 @@ const PreviewMessageListContent: FC<OwnProps> = ({
   });
 
   return (
-    <div className="messages-container" teactFastList>
+    <div className={buildClassName(className, 'messages-container')} teactFastList>
       {dateGroups.flat()}
     </div>
   );

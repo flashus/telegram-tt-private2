@@ -1,3 +1,5 @@
+@use '../../../styles/mixins';
+
 .root {
   --tips-bg-color: var(--color-item-hover);
   --tips-text-color: var(--color-text-secondary);
@@ -41,7 +43,7 @@
         max-width: 100%;
         flex-grow: 1;
         overflow-x: hidden;
-        overflow-y: scroll;
+        overflow-y: hidden;
 
         .PreviewMessage {
           // max-width: 100%;
@@ -60,6 +62,11 @@
   }
 }
 
+.container {
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
 .contentBackground {
   position: absolute;
   top: 0;
@@ -70,17 +77,17 @@
   overflow: hidden;
   background-color: var(--theme-background-color);
 
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-  }
+  // &::before {
+  //   content: "";
+  //   position: absolute;
+  //   top: 0;
+  //   left: 0;
+  //   bottom: 0;
+  //   right: 0;
+  //   background-position: center;
+  //   background-repeat: no-repeat;
+  //   background-size: cover;
+  // }
 
   :global(html.theme-light) &:not(.customBgImage)::before {
     background-image: url('../../../assets/chat-bg-br.png');
@@ -138,22 +145,63 @@
     transition: transform var(--layer-transition);
   }
 
-  &:not(.customBgImage):not(.customBgColor)::after {
-    content: "";
+  // &:not(.customBgImage):not(.customBgColor):not(.animatedBg)::after {
+  //   content: "";
+  //   position: absolute;
+  //   top: 0;
+  //   left: 0;
+  //   bottom: 0;
+  //   right: 0;
+  //   background-image: url('../../../assets/chat-bg-pattern-light.png');
+  //   background-position: top right;
+  //   background-size: 510px auto;
+  //   background-repeat: repeat;
+  //   mix-blend-mode: overlay;
+
+  //   :global(html.theme-dark) & {
+  //     background-image: url('../../../assets/chat-bg-pattern-dark.png');
+  //     mix-blend-mode: unset;
+  //   }
+  // }
+
+  --pattern-image: var(--chat-bg-astronaut_cats);
+
+  @include mixins.set-pattern-image;
+
+  .backgroundCanvas {
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+
+    &.inverted {
+      -webkit-mask: center repeat;
+      mask: center repeat;
+      -webkit-mask-size: 510px auto;
+      mask-size: 510px auto;
+      -webkit-mask-image: var(--pattern-image);
+      mask-image: var(--pattern-image);
+      opacity: 0.3;
+    }
+  }
+
+  .backgroundPattern {
     position: absolute;
     top: 0;
     left: 0;
-    bottom: 0;
-    right: 0;
-    background-image: url('../../../assets/chat-bg-pattern-light.png');
-    background-position: top right;
+    height: 100%;
+    width: 100%;
+    mix-blend-mode: soft-light;
+    background: center repeat;
     background-size: 510px auto;
-    background-repeat: repeat;
-    mix-blend-mode: overlay;
+    background-image: var(--pattern-image);
+    opacity: 0.5;
 
-    :global(html.theme-dark) & {
-      background-image: url('../../../assets/chat-bg-pattern-dark.png');
-      mix-blend-mode: unset;
+    &.inverted {
+      background-image: none;
+      opacity: initial;
+      filter: none;
     }
   }
 }
