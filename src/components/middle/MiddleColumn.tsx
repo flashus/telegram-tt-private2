@@ -160,7 +160,6 @@ type StateProps = {
   canShowOpenChatButton?: boolean;
   isContactRequirePremium?: boolean;
   topics?: Record<number, ApiTopic>;
-  wallpaperRotation?: boolean;
   paidMessagesStars?: number;
 };
 
@@ -226,7 +225,6 @@ function MiddleColumn({
   canShowOpenChatButton,
   isContactRequirePremium,
   topics,
-  wallpaperRotation,
   paidMessagesStars,
 }: OwnProps & StateProps) {
   const {
@@ -441,8 +439,7 @@ function MiddleColumn({
     MASK_IMAGE_DISABLED ? 'mask-image-disabled' : 'mask-image-enabled',
   );
 
-  const showMainBg = !renderingBgCanvas
-    || !wallpaperRotation || !twallpaperAnimator.isInitialized
+  const showMainBg = !renderingBgCanvas || !twallpaperAnimator.isInitialized
     || customBackground || backgroundColor;
 
   const bgClassName = buildClassName(
@@ -530,6 +527,7 @@ function MiddleColumn({
     animatorColorScheme = TWallpaperWebGL.contrastInvertedMaskColors(animatorColorScheme);
   }
   twallpaperAnimator.initCanvas(bgCanvasRef.current, animatorColorScheme);
+  twallpaperAnimator.renderGradientCanvas();
 
   return (
     <div
@@ -816,7 +814,6 @@ export default memo(withGlobal<OwnProps>(
       currentTransitionKey: Math.max(0, messageLists.length - 1),
       activeEmojiInteractions,
       leftColumnWidth,
-      wallpaperRotation: global.settings.performance.wallpaperRotation,
     };
 
     if (!currentMessageList) {

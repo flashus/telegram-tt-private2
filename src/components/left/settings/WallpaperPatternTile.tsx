@@ -46,7 +46,7 @@ const WallpaperPatternTile: FC<OwnProps> = ({
     // Initialize if selected and not initialized
     if (isSelected) {
       twallpaperAnimator.initCanvas(bgCanvasRef.current, colorScheme);
-      requestAnimationFrame(() => twallpaperAnimator.playAnimation());
+      twallpaperAnimator.renderGradientCanvas();
       return;
     }
 

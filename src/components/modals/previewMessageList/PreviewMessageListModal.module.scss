@@ -1,3 +1,5 @@
+@use '../../../styles/mixins';
+
 .root {
   --tips-bg-color: var(--color-item-hover);
   --tips-text-color: var(--color-text-secondary);
@@ -41,7 +43,7 @@
         max-width: 100%;
         flex-grow: 1;
         overflow-x: hidden;
-        overflow-y: scroll;
+        overflow-y: hidden;
 
         .PreviewMessage {
           // max-width: 100%;
@@ -58,6 +60,11 @@
       padding: 0 1rem 0.5rem;
     }
   }
+}
+
+.container {
+  overflow-x: hidden;
+  overflow-y: scroll;
 }
 
 .contentBackground {
@@ -138,7 +145,7 @@
     transition: transform var(--layer-transition);
   }
 
-  &:not(.customBgImage):not(.customBgColor)::after {
+  &:not(.customBgImage):not(.customBgColor):not(.animatedBg)::after {
     content: "";
     position: absolute;
     top: 0;
@@ -154,6 +161,47 @@
     :global(html.theme-dark) & {
       background-image: url('../../../assets/chat-bg-pattern-dark.png');
       mix-blend-mode: unset;
+    }
+  }
+
+  --pattern-image: var(--chat-bg-astronaut_cats);
+
+  @include mixins.set-pattern-image;
+
+  .backgroundCanvas {
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+
+    &.inverted {
+      -webkit-mask: center repeat;
+      mask: center repeat;
+      -webkit-mask-size: 510px auto;
+      mask-size: 510px auto;
+      -webkit-mask-image: var(--pattern-image);
+      mask-image: var(--pattern-image);
+      opacity: 0.3;
+    }
+  }
+
+  .backgroundPattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    mix-blend-mode: soft-light;
+    background: center repeat;
+    background-size: 510px auto;
+    background-image: var(--pattern-image);
+    opacity: 0.5;
+
+    &.inverted {
+      background-image: none;
+      opacity: initial;
+      filter: none;
     }
   }
 }
