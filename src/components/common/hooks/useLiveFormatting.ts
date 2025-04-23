@@ -30,6 +30,11 @@ export const getCaretCharacterOffsets = (el: HTMLElement): { start: number; end:
 };
 
 export const setCaretCharacterOffsets = (el: HTMLElement, start: number, end: number): void => {
+  // Clamp start and end to valid range
+  const max = el.textContent?.length || 0;
+  start = Math.max(0, Math.min(start, max));
+  end = Math.max(0, Math.min(end, max));
+
   let charCount = 0;
   let startNode: Node | undefined;
   let startOffset = 0;
@@ -115,57 +120,57 @@ const restoreCursorSelection = (
 //   BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
 // };
 
-// Determine focused entities directly from DOM to avoid offset mismatches caused by existing raw markers
-const detectFocusedEntities = (selection: Selection, inputElement: HTMLElement): ApiMessageEntityTypes[] => {
-  if (!selection?.anchorNode) return [];
-  let node: Node | null = selection.anchorNode;
-  // If caret is inside a marker span – treat as outside any entity
-  if ((node as HTMLElement).parentElement?.classList.contains('md-marker')) {
-    return [];
-  }
-  // If caret is exactly at the start of wrapper (<span class="md-wrapper">) consider it outside
-  if ((node as HTMLElement).parentElement?.classList.contains('md-wrapper') && selection.anchorOffset === 0) {
-    return [];
-  }
-  const types: ApiMessageEntityTypes[] = [];
-  // Walk up until we reach the editable element
-  while (node && node !== inputElement) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = (node as HTMLElement).tagName;
-      switch (tag) {
-        case 'B':
-        case 'STRONG':
-          types.push(ApiMessageEntityTypes.Bold);
-          break;
-        case 'I':
-        case 'EM':
-          types.push(ApiMessageEntityTypes.Italic);
-          break;
-        case 'U':
-        case 'INS':
-          types.push(ApiMessageEntityTypes.Underline);
-          break;
-        case 'S':
-        case 'STRIKE':
-        case 'DEL':
-          types.push(ApiMessageEntityTypes.Strike);
-          break;
-        case 'CODE':
-          types.push(ApiMessageEntityTypes.Code);
-          break;
-        case 'PRE':
-          types.push(ApiMessageEntityTypes.Pre);
-          break;
-        case 'BLOCKQUOTE':
-          types.push(ApiMessageEntityTypes.Blockquote);
-          break;
-        default:
-      }
-    }
-    node = node.parentNode;
-  }
-  return types;
-};
+// // Determine focused entities directly from DOM to avoid offset mismatches caused by existing raw markers
+// const detectFocusedEntities = (selection: Selection, inputElement: HTMLElement): ApiMessageEntityTypes[] => {
+//   if (!selection?.anchorNode) return [];
+//   let node: Node | null = selection.anchorNode;
+//   // If caret is inside a marker span – treat as outside any entity
+//   if ((node as HTMLElement).parentElement?.classList.contains('md-marker')) {
+//     return [];
+//   }
+//   // If caret is exactly at the start of wrapper (<span class="md-wrapper">) consider it outside
+//   // if ((node as HTMLElement).parentElement?.classList.contains('md-wrapper') && selection.anchorOffset === 0) {
+//   //   return [];
+//   // }
+//   const types: ApiMessageEntityTypes[] = [];
+//   // Walk up until we reach the editable element
+//   while (node && node !== inputElement) {
+//     if (node.nodeType === Node.ELEMENT_NODE) {
+//       const tag = (node as HTMLElement).tagName;
+//       switch (tag) {
+//         case 'B':
+//         case 'STRONG':
+//           types.push(ApiMessageEntityTypes.Bold);
+//           break;
+//         case 'I':
+//         case 'EM':
+//           types.push(ApiMessageEntityTypes.Italic);
+//           break;
+//         case 'U':
+//         case 'INS':
+//           types.push(ApiMessageEntityTypes.Underline);
+//           break;
+//         case 'S':
+//         case 'STRIKE':
+//         case 'DEL':
+//           types.push(ApiMessageEntityTypes.Strike);
+//           break;
+//         case 'CODE':
+//           types.push(ApiMessageEntityTypes.Code);
+//           break;
+//         case 'PRE':
+//           types.push(ApiMessageEntityTypes.Pre);
+//           break;
+//         case 'BLOCKQUOTE':
+//           types.push(ApiMessageEntityTypes.Blockquote);
+//           break;
+//         default:
+//       }
+//     }
+//     node = node.parentNode;
+//   }
+//   return types;
+// };
 
 const useLiveFormatting = ({
   getHtml,
@@ -268,10 +273,15 @@ const useLiveFormatting = ({
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
 
-    const focusedEntities = detectFocusedEntities(sel, el);
-
-    // Parse formatted text (offsets may mismatch but we only need formattedText for rendering)
-    const { formattedText, newSelection } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    // Parse formatted text and detect focused entities using cursor selection
+    const parseRes = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    let focusedEntities = parseRes.focusedEntities;
+    const { formattedText, newSelection } = parseRes;
+    // If caret remains inside a raw-marker wrapper, retain previous focus to keep markers
+    const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
+    if (wrapper) {
+      focusedEntities = lastFocusedEntitiesRef.current;
+    }
 
     const newHtml = getTextWithEntitiesAsHtml(formattedText, { rawMarkersFor: focusedEntities });
     if (newHtml !== html) {

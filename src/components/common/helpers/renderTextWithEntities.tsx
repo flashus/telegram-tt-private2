@@ -255,18 +255,23 @@ export function getTextWithEntitiesAsHtml(
   // Inject raw markdown markers around focused entities
   const { rawMarkersFor } = opts;
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Bold)) {
+    // eslint-disable-next-line max-len
     html = html.replace(/<b>([\s\S]*?)<\/b>/g, '<span class="md-wrapper md-bold"><span class="md-marker">**</span><b>$1</b><span class="md-marker">**</span></span>');
   }
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Italic)) {
+    // eslint-disable-next-line max-len
     html = html.replace(/<i>([\s\S]*?)<\/i>/g, '<span class="md-wrapper md-italic"><span class="md-marker">__</span><i>$1</i><span class="md-marker">__</span></span>');
   }
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Underline)) {
+    // eslint-disable-next-line max-len
     html = html.replace(/<u>([\s\S]*?)<\/u>/g, '<span class="md-wrapper md-underline"><span class="md-marker">__</span><u>$1</u><span class="md-marker">__</span></span>');
   }
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Strike)) {
+    // eslint-disable-next-line max-len
     html = html.replace(/<s>([\s\S]*?)<\/s>/g, '<span class="md-wrapper md-strike"><span class="md-marker">~~</span><s>$1</s><span class="md-marker">~~</span></span>');
   }
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Code)) {
+    // eslint-disable-next-line max-len
     html = html.replace(/<code>([\s\S]*?)<\/code>/g, '<span class="md-wrapper md-code"><span class="md-marker">`</span><code>$1</code><span class="md-marker">`</span></span>');
   }
   // TODO: add other entity types as needed

@@ -106,8 +106,8 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
   }
   const formattedText = renderASTToEntities(ast);
   const focusedEntities: ApiMessageEntityTypes[] = (formattedText.entities ?? [])
-    // Use exclusive end boundary so entity is active for start < offset+length
-    .filter((e) => e.offset <= start && start < e.offset + e.length)
+    // Use inclusive end boundary so entity is active for start <= offset+length
+    .filter((e) => e.offset <= start && start <= e.offset + e.length)
     .map((e) => e.type as ApiMessageEntityTypes);
 
   return {
