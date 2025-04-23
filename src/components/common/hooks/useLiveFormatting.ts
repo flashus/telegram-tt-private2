@@ -290,8 +290,8 @@ const useLiveFormatting = ({
 
     let focusedEntities = initialFocusedEntities;
     let focusedEntityIndexes = initialFocusedEntityIndexes;
-    const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
-    if (wrapper) {
+    // Fallback when parser returns no entities (keyboard navigation)
+    if (focusedEntities.length === 0 && lastFocusedEntitiesRef.current.length > 0) {
       focusedEntities = lastFocusedEntitiesRef.current;
       focusedEntityIndexes = lastFocusedEntityIndexesRef.current;
     }
