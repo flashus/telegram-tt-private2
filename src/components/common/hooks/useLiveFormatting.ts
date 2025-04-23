@@ -290,8 +290,9 @@ const useLiveFormatting = ({
 
     let focusedEntities = initialFocusedEntities;
     let focusedEntityIndexes = initialFocusedEntityIndexes;
-    // Fallback when parser returns no entities (keyboard navigation)
-    if (focusedEntities.length === 0 && lastFocusedEntitiesRef.current.length > 0) {
+    const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
+    const fallback = (focusedEntities.length === 0 && lastFocusedEntitiesRef.current.length > 0);
+    if (wrapper || fallback) {
       focusedEntities = lastFocusedEntitiesRef.current;
       focusedEntityIndexes = lastFocusedEntityIndexesRef.current;
     }
@@ -391,6 +392,7 @@ const useLiveFormatting = ({
         applyInlineEdit();
         showRawMarkers();
       } else if (NAV_KEYS.includes(e.key)) {
+        // applyInlineEdit();
         showRawMarkers();
       }
     };
