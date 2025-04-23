@@ -7,6 +7,8 @@ import type { TextPart, ThreadId } from '../../../types';
 import type { TextFilter } from './renderText';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
+import { TokenType } from '../../../util/ast/astEnums';
+import { TOKEN_PATTERNS } from '../../../util/ast/token';
 import buildClassName from '../../../util/buildClassName';
 import { copyTextToClipboard } from '../../../util/clipboard';
 import { oldTranslate } from '../../../util/oldLangProvider';
@@ -255,83 +257,90 @@ export function getTextWithEntitiesAsHtml(
   });
   let html = Array.isArray(result) ? result.join('') : result;
 
-  // Inject raw markdown markers around focused entities
-  const { rawMarkersFor, rawEntityIndexes } = opts;
-
-  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Bold)) {
+  // helper to wrap raw markdown markers
+  function wrapRawMarkers(
+    htmlArg: string,
+    entityType: ApiMessageEntityTypes,
+    matcher: string | RegExp,
+    wrapperClass: string,
+    marker: string | RegExp,
+  ): string {
     const es = entities ?? [];
-    const localIndices = new Set(
-      (rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === ApiMessageEntityTypes.Bold)
-        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Bold).length)
+    const indices = new Set(
+      (opts.rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === entityType)
+        .map((i) => es.slice(0, i).filter((e) => e.type === entityType).length),
     );
     let idx = 0;
-    html = html.replace(/<b>([\s\S]*?)<\/b>/g, (m, content) =>
-      localIndices.has(idx++)
-        ? `<span class=\"md-wrapper md-bold\"><span class=\"md-marker\">**</span><b>${content}</b><span class=\"md-marker\">**</span></span>`
-        : m
-    );
+    const pattern = matcher instanceof RegExp
+      ? matcher
+      : new RegExp(`<${matcher}\\b[^>]*>([\\s\\S]*?)<\\/${matcher}>`, 'g');
+    return htmlArg.replace(pattern, (match) => {
+      if (!indices.has(idx++)) return match;
+      // eslint-disable-next-line max-len
+      return `<span class="md-wrapper ${wrapperClass}"><span class="md-marker">${marker}</span>${match}<span class="md-marker">${marker}</span></span>`;
+    });
   }
 
-  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Italic)) {
-    const es = entities ?? [];
-    const localIndices = new Set(
-      (rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === ApiMessageEntityTypes.Italic)
-        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Italic).length)
-    );
-    let idx = 0;
-    html = html.replace(/<i>([\s\S]*?)<\/i>/g, (m, content) =>
-      localIndices.has(idx++)
-        ? `<span class=\"md-wrapper md-italic\"><span class=\"md-marker\">__</span><i>${content}</i><span class=\"md-marker\">__</span></span>`
-        : m
-    );
-  }
+  // apply wrapping via helper
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Bold,
+    'b',
+    'md-bold',
+    TOKEN_PATTERNS[TokenType.BOLD_MARKER],
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Italic,
+    'i',
+    'md-italic',
+    TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Underline,
+    'u',
+    'md-underline',
+    TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Strike,
+    'del',
+    'md-strike',
+    TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Spoiler,
+    /<span\b[^>]*class="spoiler"[^>]*>[\s\S]*?<\/span>/g,
+    'md-spoiler',
+    TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Code,
+    'code',
+    'md-code',
+    TOKEN_PATTERNS[TokenType.CODE_MARKER],
+  );
 
-  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Underline)) {
-    const es = entities ?? [];
-    const localIndices = new Set(
-      (rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === ApiMessageEntityTypes.Underline)
-        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Underline).length)
-    );
-    let idx = 0;
-    html = html.replace(/<u>([\s\S]*?)<\/u>/g, (m, content) =>
-      localIndices.has(idx++)
-        ? `<span class=\"md-wrapper md-underline\"><span class=\"md-marker\">__</span><u>${content}</u><span class=\"md-marker\">__</span></span>`
-        : m
-    );
-  }
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Pre,
+    'pre',
+    'md-pre',
+    TOKEN_PATTERNS[TokenType.CODE_BLOCK],
+  );
 
-  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Strike)) {
-    const es = entities ?? [];
-    const localIndices = new Set(
-      (rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === ApiMessageEntityTypes.Strike)
-        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Strike).length)
-    );
-    let idx = 0;
-    html = html.replace(/<s>([\s\S]*?)<\/s>/g, (m, content) =>
-      localIndices.has(idx++)
-        ? `<span class=\"md-wrapper md-strike\"><span class=\"md-marker\">~~</span><s>${content}</s><span class=\"md-marker\">~~</span></span>`
-        : m
-    );
-  }
-
-  if (rawMarkersFor?.includes(ApiMessageEntityTypes.Code)) {
-    const es = entities ?? [];
-    const localIndices = new Set(
-      (rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === ApiMessageEntityTypes.Code)
-        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Code).length)
-    );
-    let idx = 0;
-    html = html.replace(/<code>([\s\S]*?)<\/code>/g, (m, content) =>
-      localIndices.has(idx++)
-        ? '<span class=\"md-wrapper md-code\"><span class=\"md-marker\">\\\`</span><code>' + content + '</code><span class=\"md-marker\">\\\`</span></span>'
-        : m
-    );
-  }
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Blockquote,
+    'blockquote',
+    'md-blockquote',
+    TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
+  );
 
   return html;
 }

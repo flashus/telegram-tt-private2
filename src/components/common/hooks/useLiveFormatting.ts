@@ -4,7 +4,7 @@ import type { LiveFormat } from '../../../types';
 import type { Signal } from '../../../util/signals';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
-import { parseHtmlAsFormattedTextWithCursorSelection } from '../../../util/parseHtmlAsFormattedText';
+import { parseMarkdownHtmlToEntitiesWithCursorSelection } from '../../../util/ast/parseMdAsFormattedText';
 import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
 
 const EDIT_KEYS = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
@@ -196,7 +196,7 @@ const useLiveFormatting = ({
     }
     const cursor = getCursorSelection(el);
     const html = getHtml();
-    const { formattedText, newSelection } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    const { formattedText, newSelection } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
     const cleanHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanHtml !== html) {
       setHtml(cleanHtml);
@@ -215,7 +215,9 @@ const useLiveFormatting = ({
     }
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
-    const { formattedText, newSelection, focusedEntities, focusedEntityIndexes } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    const {
+      formattedText, newSelection, focusedEntities, focusedEntityIndexes,
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
     const newHtml = getTextWithEntitiesAsHtml(formattedText, {
       rawMarkersFor: focusedEntities,
       rawEntityIndexes: focusedEntityIndexes,
@@ -279,7 +281,13 @@ const useLiveFormatting = ({
     const html = getHtml();
 
     // Parse formatted text and detect focused entities using cursor selection
-    const { formattedText, newSelection, focusedEntities: initialFocusedEntities, focusedEntityIndexes: initialFocusedEntityIndexes } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    const {
+      formattedText,
+      newSelection,
+      focusedEntities: initialFocusedEntities,
+      focusedEntityIndexes: initialFocusedEntityIndexes,
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
+
     let focusedEntities = initialFocusedEntities;
     let focusedEntityIndexes = initialFocusedEntityIndexes;
     const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
