@@ -94,6 +94,7 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
     formattedText: ApiFormattedText;
     newSelection: { start: number; end: number };
     focusedEntities: ApiMessageEntityTypes[];
+    focusedEntityIndexes: number[];
   } {
   const ast = parseMarkdownToAST(inputText);
   const { start, end } = cursorSelection;
@@ -102,18 +103,24 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
       formattedText: { text: inputText, entities: [] },
       newSelection: { start, end },
       focusedEntities: [],
+      focusedEntityIndexes: [],
     };
   }
   const formattedText = renderASTToEntities(ast);
-  const focusedEntities: ApiMessageEntityTypes[] = (formattedText.entities ?? [])
-    // Use inclusive end boundary so entity is active for start <= offset+length
-    .filter((e) => e.offset <= start && start <= e.offset + e.length)
-    .map((e) => e.type as ApiMessageEntityTypes);
+  const entitiesList = formattedText.entities ?? [];
+  const focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
+    if (e.offset <= start && start <= e.offset + e.length) acc.push(idx);
+    return acc;
+  }, []);
+  const focusedEntities = focusedEntityIndexes.map(
+    (i) => entitiesList[i].type as ApiMessageEntityTypes,
+  );
 
   return {
     formattedText,
     newSelection: { start, end },
     focusedEntities,
+    focusedEntityIndexes,
   };
 }
 

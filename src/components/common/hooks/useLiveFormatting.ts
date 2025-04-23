@@ -185,6 +185,7 @@ const useLiveFormatting = ({
 }) => {
   const restored = useRef(false);
   const lastFocusedEntitiesRef = useRef<ApiMessageEntityTypes[]>([]);
+  const lastFocusedEntityIndexesRef = useRef<number[]>([]);
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
 
@@ -214,8 +215,11 @@ const useLiveFormatting = ({
     }
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
-    const { formattedText, newSelection, focusedEntities } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
-    const newHtml = getTextWithEntitiesAsHtml(formattedText, { rawMarkersFor: focusedEntities });
+    const { formattedText, newSelection, focusedEntities, focusedEntityIndexes } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    const newHtml = getTextWithEntitiesAsHtml(formattedText, {
+      rawMarkersFor: focusedEntities,
+      rawEntityIndexes: focusedEntityIndexes,
+    });
     if (newHtml !== html) {
       // Replace entire content
       setHtml(newHtml);
@@ -254,6 +258,7 @@ const useLiveFormatting = ({
       }
       // Persist last focused entities for future shift calculations
       lastFocusedEntitiesRef.current = willHaveMarkers ? focusedEntities : [];
+      lastFocusedEntityIndexesRef.current = willHaveMarkers ? focusedEntityIndexes : [];
 
       const adjustedSelection = { start: newSelection.start + shift, end: newSelection.end + shift };
       // Restore selection at adjusted position
@@ -267,23 +272,26 @@ const useLiveFormatting = ({
       return;
     }
     const sel = window.getSelection();
-    if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) {
+    if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) {
       return;
     }
     const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
 
     // Parse formatted text and detect focused entities using cursor selection
-    const parseRes = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
-    let focusedEntities = parseRes.focusedEntities;
-    const { formattedText, newSelection } = parseRes;
-    // If caret remains inside a raw-marker wrapper, retain previous focus to keep markers
+    const { formattedText, newSelection, focusedEntities: initialFocusedEntities, focusedEntityIndexes: initialFocusedEntityIndexes } = parseHtmlAsFormattedTextWithCursorSelection(html, cursor);
+    let focusedEntities = initialFocusedEntities;
+    let focusedEntityIndexes = initialFocusedEntityIndexes;
     const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
     if (wrapper) {
       focusedEntities = lastFocusedEntitiesRef.current;
+      focusedEntityIndexes = lastFocusedEntityIndexesRef.current;
     }
 
-    const newHtml = getTextWithEntitiesAsHtml(formattedText, { rawMarkersFor: focusedEntities });
+    const newHtml = getTextWithEntitiesAsHtml(formattedText, {
+      rawMarkersFor: focusedEntities,
+      rawEntityIndexes: focusedEntityIndexes,
+    });
     if (newHtml !== html) {
       setHtml(newHtml);
       // Detect addition/removal of markers between previous and next HTML
@@ -321,6 +329,7 @@ const useLiveFormatting = ({
       }
       // Persist last focused entities for future shift calculations
       lastFocusedEntitiesRef.current = willHaveMarkers ? focusedEntities : [];
+      lastFocusedEntityIndexesRef.current = willHaveMarkers ? focusedEntityIndexes : [];
 
       const adjustedSelection = { start: newSelection.start + shift, end: newSelection.end + shift };
       restoreCursorSelection(el, adjustedSelection, () => {});

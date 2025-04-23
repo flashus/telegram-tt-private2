@@ -237,7 +237,10 @@ export function renderTextWithEntities({
 
 export function getTextWithEntitiesAsHtml(
   formattedText?: ApiFormattedText,
-  opts: { rawMarkersFor?: ApiMessageEntityTypes[] } = {},
+  opts: {
+    rawMarkersFor?: ApiMessageEntityTypes[];
+    rawEntityIndexes?: number[];
+  } = {},
 ) {
   const { text, entities } = formattedText || {};
   if (!text) {
@@ -253,28 +256,82 @@ export function getTextWithEntitiesAsHtml(
   let html = Array.isArray(result) ? result.join('') : result;
 
   // Inject raw markdown markers around focused entities
-  const { rawMarkersFor } = opts;
+  const { rawMarkersFor, rawEntityIndexes } = opts;
+
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Bold)) {
-    // eslint-disable-next-line max-len
-    html = html.replace(/<b>([\s\S]*?)<\/b>/g, '<span class="md-wrapper md-bold"><span class="md-marker">**</span><b>$1</b><span class="md-marker">**</span></span>');
+    const es = entities ?? [];
+    const localIndices = new Set(
+      (rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === ApiMessageEntityTypes.Bold)
+        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Bold).length)
+    );
+    let idx = 0;
+    html = html.replace(/<b>([\s\S]*?)<\/b>/g, (m, content) =>
+      localIndices.has(idx++)
+        ? `<span class=\"md-wrapper md-bold\"><span class=\"md-marker\">**</span><b>${content}</b><span class=\"md-marker\">**</span></span>`
+        : m
+    );
   }
+
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Italic)) {
-    // eslint-disable-next-line max-len
-    html = html.replace(/<i>([\s\S]*?)<\/i>/g, '<span class="md-wrapper md-italic"><span class="md-marker">__</span><i>$1</i><span class="md-marker">__</span></span>');
+    const es = entities ?? [];
+    const localIndices = new Set(
+      (rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === ApiMessageEntityTypes.Italic)
+        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Italic).length)
+    );
+    let idx = 0;
+    html = html.replace(/<i>([\s\S]*?)<\/i>/g, (m, content) =>
+      localIndices.has(idx++)
+        ? `<span class=\"md-wrapper md-italic\"><span class=\"md-marker\">__</span><i>${content}</i><span class=\"md-marker\">__</span></span>`
+        : m
+    );
   }
+
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Underline)) {
-    // eslint-disable-next-line max-len
-    html = html.replace(/<u>([\s\S]*?)<\/u>/g, '<span class="md-wrapper md-underline"><span class="md-marker">__</span><u>$1</u><span class="md-marker">__</span></span>');
+    const es = entities ?? [];
+    const localIndices = new Set(
+      (rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === ApiMessageEntityTypes.Underline)
+        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Underline).length)
+    );
+    let idx = 0;
+    html = html.replace(/<u>([\s\S]*?)<\/u>/g, (m, content) =>
+      localIndices.has(idx++)
+        ? `<span class=\"md-wrapper md-underline\"><span class=\"md-marker\">__</span><u>${content}</u><span class=\"md-marker\">__</span></span>`
+        : m
+    );
   }
+
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Strike)) {
-    // eslint-disable-next-line max-len
-    html = html.replace(/<s>([\s\S]*?)<\/s>/g, '<span class="md-wrapper md-strike"><span class="md-marker">~~</span><s>$1</s><span class="md-marker">~~</span></span>');
+    const es = entities ?? [];
+    const localIndices = new Set(
+      (rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === ApiMessageEntityTypes.Strike)
+        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Strike).length)
+    );
+    let idx = 0;
+    html = html.replace(/<s>([\s\S]*?)<\/s>/g, (m, content) =>
+      localIndices.has(idx++)
+        ? `<span class=\"md-wrapper md-strike\"><span class=\"md-marker\">~~</span><s>${content}</s><span class=\"md-marker\">~~</span></span>`
+        : m
+    );
   }
+
   if (rawMarkersFor?.includes(ApiMessageEntityTypes.Code)) {
-    // eslint-disable-next-line max-len
-    html = html.replace(/<code>([\s\S]*?)<\/code>/g, '<span class="md-wrapper md-code"><span class="md-marker">`</span><code>$1</code><span class="md-marker">`</span></span>');
+    const es = entities ?? [];
+    const localIndices = new Set(
+      (rawEntityIndexes ?? [])
+        .filter((i) => es[i].type === ApiMessageEntityTypes.Code)
+        .map((i) => es.slice(0, i).filter((e) => e.type === ApiMessageEntityTypes.Code).length)
+    );
+    let idx = 0;
+    html = html.replace(/<code>([\s\S]*?)<\/code>/g, (m, content) =>
+      localIndices.has(idx++)
+        ? '<span class=\"md-wrapper md-code\"><span class=\"md-marker\">\\\`</span><code>' + content + '</code><span class=\"md-marker\">\\\`</span></span>'
+        : m
+    );
   }
-  // TODO: add other entity types as needed
 
   return html;
 }
@@ -648,9 +705,7 @@ function processEntityAsHtml(
   entityContent: TextPart,
   nestedEntityContent: TextPart[],
 ) {
-  const rawEntityText = typeof entityContent === 'string' ? entityContent : undefined;
-
-  // Prevent adding newlines when editing
+  const rawEntityText = typeof entityContent === 'string' && entityContent;
   const content = entity.type === ApiMessageEntityTypes.Pre ? (entityContent as string).trimEnd() : entityContent;
 
   const renderedContent = nestedEntityContent.length
