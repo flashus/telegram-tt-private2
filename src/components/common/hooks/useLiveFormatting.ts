@@ -9,13 +9,26 @@ import {
   parseMarkdownHtmlToEntitiesWithCursorSelection,
 } from '../../../util/ast/parseMdAsFormattedText';
 import { getPlainTextOffsetFromRange } from '../../../util/ast/plainTextOffset';
-import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
+import { getTextWithEntitiesAsHtml, WRAPPER_CLASS_TO_MARKER_PATTERN } from '../helpers/renderTextWithEntities';
 
 const EDIT_KEYS = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
 const DELETE_KEYS = ['Backspace', 'Delete'];
-const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
 
 const COMBO_KEY = 'f';
+
+/**
+ * Call only for some class list that for sure contains md-marker class
+ */
+const getPatternByClassList = (classList: DOMTokenList): string => {
+  for (const className of classList) {
+    const pattern = WRAPPER_CLASS_TO_MARKER_PATTERN[className];
+    if (pattern) return pattern;
+  }
+
+  // Should never happen if called after finding out that some marker is present
+  return '';
+};
 
 export const getCaretCharacterOffsets = (el: HTMLElement): { start: number; end: number } => {
   const sel = window.getSelection();
@@ -125,15 +138,13 @@ const useLiveFormatting = ({
 
   const clearRawMarkersMode = useCallback(() => {
     const el = inputRef.current;
-    if (!el) {
-      return;
-    }
+    if (!el) return;
     const cursor = getCursorSelection(el);
     const html = getHtml();
     const { formattedText, newSelection } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
-    const cleanHtml = getTextWithEntitiesAsHtml(formattedText);
-    if (cleanHtml !== html) {
-      setHtml(cleanHtml);
+    const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
+    if (cleanedHtml !== html) {
+      setHtml(cleanedHtml);
       restoreCursorSelection(el, newSelection, () => { restored.current = true; });
     }
   }, [getHtml, setHtml]);
@@ -155,11 +166,65 @@ const useLiveFormatting = ({
     markerSpans.forEach((markerSpan) => {
       const idx = Number(markerSpan.dataset.entityIndex);
       // Toggle the '.visible' class based on the computed visibility for this entity index
-      markerSpan.classList.toggle('visible', visibleIndexes.includes(idx));
+      const visible = visibleIndexes.includes(idx);
+      markerSpan.classList.toggle('visible', visible);
+
+      // TODO HERE! Change text content from "zero-length spaces" to marker specific chars
+      // const pattern = getPatternByClassList(markerSpan.classList);
+      // if (visible) {
+      //   markerSpan.textContent = pattern;
+      // } else {
+      //   markerSpan.textContent = '';
+      // }
     });
   }, []);
 
-  const applyInlineEdit = useCallback(() => {
+  // If selection is inside of a ".md-marker[data-entity-index]" marker, move caret in the same direction as the key
+  const moveAroundNavWrapperMarkers = useCallback((event?: KeyboardEvent) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const sel = window.getSelection();
+    if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
+
+    const isKeyboardEvent = event && 'key' in event;
+
+    if (sel.anchorNode.parentElement?.classList.contains('md-marker')) {
+      // Return early if it's on the edge of the marker
+      const anchorTextLength = sel.anchorNode.textContent?.length || 0;
+      if (sel.anchorOffset === 0 || sel.anchorOffset === anchorTextLength || !anchorTextLength) return;
+
+      // Move the selection caret in the same direction as the key
+      let newNodePosition: number;
+      if (!isKeyboardEvent) {
+        newNodePosition = 0;
+      } else {
+        switch (event.key) {
+          case 'ArrowUp':
+          case 'ArrowLeft':
+          case 'PageUp':
+          case 'Home':
+            newNodePosition = 0;
+            break;
+          case 'ArrowDown':
+          case 'ArrowRight':
+          case 'PageDown':
+          case 'End':
+            newNodePosition = anchorTextLength;
+            break;
+          default:
+            return;
+        }
+      }
+
+      const range = document.createRange();
+      range.setStart(sel.anchorNode, newNodePosition);
+      range.setEnd(sel.anchorNode, newNodePosition);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }, []);
+
+  const applyInlineEdit = useCallback((isDelete?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
 
@@ -174,12 +239,40 @@ const useLiveFormatting = ({
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
     const formattedText = parseMarkdownHtmlToEntities(currentHtml);
+    let entities = formattedText.entities;
 
-    // 3. Render the formatted text back to HTML with markers enabled for all entities
-    const entityIndexes = (formattedText.entities ?? []).map((_, i) => i);
-    const newHtml = getTextWithEntitiesAsHtml(formattedText, { rawEntityIndexes: entityIndexes });
+    // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
+    if (isDelete) {
+      const entityIndexesToDelete: number[] = [];
 
-    // 4. Compare and update if necessary
+      // Traverse all the nodes of the element, for each check against the pattern - if it does not match, add entity to remove list
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
+      let currentNode;
+      // eslint-disable-next-line no-cond-assign
+      while (currentNode = walker.nextNode()) {
+        if (currentNode instanceof HTMLElement && currentNode.classList.contains('md-marker')) {
+          const pattern = getPatternByClassList(currentNode.classList);
+
+          if (currentNode.textContent !== pattern) {
+            // Remove entity if the deleted char is a part of a marker (in this case - if text content does not match pattern)
+            const entityIndex = Number(currentNode.dataset.entityIndex);
+            entityIndexesToDelete.push(entityIndex);
+          }
+        }
+        walker.nextNode();
+      }
+
+      entities = entities?.filter((entity, i) => entity.length && !entityIndexesToDelete.includes(i));
+    }
+
+    // 4. Render the formatted text back to HTML with markers enabled for all entities
+    const entityIndexes = (entities ?? []).map((_, i) => i);
+
+    const newHtml = getTextWithEntitiesAsHtml(
+      { text: formattedText.text, entities }, { rawEntityIndexes: entityIndexes },
+    );
+
+    // 5. Compare and update if necessary
     if (newHtml !== currentHtml) {
       // Update the state/DOM
       setHtml(newHtml); // Use the provided state setter
@@ -212,16 +305,17 @@ const useLiveFormatting = ({
       if (EDIT_KEYS.includes(e.key)) {
         applyInlineEdit();
       } else if (DELETE_KEYS.includes(e.key)) {
-        applyInlineEdit();
+        applyInlineEdit(true);
       } else if (NAV_KEYS.includes(e.key)) {
-        // applyInlineEdit();
+        // Could move this to onkeyDown, but handling would be a lot more complicated
+        moveAroundNavWrapperMarkers(e);
         showRawMarkers();
       }
     };
 
     const handleMouseUp = (): void => {
+      moveAroundNavWrapperMarkers();
       applyInlineEdit();
-      showRawMarkers();
     };
 
     const handleBlur = (): void => {
@@ -229,15 +323,15 @@ const useLiveFormatting = ({
     };
 
     const handleFocus = (): void => {
+      moveAroundNavWrapperMarkers();
       applyInlineEdit();
-      showRawMarkers();
     };
 
     // Handle window focus events to update markdown when returning to the app
     const handleWindowFocus = (): void => {
       if (document.activeElement === inputRef.current) {
+        moveAroundNavWrapperMarkers();
         applyInlineEdit();
-        showRawMarkers();
       }
     };
 
@@ -258,7 +352,8 @@ const useLiveFormatting = ({
       inputRef.current.removeEventListener('focus', handleFocus);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers, clearRawMarkersMode, liveFormat]);
+  }, [editableInputId, getHtml, setHtml, applyInlineEdit,
+    showRawMarkers, clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormat]);
 
   useEffect(() => {
     if (liveFormat !== 'combo' || !inputRef.current) {
