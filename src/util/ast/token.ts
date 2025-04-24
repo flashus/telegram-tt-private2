@@ -1,6 +1,6 @@
 import type { TokenType } from './astEnums';
 
-export const TOKEN_PATTERNS: { [key: string]: RegExp | string } = {
+export const TOKEN_PATTERNS: { [key: string]: string } = {
   BOLD_MARKER: '**',
   ITALIC_MARKER: '__',
   STRIKE_MARKER: '~~',
