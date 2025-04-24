@@ -237,10 +237,173 @@ export function renderTextWithEntities({
   return result;
 }
 
+const HTML_TAG_MATCH_REGEXPS: { [key: string] : RegExp } = {
+  b: /<b\b[^>]*>([\s\S]*?)<\/b>/g,
+  i: /<i\b[^>]*>([\s\S]*?)<\/i>/g,
+  u: /<u\b[^>]*>([\s\S]*?)<\/u>/g,
+  del: /<del\b[^>]*>([\s\S]*?)<\/del>/g,
+  'span-spoiler': /<span\b[^>]*class="spoiler"[^>]*>[\s\S]*?<\/span>/g,
+  code: /<code\b[^>]*>([\s\S]*?)<\/code>/g,
+  pre: /<pre\b[^>]*>([\s\S]*?)<\/pre>/g,
+  blockquote: /<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/g,
+};
+
+export const TAG_TO_WRAPPER_CLASS: { [key: string] : string } = {
+  b: 'md-bold-marker',
+  i: 'md-italic-marker',
+  u: 'md-underline-marker',
+  del: 'md-strike-marker',
+  'span-spoiler': 'md-spoiler-marker',
+  code: 'md-code-marker',
+  pre: 'md-pre-marker',
+  blockquote: 'md-blockquote-marker',
+};
+
+export const WRAPPER_CLASS_TO_ENTITY_TYPE: { [key: string] : ApiMessageEntityTypes } = {
+  'md-bold-marker': ApiMessageEntityTypes.Bold,
+  'md-italic-marker': ApiMessageEntityTypes.Italic,
+  'md-underline-marker': ApiMessageEntityTypes.Underline,
+  'md-strike-marker': ApiMessageEntityTypes.Strike,
+  'md-spoiler-marker': ApiMessageEntityTypes.Spoiler,
+  'md-code-marker': ApiMessageEntityTypes.Code,
+  'md-pre-marker': ApiMessageEntityTypes.Pre,
+  'md-blockquote-marker': ApiMessageEntityTypes.Blockquote,
+};
+
+export const WRAPPER_CLASS_TO_MARKER_PATTERN: { [key: string] : string } = {
+  'md-bold-marker': TOKEN_PATTERNS[TokenType.BOLD_MARKER],
+  'md-italic-marker': TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
+  'md-underline-marker': TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
+  'md-strike-marker': TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
+  'md-spoiler-marker': TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
+  'md-code-marker': TOKEN_PATTERNS[TokenType.CODE_MARKER],
+  'md-pre-marker': TOKEN_PATTERNS[TokenType.CODE_BLOCK],
+  'md-blockquote-marker': TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
+};
+
+export const ENTITY_TYPE_TO_MATCHER: { [key: string] : string } = {
+  [ApiMessageEntityTypes.Bold]: 'b',
+  [ApiMessageEntityTypes.Italic]: 'i',
+  [ApiMessageEntityTypes.Underline]: 'u',
+  [ApiMessageEntityTypes.Strike]: 'del',
+  [ApiMessageEntityTypes.Spoiler]: 'span-spoiler',
+  [ApiMessageEntityTypes.Code]: 'code',
+  [ApiMessageEntityTypes.Pre]: 'pre',
+  [ApiMessageEntityTypes.Blockquote]: 'blockquote',
+};
+
+// helper to wrap raw markdown markers
+function wrapRawMarkers(
+  htmlArg: string,
+  entityType: ApiMessageEntityTypes,
+  marker: string | RegExp,
+  entities: ApiMessageEntity[] | undefined,
+  rawEntityIndexes: number[] | undefined,
+): string {
+  const es = entities ?? [];
+  const rawIndexes = rawEntityIndexes ?? [];
+  // Map ordinal (per-type sequence) to global entity index
+  const ordinalToIndex = new Map<number, number>();
+  rawIndexes
+    .filter((i) => es[i].type === entityType)
+    .forEach((i) => {
+      const ordinal = es.slice(0, i).filter((e) => e.type === entityType).length;
+      ordinalToIndex.set(ordinal, i);
+    });
+  let idx = 0;
+  const matcher = ENTITY_TYPE_TO_MATCHER[entityType];
+  const pattern = HTML_TAG_MATCH_REGEXPS[matcher];
+  const wrapperClass = TAG_TO_WRAPPER_CLASS[matcher];
+  return htmlArg.replace(pattern, (match) => {
+    const ordinal = idx++;
+    const entityIndex = ordinalToIndex.get(ordinal);
+    if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
+    // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
+    const markerString = typeof marker === 'string' ? marker : ''; // Ensure marker is a string
+    const startMarkerSpan = (
+      `<span class="md-marker ${wrapperClass}" `
+        + `data-pos="start" data-entity-index="${entityIndex}">${markerString}</span>`
+    );
+    const endMarkerSpan = (
+      `<span class="md-marker ${wrapperClass}" `
+        + `data-pos="end" data-entity-index="${entityIndex}">${markerString}</span>`
+    );
+      // Return: start_marker + original_semantic_tag + end_marker
+    return `${startMarkerSpan}${match}${endMarkerSpan}`;
+  });
+}
+
+function wrapRawMarkersAll(
+  htmlArg: string,
+  entities: ApiMessageEntity[] | undefined,
+  rawEntityIndexes: number[] | undefined,
+): string {
+  let html = htmlArg;
+  // apply wrapping via helper
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Bold,
+    TOKEN_PATTERNS[TokenType.BOLD_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Italic,
+    TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Underline,
+    TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Strike,
+    TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Spoiler,
+    TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Code,
+    TOKEN_PATTERNS[TokenType.CODE_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Pre,
+    TOKEN_PATTERNS[TokenType.CODE_BLOCK],
+    entities,
+    rawEntityIndexes,
+  );
+  html = wrapRawMarkers(
+    html,
+    ApiMessageEntityTypes.Blockquote,
+    TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
+    entities,
+    rawEntityIndexes,
+  );
+
+  return html;
+}
+
 export function getTextWithEntitiesAsHtml(
   formattedText?: ApiFormattedText,
   opts: {
-    rawMarkersFor?: ApiMessageEntityTypes[];
+    // rawMarkersFor?: ApiMessageEntityTypes[];
     rawEntityIndexes?: number[];
   } = {},
 ) {
@@ -257,106 +420,9 @@ export function getTextWithEntitiesAsHtml(
   });
   let html = Array.isArray(result) ? result.join('') : result;
 
-  // helper to wrap raw markdown markers
-  function wrapRawMarkers(
-    htmlArg: string,
-    entityType: ApiMessageEntityTypes,
-    matcher: string | RegExp,
-    wrapperClass: string,
-    marker: string | RegExp,
-  ): string {
-    const es = entities ?? [];
-    const rawIndexes = opts.rawEntityIndexes ?? [];
-    // Map ordinal (per-type sequence) to global entity index
-    const ordinalToIndex = new Map<number, number>();
-    rawIndexes
-      .filter((i) => es[i].type === entityType)
-      .forEach((i) => {
-        const ordinal = es.slice(0, i).filter((e) => e.type === entityType).length;
-        ordinalToIndex.set(ordinal, i);
-      });
-    let idx = 0;
-    const pattern = matcher instanceof RegExp
-      ? matcher
-      : new RegExp(`<(${matcher})\\b[^>]*>([\\s\\S]*?)</\\1>`, 'g'); // Capture tag name in group 1
-    return htmlArg.replace(pattern, (match) => {
-      const ordinal = idx++;
-      const entityIndex = ordinalToIndex.get(ordinal);
-      if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
-      // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
-      const markerString = typeof marker === 'string' ? marker : ''; // Ensure marker is a string
-      const startMarkerSpan = (
-        `<span class="md-marker ${wrapperClass}-marker" `
-        + `data-pos="start" data-entity-index="${entityIndex}">${markerString}</span>`
-      );
-      const endMarkerSpan = (
-        `<span class="md-marker ${wrapperClass}-marker" `
-        + `data-pos="end" data-entity-index="${entityIndex}">${markerString}</span>`
-      );
-      // Return: start_marker + original_semantic_tag + end_marker
-      return `${startMarkerSpan}${match}${endMarkerSpan}`;
-    });
+  if (opts.rawEntityIndexes && opts.rawEntityIndexes?.length > 0) {
+    html = wrapRawMarkersAll(html, entities, opts.rawEntityIndexes);
   }
-
-  // apply wrapping via helper
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Bold,
-    'b',
-    'md-bold',
-    TOKEN_PATTERNS[TokenType.BOLD_MARKER],
-  );
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Italic,
-    'i',
-    'md-italic',
-    TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
-  );
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Underline,
-    'u',
-    'md-underline',
-    TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
-  );
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Strike,
-    'del',
-    'md-strike',
-    TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
-  );
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Spoiler,
-    /<span\b[^>]*class="spoiler"[^>]*>[\s\S]*?<\/span>/g,
-    'md-spoiler',
-    TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
-  );
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Code,
-    'code',
-    'md-code',
-    TOKEN_PATTERNS[TokenType.CODE_MARKER],
-  );
-
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Pre,
-    'pre',
-    'md-pre',
-    TOKEN_PATTERNS[TokenType.CODE_BLOCK],
-  );
-
-  html = wrapRawMarkers(
-    html,
-    ApiMessageEntityTypes.Blockquote,
-    'blockquote',
-    'md-blockquote',
-    TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
-  );
 
   return html;
 }
