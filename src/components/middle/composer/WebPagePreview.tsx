@@ -6,7 +6,9 @@ import type {
   ApiFormattedText, ApiMessage, ApiMessageEntityTextUrl, ApiWebPage,
 } from '../../../api/types';
 import type { GlobalState } from '../../../global/types';
-import type { ISettings, ThreadId, WebPageMediaSize } from '../../../types';
+import type {
+  ISettings, LiveFormat, ThreadId, WebPageMediaSize,
+} from '../../../types';
 import type { Signal } from '../../../util/signals';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
@@ -46,6 +48,7 @@ type StateProps = {
   noWebPage?: boolean;
   theme: ISettings['theme'];
   attachmentSettings: GlobalState['attachmentSettings'];
+  liveFormat: LiveFormat;
 };
 
 const DEBOUNCE_MS = 300;
@@ -61,6 +64,7 @@ const WebPagePreview: FC<OwnProps & StateProps> = ({
   theme,
   attachmentSettings,
   isEditing,
+  liveFormat,
 }) => {
   const {
     loadWebPagePreview,
@@ -80,6 +84,10 @@ const WebPagePreview: FC<OwnProps & StateProps> = ({
   const isSmallerMedia = attachmentSettings.webPageMediaSize === 'small';
 
   const detectLinkDebounced = useDebouncedResolver(() => {
+    if (liveFormat === 'on') {
+      return undefined;
+    }
+
     const formattedText = parseHtmlAsFormattedText(getHtml(), 'WebPagePreview: detectLinkDebounced');
     const linkEntity = formattedText.entities?.find((entity): entity is ApiMessageEntityTextUrl => (
       entity.type === ApiMessageEntityTypes.TextUrl
@@ -88,7 +96,7 @@ const WebPagePreview: FC<OwnProps & StateProps> = ({
     formattedTextWithLinkRef.current = formattedText;
 
     return linkEntity?.url || formattedText.text.match(RE_LINK)?.[0];
-  }, [getHtml], DEBOUNCE_MS, true);
+  }, [getHtml, liveFormat], DEBOUNCE_MS, true);
 
   const getLink = useDerivedSignal(detectLinkDebounced, [detectLinkDebounced, getHtml], true);
 
@@ -256,6 +264,7 @@ export default memo(withGlobal<OwnProps>(
       webPagePreview: selectTabState(global).webPagePreview,
       noWebPage,
       attachmentSettings,
+      liveFormat: global.settings.byKey.liveFormat,
     };
   },
 )(WebPagePreview));

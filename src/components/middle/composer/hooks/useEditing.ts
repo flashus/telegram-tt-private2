@@ -2,7 +2,7 @@ import { useEffect, useState } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
 import type { ApiDraft, ApiFormattedText, ApiMessage } from '../../../../api/types';
-import type { MessageListType, ThreadId } from '../../../../types';
+import type { LiveFormat, MessageListType, ThreadId } from '../../../../types';
 import type { Signal } from '../../../../util/signals';
 import { ApiMessageEntityTypes } from '../../../../api/types';
 
@@ -31,6 +31,7 @@ const useEditing = (
   chatId: string,
   threadId: ThreadId,
   type: MessageListType,
+  liveFormat: LiveFormat,
   draft?: ApiDraft,
   editingDraft?: ApiFormattedText,
 ): [VoidFunction, VoidFunction, boolean] => {
@@ -86,7 +87,9 @@ const useEditing = (
   }, [chatId, threadId, editedMessage]);
 
   useEffect(() => {
-    if (!editedMessage) return undefined;
+    if (!editedMessage || liveFormat === 'on') {
+      return undefined;
+    }
     return () => {
       const edited = parseHtmlAsFormattedText(getHtml(), 'useEditing: useEffect cleanup');
       const update = edited.text.length ? edited : undefined;
@@ -95,16 +98,22 @@ const useEditing = (
         chatId, threadId, type, text: update,
       });
     };
-  }, [chatId, editedMessage, getHtml, setEditingDraft, threadId, type]);
+  }, [chatId, editedMessage, getHtml, setEditingDraft, threadId, type, liveFormat]);
 
   const detectLinkDebounced = useDebouncedResolver(() => {
-    if (!editedMessage) return false;
+    if (liveFormat === 'on') {
+      return undefined;
+    }
+
+    if (!editedMessage) {
+      return false;
+    }
 
     const edited = parseHtmlAsFormattedText(getHtml(), 'useEditing: detectLinkDebounced');
     return !('webPage' in editedMessage.content)
       && editedMessage.content.text?.entities?.some((entity) => URL_ENTITIES.has(entity.type))
       && !(edited.entities?.some((entity) => URL_ENTITIES.has(entity.type)));
-  }, [editedMessage, getHtml], DEBOUNCE_MS, true);
+  }, [editedMessage, getHtml, liveFormat], DEBOUNCE_MS, true);
 
   const getShouldResetNoWebPageDebounced = useDerivedSignal(detectLinkDebounced, [detectLinkDebounced, getHtml], true);
 
