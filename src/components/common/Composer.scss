@@ -705,7 +705,7 @@
     text-align: initial;
     line-height: 1.3125;
     font-size: var(--composer-text-size, 1rem);
-    top: calc((3.25rem - var(--composer-text-size, 1rem) * 1.375) / 2);
+    top: calc((3.25rem - var(--composer-text-size, 1rem) * 1.3125) / 2);
     bottom: auto;
     white-space: nowrap;
     overflow: hidden;
@@ -940,5 +940,21 @@
   }
   to {
     opacity: 0.3;
+  }
+}
+
+// Marker visibility for live markdown editor (span-based)
+.md-marker {
+  color: var(--color-text-secondary);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none; // Prevent selecting hidden markers
+  transition: opacity 0.15s ease-in-out;
+
+  // When visible, restore opacity and interaction
+  &.visible {
+    opacity: 1;
+    pointer-events: auto;
+    user-select: auto;
   }
 }

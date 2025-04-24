@@ -266,19 +266,35 @@ export function getTextWithEntitiesAsHtml(
     marker: string | RegExp,
   ): string {
     const es = entities ?? [];
-    const indices = new Set(
-      (opts.rawEntityIndexes ?? [])
-        .filter((i) => es[i].type === entityType)
-        .map((i) => es.slice(0, i).filter((e) => e.type === entityType).length),
-    );
+    const rawIndexes = opts.rawEntityIndexes ?? [];
+    // Map ordinal (per-type sequence) to global entity index
+    const ordinalToIndex = new Map<number, number>();
+    rawIndexes
+      .filter((i) => es[i].type === entityType)
+      .forEach((i) => {
+        const ordinal = es.slice(0, i).filter((e) => e.type === entityType).length;
+        ordinalToIndex.set(ordinal, i);
+      });
     let idx = 0;
     const pattern = matcher instanceof RegExp
       ? matcher
-      : new RegExp(`<${matcher}\\b[^>]*>([\\s\\S]*?)<\\/${matcher}>`, 'g');
+      : new RegExp(`<(${matcher})\\b[^>]*>([\\s\\S]*?)</\\1>`, 'g'); // Capture tag name in group 1
     return htmlArg.replace(pattern, (match) => {
-      if (!indices.has(idx++)) return match;
-      // eslint-disable-next-line max-len
-      return `<span class="md-wrapper ${wrapperClass}"><span class="md-marker">${marker}</span>${match}<span class="md-marker">${marker}</span></span>`;
+      const ordinal = idx++;
+      const entityIndex = ordinalToIndex.get(ordinal);
+      if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
+      // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
+      const markerString = typeof marker === 'string' ? marker : ''; // Ensure marker is a string
+      const startMarkerSpan = (
+        `<span class="md-marker ${wrapperClass}-marker" `
+        + `data-pos="start" data-entity-index="${entityIndex}">${markerString}</span>`
+      );
+      const endMarkerSpan = (
+        `<span class="md-marker ${wrapperClass}-marker" `
+        + `data-pos="end" data-entity-index="${entityIndex}">${markerString}</span>`
+      );
+      // Return: start_marker + original_semantic_tag + end_marker
+      return `${startMarkerSpan}${match}${endMarkerSpan}`;
     });
   }
 

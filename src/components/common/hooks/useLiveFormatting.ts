@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef } from '../../../lib/teact/teact';
 
 import type { LiveFormat } from '../../../types';
 import type { Signal } from '../../../util/signals';
-import { ApiMessageEntityTypes } from '../../../api/types';
 
-import { parseMarkdownHtmlToEntitiesWithCursorSelection } from '../../../util/ast/parseMdAsFormattedText';
+import { computeMarkerVisibility } from '../../../util/ast/markerVisibility';
+import {
+  parseMarkdownHtmlToEntities,
+  parseMarkdownHtmlToEntitiesWithCursorSelection,
+} from '../../../util/ast/parseMdAsFormattedText';
+import { getPlainTextOffsetFromRange } from '../../../util/ast/plainTextOffset';
 import { getTextWithEntitiesAsHtml } from '../helpers/renderTextWithEntities';
 
 const EDIT_KEYS = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
@@ -104,74 +108,6 @@ const restoreCursorSelection = (
   });
 };
 
-// Map HTML tag names to ApiMessageEntityTypes
-// const formattingTagEntityType: Record<string, ApiMessageEntityTypes> = {
-//   B: ApiMessageEntityTypes.Bold,
-//   STRONG: ApiMessageEntityTypes.Bold,
-//   I: ApiMessageEntityTypes.Italic,
-//   EM: ApiMessageEntityTypes.Italic,
-//   INS: ApiMessageEntityTypes.Underline,
-//   U: ApiMessageEntityTypes.Underline,
-//   S: ApiMessageEntityTypes.Strike,
-//   STRIKE: ApiMessageEntityTypes.Strike,
-//   DEL: ApiMessageEntityTypes.Strike,
-//   CODE: ApiMessageEntityTypes.Code,
-//   PRE: ApiMessageEntityTypes.Pre,
-//   BLOCKQUOTE: ApiMessageEntityTypes.Blockquote,
-// };
-
-// // Determine focused entities directly from DOM to avoid offset mismatches caused by existing raw markers
-// const detectFocusedEntities = (selection: Selection, inputElement: HTMLElement): ApiMessageEntityTypes[] => {
-//   if (!selection?.anchorNode) return [];
-//   let node: Node | null = selection.anchorNode;
-//   // If caret is inside a marker span – treat as outside any entity
-//   if ((node as HTMLElement).parentElement?.classList.contains('md-marker')) {
-//     return [];
-//   }
-//   // If caret is exactly at the start of wrapper (<span class="md-wrapper">) consider it outside
-//   // if ((node as HTMLElement).parentElement?.classList.contains('md-wrapper') && selection.anchorOffset === 0) {
-//   //   return [];
-//   // }
-//   const types: ApiMessageEntityTypes[] = [];
-//   // Walk up until we reach the editable element
-//   while (node && node !== inputElement) {
-//     if (node.nodeType === Node.ELEMENT_NODE) {
-//       const tag = (node as HTMLElement).tagName;
-//       switch (tag) {
-//         case 'B':
-//         case 'STRONG':
-//           types.push(ApiMessageEntityTypes.Bold);
-//           break;
-//         case 'I':
-//         case 'EM':
-//           types.push(ApiMessageEntityTypes.Italic);
-//           break;
-//         case 'U':
-//         case 'INS':
-//           types.push(ApiMessageEntityTypes.Underline);
-//           break;
-//         case 'S':
-//         case 'STRIKE':
-//         case 'DEL':
-//           types.push(ApiMessageEntityTypes.Strike);
-//           break;
-//         case 'CODE':
-//           types.push(ApiMessageEntityTypes.Code);
-//           break;
-//         case 'PRE':
-//           types.push(ApiMessageEntityTypes.Pre);
-//           break;
-//         case 'BLOCKQUOTE':
-//           types.push(ApiMessageEntityTypes.Blockquote);
-//           break;
-//         default:
-//       }
-//     }
-//     node = node.parentNode;
-//   }
-//   return types;
-// };
-
 const useLiveFormatting = ({
   getHtml,
   setHtml,
@@ -184,8 +120,6 @@ const useLiveFormatting = ({
   liveFormat: LiveFormat;
 }) => {
   const restored = useRef(false);
-  const lastFocusedEntitiesRef = useRef<ApiMessageEntityTypes[]>([]);
-  const lastFocusedEntityIndexesRef = useRef<number[]>([]);
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
 
@@ -204,146 +138,66 @@ const useLiveFormatting = ({
     }
   }, [getHtml, setHtml]);
 
-  const applyInlineEdit = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) {
-      return;
-    }
-    const sel = window.getSelection();
-    if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) {
-      return;
-    }
-    const cursor = getCaretCharacterOffsets(el);
-    const html = getHtml();
-    const {
-      formattedText, newSelection, focusedEntities, focusedEntityIndexes,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
-    const newHtml = getTextWithEntitiesAsHtml(formattedText, {
-      rawMarkersFor: focusedEntities,
-      rawEntityIndexes: focusedEntityIndexes,
-    });
-    if (newHtml !== html) {
-      // Replace entire content
-      setHtml(newHtml);
-      // Detect whether raw markers are being added or removed to adjust caret accordingly
-      const hadMarkers = html.includes('class="md-marker"');
-      const willHaveMarkers = newHtml.includes('class="md-marker"');
-
-      const markerLengths: Record<ApiMessageEntityTypes, number> = {
-        [ApiMessageEntityTypes.Bold]: 2,
-        [ApiMessageEntityTypes.Italic]: 2,
-        [ApiMessageEntityTypes.Underline]: 2,
-        [ApiMessageEntityTypes.Strike]: 2,
-        [ApiMessageEntityTypes.Spoiler]: 2,
-        [ApiMessageEntityTypes.Code]: 1,
-        [ApiMessageEntityTypes.Blockquote]: 1,
-        [ApiMessageEntityTypes.Pre]: 3,
-        [ApiMessageEntityTypes.BotCommand]: 0,
-        [ApiMessageEntityTypes.Cashtag]: 0,
-        [ApiMessageEntityTypes.Email]: 0,
-        [ApiMessageEntityTypes.Hashtag]: 0,
-        [ApiMessageEntityTypes.Mention]: 0,
-        [ApiMessageEntityTypes.MentionName]: 0,
-        [ApiMessageEntityTypes.Phone]: 0,
-        [ApiMessageEntityTypes.Url]: 0,
-        [ApiMessageEntityTypes.CustomEmoji]: 0,
-        [ApiMessageEntityTypes.Timestamp]: 0,
-        [ApiMessageEntityTypes.Unknown]: 0,
-        [ApiMessageEntityTypes.TextUrl]: 0,
-      };
-
-      let shift = 0;
-      if (!hadMarkers && willHaveMarkers) { // Markers are being added
-        shift = focusedEntities.reduce((sum, type) => sum + (markerLengths[type] || 0), 0);
-      } else if (hadMarkers && !willHaveMarkers) { // Markers are being removed
-        shift = -lastFocusedEntitiesRef.current.reduce((sum, type) => sum + (markerLengths[type] || 0), 0);
-      }
-      // Persist last focused entities for future shift calculations
-      lastFocusedEntitiesRef.current = willHaveMarkers ? focusedEntities : [];
-      lastFocusedEntityIndexesRef.current = willHaveMarkers ? focusedEntityIndexes : [];
-
-      const adjustedSelection = { start: newSelection.start + shift, end: newSelection.end + shift };
-      // Restore selection at adjusted position
-      restoreCursorSelection(el, adjustedSelection, () => {});
-    }
-  }, [getHtml, setHtml]);
-
+  // Toggle visibility of markers based on caret position
   const showRawMarkers = useCallback(() => {
     const el = inputRef.current;
-    if (!el) {
-      return;
-    }
+    if (!el) return;
     const sel = window.getSelection();
-    if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) {
-      return;
-    }
-    const cursor = getCaretCharacterOffsets(el);
-    const html = getHtml();
-
-    // Parse formatted text and detect focused entities using cursor selection
-    const {
-      formattedText,
-      newSelection,
-      focusedEntities: initialFocusedEntities,
-      focusedEntityIndexes: initialFocusedEntityIndexes,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
-
-    let focusedEntities = initialFocusedEntities;
-    let focusedEntityIndexes = initialFocusedEntityIndexes;
-    const wrapper = sel.anchorNode?.parentElement?.closest('.md-wrapper');
-    const fallback = (focusedEntities.length === 0 && lastFocusedEntitiesRef.current.length > 0);
-    if (wrapper || fallback) {
-      focusedEntities = lastFocusedEntitiesRef.current;
-      focusedEntityIndexes = lastFocusedEntityIndexesRef.current;
-    }
-
-    const newHtml = getTextWithEntitiesAsHtml(formattedText, {
-      rawMarkersFor: focusedEntities,
-      rawEntityIndexes: focusedEntityIndexes,
+    if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
+    const domCaret = getCaretCharacterOffsets(el);
+    const plainTextStartOffset = getPlainTextOffsetFromRange(el);
+    const plainTextCaret = { start: plainTextStartOffset, end: plainTextStartOffset };
+    const currentHtml = el.innerHTML;
+    const { formattedText } = parseMarkdownHtmlToEntitiesWithCursorSelection(currentHtml, domCaret);
+    const entities = formattedText.entities ?? [];
+    const visibleIndexes = computeMarkerVisibility(entities, plainTextCaret);
+    const markerSpans = el.querySelectorAll<HTMLElement>('.md-marker[data-entity-index]');
+    markerSpans.forEach((markerSpan) => {
+      const idx = Number(markerSpan.dataset.entityIndex);
+      // Toggle the '.visible' class based on the computed visibility for this entity index
+      markerSpan.classList.toggle('visible', visibleIndexes.includes(idx));
     });
-    if (newHtml !== html) {
-      setHtml(newHtml);
-      // Detect addition/removal of markers between previous and next HTML
-      const hadMarkers = html.includes('class="md-marker"');
-      const willHaveMarkers = newHtml.includes('class="md-marker"');
+  }, []);
 
-      const markerLengths: Record<ApiMessageEntityTypes, number> = {
-        [ApiMessageEntityTypes.Bold]: 2,
-        [ApiMessageEntityTypes.Italic]: 2,
-        [ApiMessageEntityTypes.Underline]: 2,
-        [ApiMessageEntityTypes.Strike]: 2,
-        [ApiMessageEntityTypes.Spoiler]: 2,
-        [ApiMessageEntityTypes.Code]: 1,
-        [ApiMessageEntityTypes.Blockquote]: 1,
-        [ApiMessageEntityTypes.Pre]: 3,
-        [ApiMessageEntityTypes.BotCommand]: 0,
-        [ApiMessageEntityTypes.Cashtag]: 0,
-        [ApiMessageEntityTypes.Email]: 0,
-        [ApiMessageEntityTypes.Hashtag]: 0,
-        [ApiMessageEntityTypes.Mention]: 0,
-        [ApiMessageEntityTypes.MentionName]: 0,
-        [ApiMessageEntityTypes.Phone]: 0,
-        [ApiMessageEntityTypes.Url]: 0,
-        [ApiMessageEntityTypes.CustomEmoji]: 0,
-        [ApiMessageEntityTypes.Timestamp]: 0,
-        [ApiMessageEntityTypes.Unknown]: 0,
-        [ApiMessageEntityTypes.TextUrl]: 0,
-      };
+  const applyInlineEdit = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
 
-      let shift = 0;
-      if (!hadMarkers && willHaveMarkers) {
-        shift = focusedEntities.reduce((sum, type) => sum + (markerLengths[type] || 0), 0);
-      } else if (hadMarkers && !willHaveMarkers) {
-        shift = -lastFocusedEntitiesRef.current.reduce((sum, type) => sum + (markerLengths[type] || 0), 0);
-      }
-      // Persist last focused entities for future shift calculations
-      lastFocusedEntitiesRef.current = willHaveMarkers ? focusedEntities : [];
-      lastFocusedEntityIndexesRef.current = willHaveMarkers ? focusedEntityIndexes : [];
+    const sel = window.getSelection();
+    // Only proceed if selection is collapsed and within the editor
+    if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
 
-      const adjustedSelection = { start: newSelection.start + shift, end: newSelection.end + shift };
-      restoreCursorSelection(el, adjustedSelection, () => {});
+    // 1. Get current state
+    const cursor = getCaretCharacterOffsets(el);
+    const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
+
+    // 2. Parse the current HTML to get the intended formatted text structure
+    // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
+    const formattedText = parseMarkdownHtmlToEntities(currentHtml);
+
+    // 3. Render the formatted text back to HTML with markers enabled for all entities
+    const entityIndexes = (formattedText.entities ?? []).map((_, i) => i);
+    const newHtml = getTextWithEntitiesAsHtml(formattedText, { rawEntityIndexes: entityIndexes });
+
+    // 4. Compare and update if necessary
+    if (newHtml !== currentHtml) {
+      // Update the state/DOM
+      setHtml(newHtml); // Use the provided state setter
+
+      // Restore selection using the cursor position captured *before* parsing/rendering
+      // Use a minimal callback for restoreCursorSelection as showRawMarkers is called next
+      restoreCursorSelection(el, cursor, () => {});
+
+      // Ensure markers are updated after DOM change and caret restoration
+      // Use requestAnimationFrame to ensure DOM is settled before querying markers
+      requestAnimationFrame(() => {
+        showRawMarkers();
+      });
+    } else {
+      // Even if HTML didn't change, marker visibility might need update based on cursor move
+      requestAnimationFrame(() => showRawMarkers());
     }
-  }, [getHtml, setHtml]);
+  }, [setHtml, showRawMarkers]); // Removed getHtml dependency as we use el.innerHTML
 
   useEffect(() => {
     inputRef.current = document.getElementById(editableInputId);
@@ -358,39 +212,7 @@ const useLiveFormatting = ({
       if (EDIT_KEYS.includes(e.key)) {
         applyInlineEdit();
       } else if (DELETE_KEYS.includes(e.key)) {
-        const el = inputRef.current;
-        if (!el) {
-          return;
-        }
-        const sel = window.getSelection();
-        if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) {
-          return;
-        }
-        const node = sel.anchorNode;
-        const offset = sel.anchorOffset;
-        // Deleting at end of a formatted segment: remove its wrapper directly
-        if (
-          node.nodeType === Node.TEXT_NODE
-          && node.parentElement
-          && offset === (node.textContent?.length ?? 0)
-        ) {
-          const wrapper = (node.parentElement as HTMLElement).closest('.md-wrapper');
-          if (wrapper) {
-            // Extract only the formatted text (inner <b>,<i>, etc.)
-            const fmtEl = wrapper.querySelector('b,strong,i,em,u,ins,s,strike,del,code,pre,blockquote');
-            const txt = fmtEl?.textContent ?? wrapper.textContent ?? '';
-            const txtNode = document.createTextNode(txt);
-            wrapper.parentNode!.replaceChild(txtNode, wrapper);
-            // Persist updated HTML and restore caret
-            setHtml(el.innerHTML);
-            const pos = getCaretCharacterOffsets(el).start;
-            setCaretCharacterOffsets(el, pos, pos);
-            return;
-          }
-        }
-        // Default deletion: update formatting and refresh markers
         applyInlineEdit();
-        showRawMarkers();
       } else if (NAV_KEYS.includes(e.key)) {
         // applyInlineEdit();
         showRawMarkers();
@@ -399,15 +221,32 @@ const useLiveFormatting = ({
 
     const handleMouseUp = (): void => {
       applyInlineEdit();
+      showRawMarkers();
     };
 
     const handleBlur = (): void => {
       clearRawMarkersMode();
     };
 
+    const handleFocus = (): void => {
+      applyInlineEdit();
+      showRawMarkers();
+    };
+
+    // Handle window focus events to update markdown when returning to the app
+    const handleWindowFocus = (): void => {
+      if (document.activeElement === inputRef.current) {
+        applyInlineEdit();
+        showRawMarkers();
+      }
+    };
+
     inputRef.current.addEventListener('keyup', handleKeyUp);
     inputRef.current.addEventListener('mouseup', handleMouseUp);
     inputRef.current.addEventListener('blur', handleBlur);
+    inputRef.current.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', handleWindowFocus);
+
     // eslint-disable-next-line consistent-return
     return () => {
       if (!inputRef.current) {
@@ -416,6 +255,8 @@ const useLiveFormatting = ({
       inputRef.current.removeEventListener('keyup', handleKeyUp);
       inputRef.current.removeEventListener('mouseup', handleMouseUp);
       inputRef.current.removeEventListener('blur', handleBlur);
+      inputRef.current.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers, clearRawMarkersMode, liveFormat]);
 
