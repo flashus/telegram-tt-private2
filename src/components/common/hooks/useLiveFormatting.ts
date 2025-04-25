@@ -13,7 +13,20 @@ import { getTextWithEntitiesAsHtml, WRAPPER_CLASS_TO_MARKER_PATTERN } from '../h
 
 const EDIT_KEYS = ['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')'];
 const DELETE_KEYS = ['Backspace', 'Delete'];
-const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+const NAV_KEYS = [
+  'ArrowLeft',
+  'Left', // IE/Edge
+  'ArrowRight',
+  'Right', // IE/Edge
+  'ArrowUp',
+  'Up', // IE/Edge
+  'ArrowDown',
+  'Down', // IE/Edge
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+];
 
 const COMBO_KEY = 'f';
 
