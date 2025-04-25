@@ -97,6 +97,13 @@ export function getPlainTextOffsetFromRange(container: HTMLElement): number {
           return NodeFilter.FILTER_ACCEPT;
         }
       }
+      // Include emoji and custom emojis
+      if (
+        node instanceof HTMLElement
+        && (node.classList.contains('emoji') || node.classList.contains('custom-emoji'))
+      ) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
 
       return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
     },
@@ -125,6 +132,8 @@ export function getPlainTextOffsetFromRange(container: HTMLElement): number {
         if (plainText.length > 0 && !plainText.endsWith('\n')) {
           plainText += '\n';
         }
+      } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
+        plainText += '👋';
       }
     }
   }
