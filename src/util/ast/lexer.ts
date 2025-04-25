@@ -12,11 +12,11 @@ const STRING_PATTERNS_FIRST_CHARS = new Set(
     .map((p) => p[0]),
 );
 
-const COMPILED_REGEX_PATTERNS = new Map(
-  Object.values(TOKEN_PATTERNS)
-    .filter((p): p is RegExp => p instanceof RegExp)
-    .map((pattern) => [pattern, new RegExp(`^${pattern.source}`)]),
-);
+// const COMPILED_REGEX_PATTERNS = new Map(
+//   Object.values(TOKEN_PATTERNS)
+//     .filter((p): p is RegExp => p instanceof RegExp)
+//     .map((pattern) => [pattern, new RegExp(`^${pattern.source}`)]),
+// );
 
 export class Lexer {
   private input: string;
@@ -240,14 +240,15 @@ export class Lexer {
     return Object.entries(TOKEN_PATTERNS).some(([, pattern]) => {
       if (typeof pattern === 'string') {
         return pattern.startsWith(char) && this.input.startsWith(pattern, this.pos);
-      } else if (pattern instanceof RegExp) {
-        if (pattern.source.startsWith('^')) {
-          return pattern.test(this.input.slice(this.pos));
-        } else {
-          const compiledRegex = COMPILED_REGEX_PATTERNS.get(pattern);
-          return compiledRegex!.test(this.input.slice(this.pos));
-        }
       }
+      // } else if (pattern instanceof RegExp) {
+      //   if (pattern.source.startsWith('^')) {
+      //     return pattern.test(this.input.slice(this.pos));
+      //   } else {
+      //     const compiledRegex = COMPILED_REGEX_PATTERNS.get(pattern);
+      //     return compiledRegex!.test(this.input.slice(this.pos));
+      //   }
+      // }
       return false;
     });
   }
