@@ -425,6 +425,18 @@ const useLiveFormatting = ({
     }
   }, [setHtml, showRawMarkers]); // Removed getHtml dependency as we use el.innerHTML
 
+  const checkForMarkerEdit = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const sel = window.getSelection();
+    if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
+
+    if (sel.anchorNode.parentElement?.classList.contains('md-marker')) {
+      // If we try to edit something inside of a marker - pass it through the parser grinder
+      applyInlineEdit();
+    }
+  }, [applyInlineEdit]);
+
   useEffect(() => {
     inputRef.current = document.getElementById(editableInputId);
   }, [editableInputId]);
