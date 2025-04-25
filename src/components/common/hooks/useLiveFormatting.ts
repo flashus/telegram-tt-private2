@@ -168,14 +168,6 @@ const useLiveFormatting = ({
       // Toggle the '.visible' class based on the computed visibility for this entity index
       const visible = visibleIndexes.includes(idx);
       markerSpan.classList.toggle('visible', visible);
-
-      // TODO HERE! Change text content from "zero-length spaces" to marker specific chars
-      // const pattern = getPatternByClassList(markerSpan.classList);
-      // if (visible) {
-      //   markerSpan.textContent = pattern;
-      // } else {
-      //   markerSpan.textContent = '';
-      // }
     });
   }, []);
 
@@ -235,14 +227,11 @@ const useLiveFormatting = ({
     // 1. Get current state
     const cursor = getCaretCharacterOffsets(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
-    console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
     const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     let entities = formattedText.entities;
-    console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
-    console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
 
     // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
     if (isDelete && entities) {
@@ -260,7 +249,7 @@ const useLiveFormatting = ({
           && currentNode.dataset.entityIndex
         ) {
           const entityIndex = Number(currentNode.dataset.entityIndex);
-          if (isNaN(entityIndex)) continue; // Skip if index is invalid
+          if (Number.isNaN(entityIndex)) continue; // Skip if index is invalid
 
           const pattern = getPatternByClassList(currentNode.classList);
           const isOk = currentNode.textContent === pattern;
@@ -295,9 +284,6 @@ const useLiveFormatting = ({
           return true;
         }
       });
-
-      console.log('ApplyInlineEdit - Span Status after delete:', Object.fromEntries(spanStatus)); // DEBUG
-      console.log('ApplyInlineEdit - Filtered Entities (new logic):', JSON.stringify(entities)); // DEBUG
     }
 
     // 4. Render the formatted text back to HTML with markers enabled for all entities
@@ -306,7 +292,7 @@ const useLiveFormatting = ({
     const newHtml = getTextWithEntitiesAsHtml(
       { text: formattedText.text, entities }, { rawEntityIndexes: entityIndexes },
     );
-    console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
+
     const htmlChanged = newHtml !== currentHtml;
 
     if (htmlChanged) {

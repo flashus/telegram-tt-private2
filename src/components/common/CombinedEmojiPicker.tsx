@@ -138,7 +138,6 @@ const HEADER_BUTTON_WIDTH = 2.625 * REM; // Includes margins
 
 const MAX_EMOJI_QUERY_LENGTH = 10;
 
-// TODO! Check scss files for occurense of this prefix!
 const DEFAULT_ID_PREFIX = 'combined-emoji-group';
 
 /** Move this to config if needed */

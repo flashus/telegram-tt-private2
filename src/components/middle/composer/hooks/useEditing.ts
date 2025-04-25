@@ -91,7 +91,7 @@ const useEditing = (
       return undefined;
     }
     return () => {
-      const edited = parseHtmlAsFormattedText(getHtml(), 'useEditing: useEffect cleanup');
+      const edited = parseHtmlAsFormattedText(getHtml());
       const update = edited.text.length ? edited : undefined;
 
       setEditingDraft({
@@ -109,7 +109,7 @@ const useEditing = (
       return false;
     }
 
-    const edited = parseHtmlAsFormattedText(getHtml(), 'useEditing: detectLinkDebounced');
+    const edited = parseHtmlAsFormattedText(getHtml());
     return !('webPage' in editedMessage.content)
       && editedMessage.content.text?.entities?.some((entity) => URL_ENTITIES.has(entity.type))
       && !(edited.entities?.some((entity) => URL_ENTITIES.has(entity.type)));
@@ -154,7 +154,7 @@ const useEditing = (
   });
 
   const handleEditComplete = useLastCallback(() => {
-    const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'useEditing: handleEditComplete');
+    const { text, entities } = parseHtmlAsFormattedText(getHtml());
 
     if (!editedMessage) {
       return;
@@ -181,7 +181,7 @@ const useEditing = (
 
   const handleBlur = useLastCallback(() => {
     if (!editedMessage) return;
-    const edited = parseHtmlAsFormattedText(getHtml(), 'useEditing: handleBlur');
+    const edited = parseHtmlAsFormattedText(getHtml());
     const update = edited.text.length ? edited : undefined;
 
     setEditingDraft({

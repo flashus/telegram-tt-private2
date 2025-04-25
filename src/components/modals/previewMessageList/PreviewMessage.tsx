@@ -1441,7 +1441,6 @@ const PreviewMessage: FC<OwnProps & StateProps> = ({
             </>
           )}
           {renderContent()}
-          {/* <button onClick={() => console.log('message', message, 'previewtype', previewMessageListType)}>Dump me</button> */}
           {!isInDocumentGroupNotLast && metaPosition === 'standalone' && !isStoryMention && renderReactionsAndMeta()}
           {withAppendix && <MessageAppendix isOwn={isOwn} />}
         </div>

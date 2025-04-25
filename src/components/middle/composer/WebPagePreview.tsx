@@ -88,7 +88,7 @@ const WebPagePreview: FC<OwnProps & StateProps> = ({
       return undefined;
     }
 
-    const formattedText = parseHtmlAsFormattedText(getHtml(), 'WebPagePreview: detectLinkDebounced');
+    const formattedText = parseHtmlAsFormattedText(getHtml());
     const linkEntity = formattedText.entities?.find((entity): entity is ApiMessageEntityTextUrl => (
       entity.type === ApiMessageEntityTypes.TextUrl
     ));

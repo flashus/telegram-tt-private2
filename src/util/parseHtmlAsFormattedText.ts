@@ -39,17 +39,9 @@ function sanitizeHtml(input: string): string {
 }
 
 export default function parseHtmlAsFormattedText(
-  html: string, caller: string,
+  html: string,
 ): ApiFormattedText {
-  // Sanitize input HTML
-  // const safeHtml = sanitizeHtml(html);
-  const safeHtml = html;
-
-  // TODO !!!! remove all logs. process check unnecessary - no console is allowed in prod
-  console.log('WILL PARSE LENGTH:', safeHtml.length, 'CALLER:', caller);
-  const res = parseMarkdownHtmlToEntities(safeHtml);
-  return res;
-  // return parseMarkdownHtmlToEntities(safeHtml);
+  return parseMarkdownHtmlToEntities(html);
 }
 
 export const parseHtmlAsFormattedTextWithCursorSelection = (

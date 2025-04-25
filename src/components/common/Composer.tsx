@@ -1022,7 +1022,7 @@ const Composer: FC<OwnProps & StateProps> = ({
       return false;
     }
 
-    const { text } = parseHtmlAsFormattedText(getHtml(), 'canSendAttachments');
+    const { text } = parseHtmlAsFormattedText(getHtml());
     if (!text && !attachmentsToSend.length) {
       return false;
     }
@@ -1052,14 +1052,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
     isSilent = isSilent || isSilentPosting;
 
-    const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'sendAttachments');
-
-    // TODO: merge conflict with no incoming changes!!!
-    // if (!text && !attachmentsToSend.length) {
-    //   return;
-    // }
-    // if (!validateTextLength(text, true)) return;
-    // if (!checkSlowMode()) return;
+    const { text, entities } = parseHtmlAsFormattedText(getHtml());
 
     isInvertedMedia = text && sendCompressed && sendGrouped ? isInvertedMedia : undefined;
 
@@ -1148,7 +1141,7 @@ const Composer: FC<OwnProps & StateProps> = ({
 
   const handleSendCore = useLastCallback(
     (currentAttachments: ApiAttachment[], isSilent = false, scheduledAt?: number) => {
-      const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'handleSendCore');
+      const { text, entities } = parseHtmlAsFormattedText(getHtml());
       clearHistory();
 
       if (currentAttachments.length) {
@@ -1765,7 +1758,7 @@ const Composer: FC<OwnProps & StateProps> = ({
         showCustomEmojiPremiumNotification();
         return;
       }
-      const customEmojiMessage = parseHtmlAsFormattedText(buildCustomEmojiHtml(sticker), 'customEmoji');
+      const customEmojiMessage = parseHtmlAsFormattedText(buildCustomEmojiHtml(sticker));
       text = customEmojiMessage.text;
       entities = customEmojiMessage.entities;
     }
