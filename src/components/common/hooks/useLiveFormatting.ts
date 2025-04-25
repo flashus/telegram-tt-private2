@@ -213,13 +213,17 @@ const useLiveFormatting = ({
       } else {
         switch (event.key) {
           case 'ArrowUp':
+          case 'Up':
           case 'ArrowLeft':
+          case 'Left':
           case 'PageUp':
           case 'Home':
             newNodePosition = 0;
             break;
           case 'ArrowDown':
+          case 'Down':
           case 'ArrowRight':
+          case 'Right':
           case 'PageDown':
           case 'End':
             newNodePosition = anchorTextLength;
