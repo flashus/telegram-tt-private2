@@ -1,0 +1,151 @@
+import type { FC } from '../../../lib/teact/teact';
+import React, {
+  memo, useEffect,
+} from '../../../lib/teact/teact';
+import { getActions } from '../../../global';
+
+import type { LiveFormat } from '../../../types';
+
+import buildClassName from '../../../util/buildClassName';
+import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
+
+import useFlag from '../../../hooks/useFlag';
+import useLastCallback from '../../../hooks/useLastCallback';
+import useMouseInside from '../../../hooks/useMouseInside';
+
+import Icon from '../../common/icons/Icon';
+import Menu from '../../ui/Menu';
+import MenuItem from '../../ui/MenuItem';
+import ResponsiveHoverButton from '../../ui/ResponsiveHoverButton';
+
+import './LiveFormatMenu.scss';
+
+export type OwnProps = {
+  isButtonVisible: boolean;
+  liveFormat: LiveFormat;
+  forceMenuClose?: boolean;
+  onMenuOpen: NoneToVoidFunction;
+  onMenuClose: NoneToVoidFunction;
+};
+
+const LiveFormatMenu: FC<OwnProps> = ({
+  isButtonVisible,
+  liveFormat,
+  forceMenuClose,
+  onMenuOpen,
+  onMenuClose,
+}) => {
+  const {
+    setSettingOption,
+  } = getActions();
+
+  const [isLiveFormatMenuOpen, openLiveFormatMenu, closeLiveFormatMenu] = useFlag();
+  const [handleMouseEnter, handleMouseLeave, markMouseInside] = useMouseInside(
+    isLiveFormatMenuOpen, closeLiveFormatMenu,
+  );
+
+  const isMenuOpen = isLiveFormatMenuOpen;
+
+  useEffect(() => {
+    if (isLiveFormatMenuOpen) {
+      markMouseInside();
+    }
+  }, [isLiveFormatMenuOpen, markMouseInside]);
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      onMenuOpen();
+    } else {
+      onMenuClose();
+    }
+  }, [isMenuOpen, onMenuClose, onMenuOpen]);
+
+  // Workaround to prevent forwarding refs
+  useEffect(() => {
+    if (forceMenuClose && isLiveFormatMenuOpen) {
+      closeLiveFormatMenu();
+    }
+  }, [forceMenuClose, isLiveFormatMenuOpen]);
+
+  const handleToggleLiveFormatMenu = useLastCallback(() => {
+    if (isLiveFormatMenuOpen) {
+      closeLiveFormatMenu();
+    } else {
+      openLiveFormatMenu();
+    }
+  });
+
+  const handleLiveFormatOn = useLastCallback(() => {
+    setSettingOption({ liveFormat: 'on' });
+    closeLiveFormatMenu();
+  });
+
+  const handleLiveFormatCombo = useLastCallback(() => {
+    setSettingOption({ liveFormat: 'combo' });
+    closeLiveFormatMenu();
+  });
+
+  const handleLiveFormatOff = useLastCallback(() => {
+    setSettingOption({ liveFormat: 'off' });
+    closeLiveFormatMenu();
+  });
+
+  if (!isButtonVisible) {
+    return undefined;
+  }
+
+  return (
+    <div className="LiveFormatMenu">
+      <ResponsiveHoverButton
+        id="replace-menu-button"
+        className={buildClassName('LiveFormatMenu--button composer-action-button', isLiveFormatMenuOpen && 'activated')}
+        round
+        color="translucent"
+        onActivate={handleToggleLiveFormatMenu}
+        ariaLabel="Live format options"
+        ariaControls="replace-menu-controls"
+        hasPopup
+      >
+        <Icon name="settings" />
+      </ResponsiveHoverButton>
+      <Menu
+        id="live-format-menu-controls"
+        isOpen={isMenuOpen}
+        autoClose
+        positionX="right"
+        positionY="bottom"
+        onClose={closeLiveFormatMenu}
+        className="LiveFormatMenu--menu fluid"
+        onCloseAnimationEnd={closeLiveFormatMenu}
+        onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
+        onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
+        noCloseOnBackdrop={!IS_TOUCH_ENV}
+        ariaLabelledBy="live-format-menu-button"
+      >
+        <MenuItem
+          icon="check"
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'on' && 'active')}
+          onClick={handleLiveFormatOn}
+        >
+          On {/* lang('SettingsLiveFormatOn') */}
+        </MenuItem>
+        <MenuItem
+          icon="keyboard"
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'combo' && 'active')}
+          onClick={handleLiveFormatCombo}
+        >
+          Combo (cmd + alt + f) {/* lang('SettingsLiveFormatCombo') */}
+        </MenuItem>
+        <MenuItem
+          icon="close"
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'off' && 'active')}
+          onClick={handleLiveFormatOff}
+        >
+          Off {/* lang('SettingsLiveFormatOff') */}
+        </MenuItem>
+      </Menu>
+    </div>
+  );
+};
+
+export default memo(LiveFormatMenu);

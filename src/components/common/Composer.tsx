@@ -169,6 +169,7 @@ import CustomSendMenu from '../middle/composer/CustomSendMenu.async';
 import DropArea, { DropAreaState } from '../middle/composer/DropArea.async';
 import EmojiTooltip from '../middle/composer/EmojiTooltip.async';
 import InlineBotTooltip from '../middle/composer/InlineBotTooltip.async';
+import LiveFormatMenu from '../middle/composer/LiveFormatMenu';
 import MentionTooltip from '../middle/composer/MentionTooltip.async';
 import MessageInput from '../middle/composer/MessageInput';
 import PollModal from '../middle/composer/PollModal.async';
@@ -477,6 +478,10 @@ const Composer: FC<OwnProps & StateProps> = ({
   const sendMessageAction = useSendMessageAction(chatId, threadId);
   const [isInputHasFocus, markInputHasFocus, unmarkInputHasFocus] = useFlag();
   const [isAttachMenuOpen, onAttachMenuOpen, onAttachMenuClose] = useFlag();
+  const [isLiveFormatMenuOpen, onLiveFormatMenuOpen, onLiveFormatMenuClose] = useFlag();
+  // Force close each other attachment and live format menus
+  const [isForceAttachMenuClose, forceCloseAttachMenu, removeForceCloseAttachMenu] = useFlag();
+  const [isForceLiveFormatMenuClose, forceCloseLiveFormatMenu, removeForceCloseLiveFormatMenu] = useFlag();
 
   const canMediaBeReplaced = editingMessage && canEditMedia(editingMessage);
 
@@ -1556,6 +1561,26 @@ const Composer: FC<OwnProps & StateProps> = ({
     });
   });
 
+  const handleLiveFormatMenuOpen = useLastCallback(() => {
+    forceCloseAttachMenu();
+    onLiveFormatMenuOpen();
+  });
+
+  const handleAttachMenuOpen = useLastCallback(() => {
+    forceCloseLiveFormatMenu();
+    onAttachMenuOpen();
+  });
+
+  const handleLiveFormatMenuClose = useLastCallback(() => {
+    removeForceCloseAttachMenu();
+    onLiveFormatMenuClose();
+  });
+
+  const handleAttachMenuClose = useLastCallback(() => {
+    removeForceCloseLiveFormatMenu();
+    onAttachMenuClose();
+  });
+
   useEffect(() => {
     if (isRightColumnShown && isMobile) {
       closeSymbolMenu();
@@ -1595,9 +1620,10 @@ const Composer: FC<OwnProps & StateProps> = ({
   const isComposerHasFocus = isBotKeyboardOpen || isSymbolMenuOpen || isEmojiTooltipOpen || isSendAsMenuOpen
     || isMentionTooltipOpen || isInlineBotTooltipOpen || isBotCommandMenuOpen || isAttachMenuOpen
     || isStickerTooltipOpen || isChatCommandTooltipOpen || isCustomEmojiTooltipOpen || isBotMenuButtonOpen
-    || isCustomSendMenuOpen || Boolean(activeVoiceRecording) || attachments.length > 0 || isInputHasFocus;
+    || isCustomSendMenuOpen || Boolean(activeVoiceRecording) || attachments.length > 0 || isInputHasFocus
+    || isLiveFormatMenuOpen;
   const isReactionSelectorOpen = isComposerHasFocus && !isReactionPickerOpen && isInStoryViewer && !isAttachMenuOpen
-    && !isSymbolMenuOpen;
+    && !isSymbolMenuOpen && !isLiveFormatMenuOpen;
 
   const placeholder = useMemo(() => {
     if (activeVoiceRecording && windowWidth <= SCREEN_WIDTH_TO_HIDE_PLACEHOLDER) {
@@ -2139,6 +2165,14 @@ const Composer: FC<OwnProps & StateProps> = ({
               {formatVoiceRecordDuration(currentRecordTime - startRecordTimeRef.current!)}
             </span>
           )}
+          {/** Some base to determine showing live format menu */}
+          <LiveFormatMenu
+            liveFormat={liveFormat}
+            isButtonVisible={!activeVoiceRecording}
+            onMenuOpen={handleLiveFormatMenuOpen}
+            onMenuClose={handleLiveFormatMenuClose}
+            forceMenuClose={isForceLiveFormatMenuClose}
+          />
           {!isNeedPremium && (
             <AttachMenu
               chatId={chatId}
@@ -2159,8 +2193,9 @@ const Composer: FC<OwnProps & StateProps> = ({
               peerType={attachMenuPeerType}
               shouldCollectDebugLogs={shouldCollectDebugLogs}
               theme={theme}
-              onMenuOpen={onAttachMenuOpen}
-              onMenuClose={onAttachMenuClose}
+              onMenuOpen={handleAttachMenuOpen}
+              onMenuClose={handleAttachMenuClose}
+              forceMenuClose={isForceAttachMenuClose}
               messageListType={messageListType}
               paidMessagesStars={paidMessagesStars}
             />

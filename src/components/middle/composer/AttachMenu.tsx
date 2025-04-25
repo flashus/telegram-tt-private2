@@ -55,6 +55,7 @@ export type OwnProps = {
   peerType?: ApiAttachMenuPeerType;
   shouldCollectDebugLogs?: boolean;
   theme: ISettings['theme'];
+  forceMenuClose?: boolean;
   onFileSelect: (files: File[], shouldSuggestCompression?: boolean) => void;
   onPollCreate: NoneToVoidFunction;
   onMenuOpen: NoneToVoidFunction;
@@ -80,6 +81,7 @@ const AttachMenu: FC<OwnProps> = ({
   isScheduled,
   theme,
   shouldCollectDebugLogs,
+  forceMenuClose,
   onFileSelect,
   onMenuOpen,
   onMenuClose,
@@ -117,6 +119,13 @@ const AttachMenu: FC<OwnProps> = ({
       onMenuClose();
     }
   }, [isMenuOpen, onMenuClose, onMenuOpen]);
+
+  // Workaround to prevent forwarding refs
+  useEffect(() => {
+    if (forceMenuClose && isAttachMenuOpen) {
+      closeAttachMenu();
+    }
+  }, [forceMenuClose, isAttachMenuOpen]);
 
   const handleToggleAttachMenu = useLastCallback(() => {
     if (isAttachMenuOpen) {
