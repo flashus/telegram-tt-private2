@@ -10,7 +10,7 @@ export function computeMarkerVisibility(
 ): number[] {
   const { start } = caret;
   return entities.reduce<number[]>((acc, e, idx) => {
-    if (start >= e.offset && start <= e.offset + e.length) {
+    if (start + 1 >= e.offset && start - 1 <= e.offset + e.length) {
       acc.push(idx);
     }
     return acc;
