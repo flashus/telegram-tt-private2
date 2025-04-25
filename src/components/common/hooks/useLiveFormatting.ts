@@ -182,13 +182,12 @@ const useLiveFormatting = ({
       const visible = visibleIndexes.includes(idx);
       markerSpan.classList.toggle('visible', visible);
 
-      // TODO HERE! Change text content from "zero-length spaces" to marker specific chars
-      // const pattern = getPatternByClassList(markerSpan.classList);
-      // if (visible) {
-      //   markerSpan.textContent = pattern;
-      // } else {
-      //   markerSpan.textContent = '';
-      // }
+      const pattern = getPatternByClassList(markerSpan.classList);
+      if (visible) {
+        markerSpan.textContent = pattern;
+      } else {
+        markerSpan.textContent = '';
+      }
     });
   }, []);
 
