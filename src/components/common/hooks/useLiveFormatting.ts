@@ -454,7 +454,9 @@ const useLiveFormatting = ({
       } else if (NAV_KEYS.includes(e.key)) {
         // Could move this to onkeyDown, but handling would be a lot more complicated
         moveAroundNavWrapperMarkers(e);
-        showRawMarkers();
+        requestAnimationFrame(() => showRawMarkers());
+      } else {
+        checkForMarkerEdit();
       }
     };
 
