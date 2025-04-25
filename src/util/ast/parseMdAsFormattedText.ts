@@ -14,12 +14,13 @@ import { EntityRenderer } from './rendererAstAsEntities';
 export function cleanHtml(html: string) {
   let cleanedHtml = html.slice(0);
 
-  // Don't completely remove marker spans, but ensure their content isn't treated as text
-  // This prevents the blinking issue while still handling marker content correctly
+  // Replace marker spans with their raw text content before lexing
   cleanedHtml = cleanedHtml.replace(/<span[^>]*class="[^\"]*\bmd-marker\b[^\"]*"[^>]*>([\s\S]*?)<\/span>/g,
-    (match) => {
-      // Preserve the marker span but add a special attribute to identify during parsing
-      return match.replace('>', ' data-preserve-marker="true">');
+    (_match, markerText) => {
+      // Replace the span entirely with its text content (the raw marker)
+      // Decode potential HTML entities in markerText just in case
+      const decodedMarkerText = markerText.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+      return decodedMarkerText;
     });
 
   // Strip redundant nbsp's
