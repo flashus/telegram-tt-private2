@@ -260,7 +260,7 @@ const useLiveFormatting = ({
           && currentNode.dataset.entityIndex
         ) {
           const entityIndex = Number(currentNode.dataset.entityIndex);
-          if (isNaN(entityIndex)) continue; // Skip if index is invalid
+          if (Number.isNaN(entityIndex)) continue; // Skip if index is invalid
 
           const pattern = getPatternByClassList(currentNode.classList);
           const isOk = currentNode.textContent === pattern;
