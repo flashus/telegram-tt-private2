@@ -235,34 +235,69 @@ const useLiveFormatting = ({
     // 1. Get current state
     const cursor = getCaretCharacterOffsets(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
+    console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
     const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     let entities = formattedText.entities;
+    console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
+    console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
 
     // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
-    if (isDelete) {
-      const entityIndexesToDelete: number[] = [];
+    if (isDelete && entities) {
+      // Keep track of the status of start/end spans for each entity index found in the DOM
+      const spanStatus = new Map<number, { startOk?: boolean; endOk?: boolean }>();
 
-      // Traverse all the nodes of the element, for each check against the pattern - if it does not match, add entity to remove list
+      // Traverse the current DOM state AFTER deletion
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
       let currentNode;
       // eslint-disable-next-line no-cond-assign
       while (currentNode = walker.nextNode()) {
-        if (currentNode instanceof HTMLElement && currentNode.classList.contains('md-marker')) {
-          const pattern = getPatternByClassList(currentNode.classList);
+        if (
+          currentNode instanceof HTMLElement
+          && currentNode.classList.contains('md-marker')
+          && currentNode.dataset.entityIndex
+        ) {
+          const entityIndex = Number(currentNode.dataset.entityIndex);
+          if (isNaN(entityIndex)) continue; // Skip if index is invalid
 
-          if (currentNode.textContent !== pattern) {
-            // Remove entity if the deleted char is a part of a marker (in this case - if text content does not match pattern)
-            const entityIndex = Number(currentNode.dataset.entityIndex);
-            entityIndexesToDelete.push(entityIndex);
+          const pattern = getPatternByClassList(currentNode.classList);
+          const isOk = currentNode.textContent === pattern;
+          const position = currentNode.dataset.pos; // 'start' or 'end'
+
+          if (!spanStatus.has(entityIndex)) {
+            spanStatus.set(entityIndex, {});
+          }
+          const status = spanStatus.get(entityIndex)!;
+
+          if (position === 'start') {
+            status.startOk = isOk;
+          } else if (position === 'end') {
+            status.endOk = isOk;
           }
         }
-        walker.nextNode();
       }
 
-      entities = entities?.filter((entity, i) => entity.length && !entityIndexesToDelete.includes(i));
+      // Filter entities: Keep only those where BOTH spans were found and OK
+      entities = entities.filter((_entity, index) => {
+        const status = spanStatus.get(index);
+        // Keep if status exists AND both startOk and endOk are true
+        // (Assumes entities without marker spans like links should always be kept here)
+        // TODO: Need to handle entities that don't render marker spans (like links, emails, mentions) -
+        // they should probably always be kept by this deletion logic.
+        // For now, only filter if status is found (i.e., it's an entity with markers)
+        if (status) {
+          return status.startOk === true && status.endOk === true;
+        } else {
+          // If no status found (e.g. link, or spans were totally deleted), keep it for now.
+          // A more robust solution might involve checking entity type here.
+          return true;
+        }
+      });
+
+      console.log('ApplyInlineEdit - Span Status after delete:', Object.fromEntries(spanStatus)); // DEBUG
+      console.log('ApplyInlineEdit - Filtered Entities (new logic):', JSON.stringify(entities)); // DEBUG
     }
 
     // 4. Render the formatted text back to HTML with markers enabled for all entities
@@ -271,9 +306,10 @@ const useLiveFormatting = ({
     const newHtml = getTextWithEntitiesAsHtml(
       { text: formattedText.text, entities }, { rawEntityIndexes: entityIndexes },
     );
+    console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
+    const htmlChanged = newHtml !== currentHtml;
 
-    // 5. Compare and update if necessary
-    if (newHtml !== currentHtml) {
+    if (htmlChanged) {
       // Update the state/DOM
       setHtml(newHtml); // Use the provided state setter
 
