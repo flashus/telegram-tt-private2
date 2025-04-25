@@ -36,7 +36,8 @@ type StateProps =
     'animationLevel' |
     'messageSendKeyCombo' |
     'timeFormat' |
-    'liveFormat'
+    'liveFormat' |
+    'isComposerLiveFormatConfigButtonShown'
   )> & {
     theme: ISettings['theme'];
     shouldUseSystemTheme: boolean;
@@ -52,6 +53,7 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
   theme,
   shouldUseSystemTheme,
   liveFormat,
+  isComposerLiveFormatConfigButtonShown,
 }) => {
   const {
     setSettingOption,
@@ -138,6 +140,10 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     window.electron?.setIsTrayIconEnabled(isChecked);
   }, []);
 
+  const handleIsComposerLiveFormatConfigButtonShownChange = useCallback((isChecked: boolean) => {
+    setSettingOption({ isComposerLiveFormatConfigButtonShown: isChecked });
+  }, []);
+
   useHistoryBack({
     isActive,
     onBack: onReset,
@@ -213,13 +219,19 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
 
       <div className="settings-item">
         <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>
-          {'Live message formatting' /* {lang('SettingsTimeFormat')} */}
+          {'Live message formatting' /* {lang('SettingsLiveFormat')} */}
         </h4>
         <RadioGroup
           name="liveformat"
           options={liveFormatOptions}
           selected={liveFormat}
           onChange={handleLiveFormatChange as (value: string) => void}
+        />
+        <Checkbox
+          // label={lang('SettingsComposerLiveFormatButton')}
+          label="Show settings button in composer"
+          checked={Boolean(isComposerLiveFormatConfigButtonShown)}
+          onCheck={handleIsComposerLiveFormatConfigButtonShownChange}
         />
       </div>
     </div>
@@ -239,6 +251,7 @@ export default memo(withGlobal<OwnProps>(
         'canChangeSensitive',
         'timeFormat',
         'liveFormat',
+        'isComposerLiveFormatConfigButtonShown',
       ]),
       theme,
       shouldUseSystemTheme,

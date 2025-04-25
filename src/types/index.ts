@@ -137,6 +137,7 @@ export interface ISettings {
   canChangeSensitive?: boolean;
   timeFormat: TimeFormat;
   liveFormat: LiveFormat;
+  isComposerLiveFormatConfigButtonShown?: boolean;
   wasTimeFormatSetManually: boolean;
   isConnectionStatusMinimized: boolean;
   shouldArchiveAndMuteNewNonContact?: boolean;

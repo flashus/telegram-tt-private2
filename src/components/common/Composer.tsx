@@ -297,6 +297,7 @@ type StateProps =
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
     liveFormat: LiveFormat;
+    isComposerLiveFormatConfigButtonShown?: boolean;
   };
 
 enum MainButtonState {
@@ -420,6 +421,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   starsBalance,
   isStarsBalanceModalOpen,
   liveFormat,
+  isComposerLiveFormatConfigButtonShown,
 }) => {
   const {
     sendMessage,
@@ -2165,14 +2167,15 @@ const Composer: FC<OwnProps & StateProps> = ({
               {formatVoiceRecordDuration(currentRecordTime - startRecordTimeRef.current!)}
             </span>
           )}
-          {/** Some base to determine showing live format menu */}
-          <LiveFormatMenu
-            liveFormat={liveFormat}
-            isButtonVisible={!activeVoiceRecording}
-            onMenuOpen={handleLiveFormatMenuOpen}
-            onMenuClose={handleLiveFormatMenuClose}
-            forceMenuClose={isForceLiveFormatMenuClose}
-          />
+          {isComposerLiveFormatConfigButtonShown && (
+            <LiveFormatMenu
+              liveFormat={liveFormat}
+              isButtonVisible={!activeVoiceRecording}
+              onMenuOpen={handleLiveFormatMenuOpen}
+              onMenuClose={handleLiveFormatMenuClose}
+              forceMenuClose={isForceLiveFormatMenuClose}
+            />
+          )}
           {!isNeedPremium && (
             <AttachMenu
               chatId={chatId}
@@ -2399,7 +2402,7 @@ export default memo(withGlobal<OwnProps>(
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove, liveFormat,
+      shouldPaidMessageAutoApprove, liveFormat, isComposerLiveFormatConfigButtonShown,
     } = global.settings.byKey;
     const {
       forwardMessages: { messageIds: forwardMessageIds },
@@ -2556,6 +2559,7 @@ export default memo(withGlobal<OwnProps>(
       starsBalance,
       isStarsBalanceModalOpen,
       liveFormat,
+      isComposerLiveFormatConfigButtonShown,
     };
   },
 )(Composer));

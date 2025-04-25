@@ -279,6 +279,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       language: 'en',
       timeFormat: '24h',
       liveFormat: 'on',
+      isComposerLiveFormatConfigButtonShown: true,
       wasTimeFormatSetManually: false,
       isConnectionStatusMinimized: true,
       shouldArchiveAndMuteNewNonContact: false,
