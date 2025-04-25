@@ -497,8 +497,8 @@ const useLiveFormatting = ({
       inputRef.current.removeEventListener('focus', handleFocus);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [editableInputId, getHtml, setHtml, applyInlineEdit,
-    showRawMarkers, clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormat]);
+  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers,
+    clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormat, checkForMarkerEdit]);
 
   useEffect(() => {
     if (liveFormat !== 'combo' || !inputRef.current) {
