@@ -43,9 +43,9 @@ const getPatternByClassList = (classList: DOMTokenList): string => {
   return '';
 };
 
-export const getCaretCharacterOffsets = (el: HTMLElement): { start: number; end: number } => {
+export const getCaretCharacterOffsets = (el: HTMLElement): number => {
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
+  if (!sel || sel.rangeCount === 0) return 0;
 
   const range = sel.getRangeAt(0);
 
@@ -53,17 +53,15 @@ export const getCaretCharacterOffsets = (el: HTMLElement): { start: number; end:
   secondRange.selectNodeContents(el);
   secondRange.setEnd(range.startContainer, range.startOffset);
   const start = secondRange.toString().length;
-  secondRange.setEnd(range.endContainer, range.endOffset);
-  const end = secondRange.toString().length;
 
-  return { start, end };
+  return start;
 };
 
-export const setCaretCharacterOffsets = (el: HTMLElement, start: number, end: number): void => {
+export const setCaretCharacterOffsets = (el: HTMLElement, offset: number): void => {
   // Clamp start and end to valid range
   const max = el.textContent?.length || 0;
-  start = Math.max(0, Math.min(start, max));
-  end = Math.max(0, Math.min(end, max));
+  const start = Math.max(0, Math.min(offset, max));
+  const end = Math.max(0, Math.min(offset, max));
 
   let charCount = 0;
   let startNode: Node | undefined;
@@ -112,24 +110,14 @@ export const setCaretCharacterOffsets = (el: HTMLElement, start: number, end: nu
   }
 };
 
-const getCursorSelection = (el: HTMLElement): { start: number; end: number } => {
-  const { start, end } = getCaretCharacterOffsets(el);
-
-  return { start, end };
-};
-
-const restoreCursorSelection = (
+const restoreCaretOffset = (
   el: HTMLElement,
-  cursorPosition: { start: number; end: number },
-  cb: () => void,
+  caretOffset: number,
 ) => {
-  const { start, end } = cursorPosition;
-
   // Wait for DOM updates to complete
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      cb();
-      setCaretCharacterOffsets(el, start, end);
+      setCaretCharacterOffsets(el, caretOffset);
     });
   });
 };
@@ -145,36 +133,37 @@ const useLiveFormatting = ({
   editableInputId: string;
   liveFormat: LiveFormat;
 }) => {
-  const restored = useRef(false);
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
 
   const clearRawMarkersMode = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
-    const cursor = getCursorSelection(el);
+    const cursor = getCaretCharacterOffsets(el);
     const html = getHtml();
-    const { formattedText, newSelection } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
+    const {
+      formattedText,
+      newCaretOffset: newSelection,
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
-      restoreCursorSelection(el, newSelection, () => { restored.current = true; });
+      restoreCaretOffset(el, newSelection);
     }
   }, [getHtml, setHtml]);
 
   // Toggle visibility of markers based on caret position
-  const showRawMarkers = useCallback(() => {
+  const showRawMarkers = useCallback((plainCaretOffset?: number) => {
     const el = inputRef.current;
     if (!el) return;
     const sel = window.getSelection();
     if (!sel?.isCollapsed || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
-    const domCaret = getCaretCharacterOffsets(el);
-    const plainTextStartOffset = getPlainTextOffsetFromRange(el);
-    const plainTextCaret = { start: plainTextStartOffset, end: plainTextStartOffset };
+
+    const plainTextCaretOffset = plainCaretOffset ?? getPlainTextOffsetFromRange(el);
     const currentHtml = el.innerHTML;
-    const { formattedText } = parseMarkdownHtmlToEntitiesWithCursorSelection(currentHtml, domCaret);
+    const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     const entities = formattedText.entities ?? [];
-    const visibleIndexes = computeMarkerVisibility(entities, plainTextCaret);
+    const visibleIndexes = computeMarkerVisibility(entities, plainTextCaretOffset);
     const markerSpans = el.querySelectorAll<HTMLElement>('.md-marker[data-entity-index]');
     markerSpans.forEach((markerSpan) => {
       const idx = Number(markerSpan.dataset.entityIndex);
@@ -183,9 +172,9 @@ const useLiveFormatting = ({
       markerSpan.classList.toggle('visible', visible);
 
       const pattern = getPatternByClassList(markerSpan.classList);
-      if (visible) {
+      if (visible && markerSpan.textContent !== pattern) {
         markerSpan.textContent = pattern;
-      } else {
+      } else if (!visible && markerSpan.textContent !== '') {
         markerSpan.textContent = '';
       }
     });
@@ -329,13 +318,18 @@ const useLiveFormatting = ({
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
 
     // 1. Get current state
-    const cursor = getCaretCharacterOffsets(el);
+    const caretOffset = getCaretCharacterOffsets(el);
+    const plainTextCaretOffset = getPlainTextOffsetFromRange(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
     console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
-    const formattedText = parseMarkdownHtmlToEntities(currentHtml);
+    // const formattedText = parseMarkdownHtmlToEntities(currentHtml);
+    const {
+      formattedText,
+      mdMarkerCharsBeforeCaret,
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(currentHtml, plainTextCaretOffset);
     let entities = formattedText.entities;
     console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
     console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
@@ -411,16 +405,14 @@ const useLiveFormatting = ({
 
       // Restore selection using the cursor position captured *before* parsing/rendering
       // Use a minimal callback for restoreCursorSelection as showRawMarkers is called next
-      restoreCursorSelection(el, cursor, () => {});
+      restoreCaretOffset(el, caretOffset - mdMarkerCharsBeforeCaret);
 
       // Ensure markers are updated after DOM change and caret restoration
       // Use requestAnimationFrame to ensure DOM is settled before querying markers
-      requestAnimationFrame(() => {
-        showRawMarkers();
-      });
+      requestAnimationFrame(() => showRawMarkers(plainTextCaretOffset - mdMarkerCharsBeforeCaret));
     } else {
       // Even if HTML didn't change, marker visibility might need update based on cursor move
-      requestAnimationFrame(() => showRawMarkers());
+      requestAnimationFrame(() => showRawMarkers(plainTextCaretOffset - mdMarkerCharsBeforeCaret));
     }
   }, [setHtml, showRawMarkers]); // Removed getHtml dependency as we use el.innerHTML
 

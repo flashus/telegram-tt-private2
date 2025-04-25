@@ -98,27 +98,28 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
 
 export function parseMarkdownHtmlToEntitiesWithCursorSelection(
   inputText: string,
-  cursorSelection: { start: number; end: number },
+  caretOffset: number,
 ): {
     formattedText: ApiFormattedText;
-    newSelection: { start: number; end: number };
+    newCaretOffset: number;
     focusedEntities: ApiMessageEntityTypes[];
     focusedEntityIndexes: number[];
+    mdMarkerCharsBeforeCaret: number;
   } {
   const ast = parseMarkdownToAST(inputText);
-  const { start, end } = cursorSelection;
   if (!ast) {
     return {
       formattedText: { text: inputText, entities: [] },
-      newSelection: { start, end },
+      newCaretOffset: caretOffset,
       focusedEntities: [],
       focusedEntityIndexes: [],
+      mdMarkerCharsBeforeCaret: 0,
     };
   }
   const formattedText = renderASTToEntities(ast);
   const entitiesList = formattedText.entities ?? [];
   const focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
-    if (e.offset <= start && start <= e.offset + e.length) acc.push(idx);
+    if (e.offset <= caretOffset && caretOffset <= e.offset + e.length) acc.push(idx);
     return acc;
   }, []);
   const focusedEntities = focusedEntityIndexes.map(
@@ -127,9 +128,10 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
 
   return {
     formattedText,
-    newSelection: { start, end },
+    newCaretOffset: caretOffset,
     focusedEntities,
     focusedEntityIndexes,
+    mdMarkerCharsBeforeCaret: 0,
   };
 }
 

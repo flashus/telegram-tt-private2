@@ -71,8 +71,8 @@ export function getPlainTextOffsetFromRange(container: HTMLElement): number {
   precedingRange.selectNodeContents(container);
   precedingRange.setEnd(range.startContainer, range.startOffset);
 
-  // Create a temporary div to render the *plain text* of the preceding range
-  const tempDiv = document.createElement('div');
+  // // Create a temporary div to render the *plain text* of the preceding range
+  // const tempDiv = document.createElement('div');
 
   const walker = document.createTreeWalker(precedingRange.commonAncestorContainer, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
     acceptNode: (node) => {
