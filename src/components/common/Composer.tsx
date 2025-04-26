@@ -1054,13 +1054,6 @@ const Composer: FC<OwnProps & StateProps> = ({
 
     const { text, entities } = parseHtmlAsFormattedText(getHtml(), 'sendAttachments');
 
-    // TODO: merge conflict with no incoming changes!!!
-    // if (!text && !attachmentsToSend.length) {
-    //   return;
-    // }
-    // if (!validateTextLength(text, true)) return;
-    // if (!checkSlowMode()) return;
-
     isInvertedMedia = text && sendCompressed && sendGrouped ? isInvertedMedia : undefined;
 
     if (editingMessage) {
