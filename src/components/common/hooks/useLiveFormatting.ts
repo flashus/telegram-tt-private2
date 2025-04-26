@@ -45,7 +45,7 @@ const getPatternByClassList = (classList: DOMTokenList): string => {
   return '';
 };
 
-export const getCaretCharacterOffsets = (el: HTMLElement): number => {
+export const getCaretOffset = (el: HTMLElement): number => {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return 0;
 
@@ -59,11 +59,69 @@ export const getCaretCharacterOffsets = (el: HTMLElement): number => {
   return start;
 };
 
-export const setCaretCharacterOffsets = (el: HTMLElement, offset: number): void => {
+export const setCaretByOffset = (el: HTMLElement, offset: number): void => {
+  // Clamp offset to valid range
+  const max = el.textContent?.length || 0;
+  const validOffset = Math.max(0, Math.min(offset, max));
+
+  let charCount = 0;
+  let caretNode: Node | undefined;
+  let caretNodeOffset = 0;
+
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const nodeLength = node.textContent?.length || 0;
+
+    if (caretNode === undefined && charCount + nodeLength >= validOffset) {
+      caretNode = node;
+      caretNodeOffset = validOffset - charCount;
+    }
+
+    charCount += nodeLength;
+  }
+
+  // Fallback to end of element if nodes not found
+  if (!caretNode) {
+    caretNode = el;
+    caretNodeOffset = el.childNodes.length;
+  }
+
+  const range = document.createRange();
+  range.setStart(caretNode, caretNodeOffset);
+  range.setEnd(caretNode, caretNodeOffset);
+
+  const sel = window.getSelection();
+  if (sel) {
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+};
+
+export type SelectionOffsets = { start: number; end: number };
+
+export const getSelectionOffsets = (el: HTMLElement): SelectionOffsets => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
+
+  const range = sel.getRangeAt(0);
+
+  const secondRange = document.createRange();
+  secondRange.selectNodeContents(el);
+  secondRange.setEnd(range.startContainer, range.startOffset);
+  const start = secondRange.toString().length;
+  secondRange.setEnd(range.endContainer, range.endOffset);
+  const end = secondRange.toString().length;
+
+  return { start, end };
+};
+
+export const setSelectionByOffsets = (el: HTMLElement, offsets: SelectionOffsets): void => {
   // Clamp start and end to valid range
   const max = el.textContent?.length || 0;
-  const start = Math.max(0, Math.min(offset, max));
-  const end = Math.max(0, Math.min(offset, max));
+  const start = Math.max(0, Math.min(offsets.start, max));
+  const end = Math.max(0, Math.min(offsets.end, max));
 
   let charCount = 0;
   let startNode: Node | undefined;
@@ -112,14 +170,14 @@ export const setCaretCharacterOffsets = (el: HTMLElement, offset: number): void 
   }
 };
 
-class CaretRestorerSingleton {
+class SelectionRestorerSingleton {
   private lastRequestId = 0; // <-- version counter
 
-  public static instance: CaretRestorerSingleton;
+  public static instance: SelectionRestorerSingleton;
 
   public static getInstance() {
     if (!this.instance) {
-      this.instance = new CaretRestorerSingleton();
+      this.instance = new SelectionRestorerSingleton();
     }
     return this.instance;
   }
@@ -130,17 +188,37 @@ class CaretRestorerSingleton {
     const localRequestId = ++this.lastRequestId;
 
     // Flickering seems fixed by calling setCaretCharacterOffsets in three frames in a row
-    setCaretCharacterOffsets(el, caretOffset);
+    setCaretByOffset(el, caretOffset);
 
     requestAnimationFrame(() => {
       // If there was a new call for restoreCaretOffset - previous calls must be superseded
       if (this.lastRequestId !== localRequestId) return;
-      setCaretCharacterOffsets(el, caretOffset);
+      setCaretByOffset(el, caretOffset);
 
       requestAnimationFrame(() => {
         // If there was a new call for restoreCaretOffset - previous calls must be superseded
         if (this.lastRequestId !== localRequestId) return;
-        setCaretCharacterOffsets(el, caretOffset);
+        setCaretByOffset(el, caretOffset);
+        this.lastRequestId = 0;
+      });
+    });
+  }
+
+  public restoreSelectionOffsets(el: HTMLElement, offsets: SelectionOffsets) {
+    // Bump the request counter
+    const localRequestId = ++this.lastRequestId;
+
+    setSelectionByOffsets(el, offsets);
+
+    requestAnimationFrame(() => {
+      // If there was a new call for restoreSelectionOffsets - previous calls must be superseded
+      if (this.lastRequestId !== localRequestId) return;
+      setSelectionByOffsets(el, offsets);
+
+      requestAnimationFrame(() => {
+        // If there was a new call for restoreSelectionOffsets - previous calls must be superseded
+        if (this.lastRequestId !== localRequestId) return;
+        setSelectionByOffsets(el, offsets);
         this.lastRequestId = 0;
       });
     });
@@ -191,17 +269,17 @@ const useLiveFormatting = ({
   const clearRawMarkersMode = useCallback((preventRestore?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
-    const cursor = getCaretCharacterOffsets(el);
+    const caretOffset = getCaretOffset(el);
     const html = getHtml();
     const {
       formattedText,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor, validOffsetMargin);
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, caretOffset, validOffsetMargin);
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
       if (!preventRestore) {
-        const caretRestorer = CaretRestorerSingleton.getInstance();
-        caretRestorer.restoreCaretOffset(el, cursor);
+        const caretRestorer = SelectionRestorerSingleton.getInstance();
+        caretRestorer.restoreCaretOffset(el, caretOffset);
       }
     }
   }, [getHtml, setHtml, validOffsetMargin]);
@@ -234,7 +312,7 @@ const useLiveFormatting = ({
     });
 
     // Intuitive action - feels like this prevents cursor moving when typing. Remove if needed
-    const caretRestorer = CaretRestorerSingleton.getInstance();
+    const caretRestorer = SelectionRestorerSingleton.getInstance();
     caretRestorer.preventRestore();
   }, [validOffsetMargin, keepMarkerWidth]);
 
@@ -297,7 +375,7 @@ const useLiveFormatting = ({
     console.log('ApplyInlineEdit - START ------------------');
     // 1. Get current state
     // TODO!!! Maybe, remove the caretOffset here - could be not so accurate
-    const caretOffset = getCaretCharacterOffsets(el);
+    const caretOffset = getCaretOffset(el);
     const plainTextCaretOffset = getPlainTextOffsetFromRange(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
     console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
@@ -395,7 +473,7 @@ const useLiveFormatting = ({
       setHtml(newHtml); // Use the provided state setter
 
       // Restore selection using the cursor position captured *before* parsing/rendering
-      const caretRestorer = CaretRestorerSingleton.getInstance();
+      const caretRestorer = SelectionRestorerSingleton.getInstance();
       caretRestorer.restoreCaretOffset(el, caretOffset);
 
       // Show raw markers is not needed here - it is now handled
