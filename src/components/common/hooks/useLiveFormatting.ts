@@ -276,6 +276,7 @@ const useLiveFormatting = ({
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
     console.log('ApplyInlineEdit - START ------------------');
     // 1. Get current state
+    // TODO!!! Maybe, remove the caretOffset here - could be not so accurate
     const caretOffset = getCaretCharacterOffsets(el);
     const plainTextCaretOffset = getPlainTextOffsetFromRange(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
