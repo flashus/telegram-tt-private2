@@ -142,6 +142,11 @@ class CaretRestorerSingleton {
       });
     });
   }
+
+  /** Call this to prevent restoring caret position - e.g. when focus is lost or another char was typed */
+  public preventRestore() {
+    this.lastRequestId = 0;
+  }
 }
 
 // If CaretRestorerSingleton will get buggy someday - using KISS principle,
