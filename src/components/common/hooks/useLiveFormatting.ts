@@ -274,7 +274,7 @@ const useLiveFormatting = ({
     const sel = window.getSelection();
     // Only proceed if selection is collapsed and within the editor
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
-
+    console.log('ApplyInlineEdit - START ------------------');
     // 1. Get current state
     const caretOffset = getCaretCharacterOffsets(el);
     const plainTextCaretOffset = getPlainTextOffsetFromRange(el);
@@ -356,6 +356,8 @@ const useLiveFormatting = ({
     );
     console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
+
+    console.log('ApplyInlineEdit - END --------------------');
 
     if (htmlChanged) {
       // Update the state/DOM
