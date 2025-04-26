@@ -3,6 +3,7 @@ import type { ApiFormattedText } from '../../api/types';
 import type {
   ASTNode, DocumentNode, HtmlTagNode, TextNode,
 } from './node';
+import type { SelectionOffsets } from './plainTextOffset';
 
 import { NodeType } from './astEnums';
 import { Lexer } from './lexer';
@@ -41,6 +42,47 @@ const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, care
     }
   }
   return resultOffset;
+};
+
+const getNewSelectionOffsets = (
+  cleanedHtml: string,
+  plainFormattedText: string,
+  selectionOffsets: SelectionOffsets,
+) => {
+  // 1. Keep two pointers, advance both of them if chars match.
+  // 2. Advance only the cleanedHtml if chars don't match.
+  // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
+  //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 4. Remove 1 from the result if the char is an edit key.
+  // 5. Keep track of startFinished flag.
+  const resultOffsets = { ...selectionOffsets };
+  let i = 0;
+  let j = 0;
+  let startFinished = false;
+  while (i < resultOffsets.end && j < cleanedHtml.length) {
+    if (i >= resultOffsets.start) {
+      startFinished = true;
+    }
+    if (plainFormattedText[i] === cleanedHtml[j]) {
+      i++;
+      j++;
+    } else {
+      if (cleanedHtml[j] === '<') {
+        while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
+          j++;
+        }
+      }
+      if (MARKER_CHARS_SET.has(cleanedHtml[j])) {
+        if (startFinished) {
+          resultOffsets.end--;
+        }
+        resultOffsets.start--;
+        resultOffsets.end--;
+      }
+      j++;
+    }
+  }
+  return resultOffsets;
 };
 
 export function cleanHtml(html: string) {
@@ -131,7 +173,7 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
   return renderASTToEntities(ast);
 }
 
-export function parseMarkdownHtmlToEntitiesWithCursorSelection(
+export function parseMarkdownHtmlToEntitiesWithCaret(
   inputText: string,
   caretOffset: number,
   validOffsetMargin: number = 0,
@@ -174,6 +216,53 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
     formattedText,
     focusedEntityIndexes,
     plainTextCaretOffset: newPlainTextCaretOffset,
+  };
+}
+
+export function parseMarkdownHtmlToEntitiesWithSelection(
+  inputText: string,
+  selectionOffsets: SelectionOffsets,
+  validOffsetMargin: number = 0,
+): {
+    formattedText: ApiFormattedText;
+    focusedEntityIndexes: number[];
+    plainTextSelectionOffsets: SelectionOffsets;
+  } {
+  const cleanedHtml = cleanHtml(inputText);
+  const ast = parseMarkdownToAST(cleanedHtml, true);
+  if (!ast) {
+    return {
+      formattedText: { text: inputText, entities: [] },
+      focusedEntityIndexes: [],
+      plainTextSelectionOffsets: { start: 0, end: 0 },
+    };
+  }
+  const formattedText = renderASTToEntities(ast);
+  const entitiesList = formattedText.entities ?? [];
+
+  // Caret offset that must be handled here - must be adjusted by the difference between pattern
+  // occurencies in input and output text.
+  const newPlainTextSelectionOffsets = getNewSelectionOffsets(
+    cleanedHtml,
+    formattedText.text,
+    selectionOffsets,
+  );
+
+  const focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
+    if (
+      // Check if entity overlaps with selection range
+      newPlainTextSelectionOffsets.start - validOffsetMargin <= e.offset + e.length
+      && newPlainTextSelectionOffsets.end + validOffsetMargin >= e.offset
+    ) {
+      acc.push(idx);
+    }
+    return acc;
+  }, []);
+
+  return {
+    formattedText,
+    focusedEntityIndexes,
+    plainTextSelectionOffsets: newPlainTextSelectionOffsets,
   };
 }
 

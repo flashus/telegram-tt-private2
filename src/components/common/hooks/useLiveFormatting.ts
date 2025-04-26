@@ -4,13 +4,15 @@ import type { ILiveFormatSettings } from '../../../types';
 import type { SelectionOffsets } from '../../../util/ast/plainTextOffset';
 import type { Signal } from '../../../util/signals';
 
-import { computeMarkerVisibility } from '../../../util/ast/markerVisibility';
+import { computeMarkerVisibility, computeMarkerVisibilitySelection } from '../../../util/ast/markerVisibility';
 import {
   parseMarkdownHtmlToEntities,
-  parseMarkdownHtmlToEntitiesWithCursorSelection,
+  parseMarkdownHtmlToEntitiesWithCaret,
+  parseMarkdownHtmlToEntitiesWithSelection,
 } from '../../../util/ast/parseMdAsFormattedText';
 import {
   getPlainTextOffsetFromRange,
+  getPlainTextOffsetsFromRange,
   setCaretByPlainTextOffset,
   setSelectionByPlainTextOffsets,
 } from '../../../util/ast/plainTextOffset';
@@ -197,7 +199,7 @@ const useLiveFormatting = ({
     const html = getHtml();
     const {
       formattedText,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, caretOffset, validOffsetMargin);
+    } = parseMarkdownHtmlToEntitiesWithCaret(html, caretOffset, validOffsetMargin);
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
@@ -220,6 +222,38 @@ const useLiveFormatting = ({
     const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     const entities = formattedText.entities ?? [];
     const visibleIndexes = computeMarkerVisibility(entities, plainTextCaretOffset, validOffsetMargin);
+    const markerSpans = el.querySelectorAll<HTMLElement>('.md-marker[data-entity-index]');
+    markerSpans.forEach((markerSpan) => {
+      const idx = Number(markerSpan.dataset.entityIndex);
+      // Toggle the '.visible' class based on the computed visibility for this entity index
+      const visible = visibleIndexes.includes(idx);
+      markerSpan.classList.toggle('visible', visible);
+
+      const pattern = getPatternByClassList(markerSpan.classList);
+      if (visible && markerSpan.textContent !== pattern) {
+        markerSpan.textContent = pattern;
+      } else if (!visible && markerSpan.textContent !== '' && !keepMarkerWidth) {
+        markerSpan.textContent = '';
+      }
+    });
+
+    // Intuitive action - feels like this prevents cursor moving when typing. Remove if needed
+    const caretRestorer = SelectionRestorerSingleton.getInstance();
+    caretRestorer.preventRestore();
+  }, [validOffsetMargin, keepMarkerWidth]);
+
+  // Toggle visibility of markers based on caret position
+  const showRawMarkersSelection = useCallback((plainSelectionOffsets?: SelectionOffsets) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
+
+    const plainTextCaretOffset = plainSelectionOffsets ?? getPlainTextOffsetsFromRange(el);
+    const currentHtml = el.innerHTML;
+    const formattedText = parseMarkdownHtmlToEntities(currentHtml);
+    const entities = formattedText.entities ?? [];
+    const visibleIndexes = computeMarkerVisibilitySelection(entities, plainTextCaretOffset, validOffsetMargin);
     const markerSpans = el.querySelectorAll<HTMLElement>('.md-marker[data-entity-index]');
     markerSpans.forEach((markerSpan) => {
       const idx = Number(markerSpan.dataset.entityIndex);
@@ -298,10 +332,7 @@ const useLiveFormatting = ({
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
     console.log('ApplyInlineEdit - START ------------------');
     // 1. Get current state
-    // TODO!!! Maybe, remove the caretOffset here - could be not so accurate
-    // const caretOffset = getCaretOffset(el);
     const caretOffset = getPlainTextOffsetFromRange(el, false);
-    // const plainTextStartingOffset = getPlainTextOffsetFromRange(el);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
     console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
@@ -311,12 +342,10 @@ const useLiveFormatting = ({
       formattedText,
       focusedEntityIndexes,
       plainTextCaretOffset,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(
+    } = parseMarkdownHtmlToEntitiesWithCaret(
       currentHtml, caretOffset, validOffsetMargin,
     );
     let entities = formattedText.entities;
-    console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
-    console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
 
     // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
     if (isDelete && entities) {
@@ -415,6 +444,130 @@ const useLiveFormatting = ({
       showRawMarkers(plainTextCaretOffset);
     }
   }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
+
+  const applyInlineEditForSelection: ApplyInlineEditFn = useCallback((isDelete?: boolean) => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const sel = window.getSelection();
+    // Only proceed if selection is within the editor
+    if (!sel || !el.contains(sel.anchorNode)) return;
+
+    // 1. Get current state
+    const selectionOffsets = getPlainTextOffsetsFromRange(el, false);
+    const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
+    console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
+
+    // 2. Parse the current HTML to get the intended formatted text structure
+    // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
+    const {
+      formattedText,
+      focusedEntityIndexes,
+      plainTextSelectionOffsets,
+    } = parseMarkdownHtmlToEntitiesWithSelection(
+      currentHtml, selectionOffsets, validOffsetMargin,
+    );
+    let entities = formattedText.entities;
+    console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
+    console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
+
+    // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
+    if (isDelete && entities) {
+      // Keep track of the status of start/end spans for each entity index found in the DOM
+      const spanStatus = new Map<number, { startOk?: boolean; endOk?: boolean }>();
+
+      // Traverse the current DOM state AFTER deletion
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
+      let currentNode;
+      // eslint-disable-next-line no-cond-assign
+      while (currentNode = walker.nextNode()) {
+        if (
+          currentNode instanceof HTMLElement
+          && currentNode.classList.contains('md-marker')
+          && currentNode.dataset.entityIndex
+        ) {
+          const entityIndex = Number(currentNode.dataset.entityIndex);
+          if (Number.isNaN(entityIndex)) continue; // Skip if index is invalid
+
+          if (!currentNode.classList.contains('visible')) {
+            // Set as ok if not visible
+            if (!spanStatus.has(entityIndex)) {
+              spanStatus.set(entityIndex, { startOk: true, endOk: true });
+            }
+            continue;
+          }
+
+          const pattern = getPatternByClassList(currentNode.classList);
+          const isOk = currentNode.textContent === pattern;
+          const position = currentNode.dataset.pos; // 'start' or 'end'
+
+          if (!spanStatus.has(entityIndex)) {
+            spanStatus.set(entityIndex, {});
+          }
+          const status = spanStatus.get(entityIndex)!;
+
+          if (position === 'start') {
+            status.startOk = isOk;
+          } else if (position === 'end') {
+            status.endOk = isOk;
+          }
+        }
+      }
+
+      // Filter entities: Keep only those where BOTH spans were found and OK
+      entities = entities.filter((_entity, index) => {
+        const status = spanStatus.get(index);
+        // Keep if status exists AND both startOk and endOk are true
+        // (Assumes entities without marker spans like links should always be kept here)
+        // TODO: Need to handle entities that don't render marker spans (like links, emails, mentions) -
+        // they should probably always be kept by this deletion logic.
+        // For now, only filter if status is found (i.e., it's an entity with markers)
+        if (status) {
+          return status.startOk === true && status.endOk === true;
+        } else {
+          // If no status found (e.g. link, or spans were totally deleted), keep it for now.
+          // A more robust solution might involve checking entity type here.
+          return true;
+        }
+      });
+
+      console.log('ApplyInlineEdit - Span Status after delete:', Object.fromEntries(spanStatus)); // DEBUG
+      console.log('ApplyInlineEdit - Filtered Entities (new logic):', JSON.stringify(entities)); // DEBUG
+    }
+
+    // 4. Render the formatted text back to HTML with markers enabled for all entities
+    const entityIndexes = (entities ?? []).map((_, i) => i);
+
+    const newHtml = getTextWithEntitiesAsHtml(
+      { text: formattedText.text, entities },
+      {
+        rawEntityIndexes: entityIndexes,
+        visibleEntityIndexes: focusedEntityIndexes,
+        liveFormatMode,
+        keepMarkerWidth,
+      },
+    );
+    console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
+    const htmlChanged = newHtml !== currentHtml;
+
+    console.log('ApplyInlineEdit - END --------------------');
+
+    if (htmlChanged) {
+      // Update the state/DOM
+      setHtml(newHtml); // Use the provided state setter
+
+      // Restore selection using the cursor position captured *before* parsing/rendering
+      const caretRestorer = SelectionRestorerSingleton.getInstance();
+      caretRestorer.restoreSelectionOffsets(el, plainTextSelectionOffsets, true); // Ignore markers here!
+
+      // Show raw markers is not needed here - it is now handled
+      // in getTextWithEntitiesAsHtml that gets the visible entity indexes from parseMarkdownHtmlToEntitiesWithCursorSelection
+    } else {
+      // Even if HTML didn't change, marker visibility might need update based on cursor move
+      // We do not use requestAnimationFrame here because DOM is not updated here
+      showRawMarkersSelection(plainTextSelectionOffsets);
+    }
+  }, [setHtml, showRawMarkersSelection, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
 
   const checkForMarkerEdit = useCallback(() => {
     const el = inputRef.current;
@@ -517,7 +670,7 @@ const useLiveFormatting = ({
     };
   }, [editableInputId, applyInlineEdit, liveFormatMode]);
 
-  return { applyInlineEdit, clearRawMarkersMode };
+  return { applyInlineEdit, applyInlineEditForSelection, clearRawMarkersMode };
 };
 
 export default useLiveFormatting;
