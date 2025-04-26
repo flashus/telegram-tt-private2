@@ -16,13 +16,16 @@ import useMouseInside from '../../../hooks/useMouseInside';
 import Icon from '../../common/icons/Icon';
 import Menu from '../../ui/Menu';
 import MenuItem from '../../ui/MenuItem';
+import MenuSeparator from '../../ui/MenuSeparator';
 import ResponsiveHoverButton from '../../ui/ResponsiveHoverButton';
+import Switcher from '../../ui/Switcher';
 
 import './LiveFormatMenu.scss';
 
 export type OwnProps = {
   isButtonVisible: boolean;
   liveFormatMode: LiveFormatMode;
+  keepMarkerWidth: boolean;
   forceMenuClose?: boolean;
   onMenuOpen: NoneToVoidFunction;
   onMenuClose: NoneToVoidFunction;
@@ -31,6 +34,7 @@ export type OwnProps = {
 const LiveFormatMenu: FC<OwnProps> = ({
   isButtonVisible,
   liveFormatMode,
+  keepMarkerWidth,
   forceMenuClose,
   onMenuOpen,
   onMenuClose,
@@ -77,17 +81,18 @@ const LiveFormatMenu: FC<OwnProps> = ({
 
   const handleLiveFormatOn = useLastCallback(() => {
     setLiveFormatSettings({ mode: 'on' });
-    closeLiveFormatMenu();
   });
 
   const handleLiveFormatCombo = useLastCallback(() => {
     setLiveFormatSettings({ mode: 'combo' });
-    closeLiveFormatMenu();
   });
 
   const handleLiveFormatOff = useLastCallback(() => {
     setLiveFormatSettings({ mode: 'off' });
-    closeLiveFormatMenu();
+  });
+
+  const handleKeepMarkerWidthChange = useLastCallback(() => {
+    setLiveFormatSettings({ keepMarkerWidth: !keepMarkerWidth });
   });
 
   if (!isButtonVisible) {
@@ -142,6 +147,22 @@ const LiveFormatMenu: FC<OwnProps> = ({
           onClick={handleLiveFormatOff}
         >
           Off {/* lang('SettingsLiveFormatOff') */}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem
+          customIcon={(
+            <Switcher
+              id="live-format-keep-marker-width-switcher"
+              // label={lang('SettingsLiveFormatKeepMarkerWidth')}
+              label="Keep marker width"
+              checked={keepMarkerWidth}
+              inactive
+            />
+          )}
+          className="LiveFormatMenu--menu--item"
+          onClick={handleKeepMarkerWidthChange}
+        >
+          Keep marker width {/* lang('SettingsLiveFormatKeepMarkerWidth') */}
         </MenuItem>
       </Menu>
     </div>

@@ -843,6 +843,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   const {
     mode: liveFormatMode,
     composerButtonShown: liveFormatComposerButtonShown,
+    keepMarkerWidth: liveFormatKeepMarkerWidth,
   } = liveFormat;
 
   const [handleEditComplete, handleEditCancel, shouldForceShowEditing] = useEditing(
@@ -2158,6 +2159,7 @@ const Composer: FC<OwnProps & StateProps> = ({
           {liveFormatComposerButtonShown && (
             <LiveFormatMenu
               liveFormatMode={liveFormatMode}
+              keepMarkerWidth={liveFormatKeepMarkerWidth}
               isButtonVisible={!activeVoiceRecording}
               onMenuOpen={handleLiveFormatMenuOpen}
               onMenuClose={handleLiveFormatMenuClose}

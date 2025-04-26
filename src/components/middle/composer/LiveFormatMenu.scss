@@ -40,6 +40,11 @@
       &.active {
         background-color: var(--color-item-active);
       }
+
+      .Switcher {
+        margin-left: 0;
+        margin-right: 0.875rem;
+      }
     }
   }
 }
