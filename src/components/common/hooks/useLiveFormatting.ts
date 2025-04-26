@@ -440,7 +440,7 @@ const useLiveFormatting = ({
     };
 
     const handleBlur = (): void => {
-      clearRawMarkersMode();
+      clearRawMarkersMode(true);
     };
 
     const handleFocus = (): void => {
