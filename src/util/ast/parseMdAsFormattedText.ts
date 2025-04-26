@@ -138,6 +138,7 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
 ): {
     formattedText: ApiFormattedText;
     focusedEntityIndexes: number[];
+    plainTextCaretOffset: number;
   } {
   const cleanedHtml = cleanHtml(inputText);
   const ast = parseMarkdownToAST(cleanedHtml, true);
@@ -145,6 +146,7 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
     return {
       formattedText: { text: inputText, entities: [] },
       focusedEntityIndexes: [],
+      plainTextCaretOffset: 0,
     };
   }
   const formattedText = renderASTToEntities(ast);
@@ -171,6 +173,7 @@ export function parseMarkdownHtmlToEntitiesWithCursorSelection(
   return {
     formattedText,
     focusedEntityIndexes,
+    plainTextCaretOffset: newPlainTextCaretOffset,
   };
 }
 

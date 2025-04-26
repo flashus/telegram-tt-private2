@@ -1,66 +1,7 @@
-/**
- * Calculates the caret offset within the equivalent plain text representation of a DOM node,
- * ignoring specific elements like markdown markers.
- */
-export function getPlainTextOffset(container: Node, domOffset: number): number {
-  let plainTextOffset = 0;
-  let currentDomOffset = 0;
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (node) => {
-      // Skip marker spans entirely
-      if (node instanceof HTMLElement && node.classList.contains('md-marker')) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // Potentially skip other non-content elements if needed
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
-  let node: Node | null;
-  while ((node = walker.nextNode()) && currentDomOffset < domOffset) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const nodeLength = node.textContent?.length ?? 0;
-      const remainingOffsetInNode = domOffset - currentDomOffset;
-
-      if (remainingOffsetInNode <= nodeLength) {
-        // Caret is within this text node
-        plainTextOffset += remainingOffsetInNode;
-        currentDomOffset += remainingOffsetInNode;
-        break; // Found the offset
-      } else {
-        // Caret is after this text node
-        plainTextOffset += nodeLength;
-        currentDomOffset += nodeLength;
-      }
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      // For elements that contribute to offset (like <br> potentially -> newline),
-      // increment currentDomOffset if the browser counts them in its offset calculation.
-      // For simplicity here, we assume only text nodes contribute directly to the plain text offset.
-      // We might need to refine this if elements like <br> affect DOM offset calculation.
-      // The TreeWalker already skips markers based on the filter.
-    }
-
-    // Approximation: If the node itself is the anchorNode or its parent,
-    // use the passed domOffset relative to this node.
-    // This part needs careful implementation based on how domOffset is derived initially.
-    // For now, we rely on text node traversal.
-  }
-
-  // If domOffset points exactly at the end of the container or after the last text node
-  if (currentDomOffset < domOffset) {
-    // This might happen if offset is at the very end, or points within/after non-text nodes
-    // that were processed. Need a robust way to handle this.
-    // For now, return the accumulated offset.
-  }
-
-  // Fallback / Refinement needed: The direct mapping isn't perfect yet,
-  // especially around block elements or the exact end.
-  // Consider using a Range object comparison for more precision if needed.
-  return plainTextOffset;
-}
+export type SelectionOffsets = { start: number; end: number };
 
 // --- More robust version attempt using Range ---
-export function getPlainTextOffsetFromRange(container: HTMLElement): number {
+export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarkers: boolean = true): number {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return 0;
 
@@ -71,46 +12,53 @@ export function getPlainTextOffsetFromRange(container: HTMLElement): number {
   precedingRange.selectNodeContents(container);
   precedingRange.setEnd(range.startContainer, range.startOffset);
 
-  // // Create a temporary div to render the *plain text* of the preceding range
-  // const tempDiv = document.createElement('div');
-
-  const walker = document.createTreeWalker(precedingRange.commonAncestorContainer, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (node) => {
-      // Only accept nodes within the preceding range
-      if (!precedingRange.intersectsNode(node) && !(node === precedingRange.startContainer && node === precedingRange.endContainer)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // Skip marker spans
-      if (node instanceof HTMLElement && node.classList.contains('md-marker')) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // Include text nodes
-      if (node.nodeType === Node.TEXT_NODE) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
-      // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
-      if (node instanceof HTMLElement && (node.tagName === 'BR' || getComputedStyle(node).display === 'block')) {
-        // Check if it's the *start* of the range to avoid double counting if range starts/ends mid-element
-        if (precedingRange.startContainer === node || precedingRange.endContainer === node) {
-          // Handle partial inclusion if necessary - complex
-        } else {
+  const walker = document.createTreeWalker(
+    precedingRange.commonAncestorContainer,
+    // eslint-disable-next-line no-bitwise
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        // Only accept nodes within the preceding range
+        if (
+          !precedingRange.intersectsNode(node)
+          && !(node === precedingRange.startContainer && node === precedingRange.endContainer)
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Skip marker spans
+        if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Include text nodes
+        if (node.nodeType === Node.TEXT_NODE) {
           return NodeFilter.FILTER_ACCEPT;
         }
-      }
-      // Include emoji and custom emojis
-      if (
-        node instanceof HTMLElement
+        // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
+        if (node instanceof HTMLElement && (node.tagName === 'BR' || getComputedStyle(node).display === 'block')) {
+        // Check if it's the *start* of the range to avoid double counting if range starts/ends mid-element
+          if (precedingRange.startContainer === node || precedingRange.endContainer === node) {
+          // Handle partial inclusion if necessary - complex
+          } else {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+        // Include emoji and custom emojis
+        if (
+          node instanceof HTMLElement
         && (node.classList.contains('emoji') || node.classList.contains('custom-emoji'))
-      ) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
+        ) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
 
-      return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
+        return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
+      },
     },
-  });
+  );
 
   let currentNode;
   let plainText = '';
+  // let plainTextLength = 0;
+  // eslint-disable-next-line no-cond-assign
   while ((currentNode = walker.nextNode())) {
     if (currentNode.nodeType === Node.TEXT_NODE) {
       // Append only the part of the text node that's within the range
@@ -123,21 +71,378 @@ export function getPlainTextOffsetFromRange(container: HTMLElement): number {
         textToAdd = textToAdd.substring(0, precedingRange.endOffset);
       }
       // Ensure we only add text if the node is fully or partially selected by the precedingRange
-      if (precedingRange.intersectsNode(currentNode) || currentNode === precedingRange.startContainer || currentNode === precedingRange.endContainer) {
+      if (
+        precedingRange.intersectsNode(currentNode)
+        || currentNode === precedingRange.startContainer || currentNode === precedingRange.endContainer
+      ) {
         plainText += textToAdd;
+        // plainTextLength += textToAdd.length;
       }
     } else if (currentNode instanceof HTMLElement) {
       if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
-        // Add newline if it's not the very start and not immediately after another block/br
-        if (plainText.length > 0 && !plainText.endsWith('\n')) {
-          plainText += '\n';
-        }
+        plainText += '\n';
+        // plainTextLength += 1;
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
         plainText += '👋';
+        // plainTextLength += '👋'.length;
       }
     }
   }
 
-  // console.log('Preceding plain text:', JSON.stringify(plainText));
+  console.log('Preceding plain text:', JSON.stringify(plainText));
   return plainText.length;
+  // return plainTextLength;
+}
+
+export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarkers: boolean = true): SelectionOffsets {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return { start: 0, end: 0 };
+
+  const range = selection.getRangeAt(0);
+  if (
+    !container.contains(range.startContainer)
+    || !container.contains(range.endContainer)
+  ) return { start: 0, end: 0 };
+
+  const precedingRangeStart = document.createRange();
+  precedingRangeStart.selectNodeContents(container);
+  precedingRangeStart.setEnd(range.startContainer, range.startOffset);
+
+  const precedingRangeEnd = document.createRange();
+  precedingRangeEnd.selectNodeContents(container);
+  precedingRangeEnd.setEnd(range.endContainer, range.endOffset);
+
+  const walker = document.createTreeWalker(
+    container,
+    // eslint-disable-next-line no-bitwise
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        // Only accept nodes within the preceding range
+        if (
+          !precedingRangeEnd.intersectsNode(node)
+          && !(node === precedingRangeEnd.startContainer && node === precedingRangeEnd.endContainer)
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Skip marker spans
+        if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Include text nodes
+        if (node.nodeType === Node.TEXT_NODE) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
+        if (node instanceof HTMLElement && (node.tagName === 'BR' || getComputedStyle(node).display === 'block')) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        // Include emoji and custom emojis
+        if (
+          node instanceof HTMLElement
+          && (node.classList.contains('emoji') || node.classList.contains('custom-emoji'))
+        ) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+
+        return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
+      },
+    },
+  );
+
+  let currentNode;
+  let plainTextLengthStart = 0;
+  let plainTextLengthEnd = 0;
+  let startFinished = false;
+
+  // eslint-disable-next-line no-cond-assign
+  while ((currentNode = walker.nextNode())) {
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+      // Append only the part of the text node that's within the range
+      const textNode = currentNode as Text;
+      let textToAdd = textNode.textContent || '';
+
+      if (currentNode === precedingRangeStart.startContainer) {
+        textToAdd = textToAdd.substring(precedingRangeStart.startOffset);
+        startFinished = true;
+      }
+      if (currentNode === precedingRangeStart.endContainer) {
+        textToAdd = textToAdd.substring(0, precedingRangeStart.endOffset);
+        startFinished = true;
+      }
+      // Ensure we only add text if the node is fully or partially selected by the precedingRange
+      if (
+        precedingRangeStart.intersectsNode(currentNode)
+        || currentNode === precedingRangeStart.startContainer || currentNode === precedingRangeStart.endContainer
+      ) {
+        plainTextLengthStart += textToAdd.length;
+      }
+
+      // If start is not finished, we don't need to check the end, just add the whole text
+      if (!startFinished) {
+        plainTextLengthEnd += textToAdd.length;
+        continue;
+      }
+
+      if (currentNode === precedingRangeEnd.startContainer) {
+        textToAdd = textToAdd.substring(precedingRangeEnd.startOffset);
+      }
+      if (currentNode === precedingRangeEnd.endContainer) {
+        textToAdd = textToAdd.substring(0, precedingRangeEnd.endOffset);
+      }
+      // Ensure we only add text if the node is fully or partially selected by the precedingRange
+      if (
+        precedingRangeEnd.intersectsNode(currentNode)
+        || currentNode === precedingRangeEnd.startContainer || currentNode === precedingRangeEnd.endContainer
+      ) {
+        plainTextLengthEnd += textToAdd.length;
+      }
+    } else if (currentNode instanceof HTMLElement) {
+      if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
+        // plainText += '\n';
+        plainTextLengthStart += 1;
+        plainTextLengthEnd += 1;
+      } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
+        // plainText += '👋';
+        plainTextLengthStart += '👋'.length;
+        plainTextLengthEnd += '👋'.length;
+      }
+    }
+  }
+
+  return { start: plainTextLengthStart, end: plainTextLengthEnd };
+}
+
+export function setCaretByPlainTextOffset(
+  container: HTMLElement,
+  targetOffset: number,
+  ignoreMarkers: boolean = true,
+): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  // Create a walker to traverse text and relevant elements
+  // eslint-disable-next-line no-bitwise
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) => {
+      // Skip marker spans
+      if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      // Include text nodes
+      if (node.nodeType === Node.TEXT_NODE) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+      // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
+      if (
+        node instanceof HTMLElement
+        && (
+          node.tagName === 'BR'
+          || getComputedStyle(node).display === 'block'
+          // Include emoji and custom emojis
+          || node.classList.contains('emoji')
+          || node.classList.contains('custom-emoji')
+        )
+      ) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+
+      return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
+    },
+  });
+
+  let currentOffset = 0;
+  // eslint-disable-next-line no-null/no-null
+  let targetNode: Node | null = null;
+  let targetNodeOffset = 0;
+  // eslint-disable-next-line no-null/no-null
+  let lastTextNode: Node | null = null;
+
+  // Traverse nodes until we find the one containing our target offset
+  while (walker.nextNode()) {
+    const currentNode = walker.currentNode;
+
+    // Handle text nodes
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+      const textLength = currentNode.textContent?.length || 0;
+      lastTextNode = currentNode;
+
+      // Check if this node contains our target offset
+      if (currentOffset + textLength >= targetOffset) {
+        targetNode = currentNode;
+        targetNodeOffset = targetOffset - currentOffset;
+        break;
+      }
+      currentOffset += textLength;
+    } else if (currentNode instanceof HTMLElement) {
+      // Handle <br> - always counts as one newline
+      if (currentNode.tagName === 'BR') {
+        if (currentOffset === targetOffset) {
+          targetNode = currentNode;
+          targetNodeOffset = 0;
+          break;
+        }
+        currentOffset += 1; // Always add 1 for <br>
+      } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
+        const emojiLength = '👋'.length; // Using standard emoji length as baseline
+        if (currentOffset === targetOffset) {
+          targetNode = currentNode;
+          targetNodeOffset = 0;
+          break;
+        }
+        currentOffset += emojiLength;
+      }
+    }
+  }
+
+  // If we haven't found the target node (offset beyond text length)
+  // use the last text node or container itself
+  if (!targetNode) {
+    if (lastTextNode) {
+      targetNode = lastTextNode;
+      targetNodeOffset = lastTextNode.textContent?.length || 0;
+    } else {
+      targetNode = container;
+      targetNodeOffset = container.childNodes.length;
+    }
+  }
+
+  // Create and set the range
+  const range = document.createRange();
+  range.setStart(targetNode, targetNodeOffset);
+  range.setEnd(targetNode, targetNodeOffset);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+export function setSelectionByPlainTextOffsets(
+  container: HTMLElement,
+  targetOffsets: SelectionOffsets,
+  ignoreMarkers: boolean = true,
+): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  // Create a walker to traverse text and relevant elements
+  // eslint-disable-next-line no-bitwise
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) => {
+      // Skip marker spans
+      if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      // Include text nodes
+      if (node.nodeType === Node.TEXT_NODE) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+      // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
+      if (
+        node instanceof HTMLElement
+        && (
+          node.tagName === 'BR'
+          || getComputedStyle(node).display === 'block'
+          // Include emoji and custom emojis
+          || node.classList.contains('emoji')
+          || node.classList.contains('custom-emoji')
+        )
+      ) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+
+      return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
+    },
+  });
+
+  let currentOffset = 0;
+  // eslint-disable-next-line no-null/no-null
+  let startNode: Node | null = null;
+  let startNodeOffset = 0;
+  // eslint-disable-next-line no-null/no-null
+  let endNode: Node | null = null;
+  let endNodeOffset = 0;
+  // eslint-disable-next-line no-null/no-null
+  let lastTextNode: Node | null = null;
+
+  // Traverse nodes until we find both target offsets
+  while (walker.nextNode()) {
+    const currentNode = walker.currentNode;
+
+    // Handle text nodes
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+      const textLength = currentNode.textContent?.length || 0;
+      lastTextNode = currentNode;
+
+      // Check if this node contains our start offset
+      if (!startNode && currentOffset + textLength >= targetOffsets.start) {
+        startNode = currentNode;
+        startNodeOffset = targetOffsets.start - currentOffset;
+      }
+      // Check if this node contains our end offset
+      if (!endNode && currentOffset + textLength >= targetOffsets.end) {
+        endNode = currentNode;
+        endNodeOffset = targetOffsets.end - currentOffset;
+        break; // We found both nodes, we can stop
+      }
+      currentOffset += textLength;
+    } else if (currentNode instanceof HTMLElement) {
+      // Handle <br> - always counts as one newline
+      if (currentNode.tagName === 'BR') {
+        if (!startNode && currentOffset === targetOffsets.start) {
+          startNode = currentNode;
+          startNodeOffset = 0;
+        }
+        if (!endNode && currentOffset === targetOffsets.end) {
+          endNode = currentNode;
+          endNodeOffset = 0;
+          break;
+        }
+        currentOffset += 1; // Always add 1 for <br>
+      } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
+        const emojiLength = '👋'.length; // Using standard emoji length as baseline
+        if (!startNode && currentOffset === targetOffsets.start) {
+          startNode = currentNode;
+          startNodeOffset = 0;
+        }
+        if (!endNode && currentOffset === targetOffsets.end) {
+          endNode = currentNode;
+          endNodeOffset = 0;
+          break;
+        }
+        currentOffset += emojiLength;
+      }
+    }
+  }
+
+  // If we haven't found the nodes (offsets beyond text length)
+  // use the last text node or container itself
+  if (!startNode || !endNode) {
+    if (lastTextNode) {
+      if (!startNode) {
+        startNode = lastTextNode;
+        startNodeOffset = lastTextNode.textContent?.length || 0;
+      }
+      if (!endNode) {
+        endNode = lastTextNode;
+        endNodeOffset = lastTextNode.textContent?.length || 0;
+      }
+    } else {
+      if (!startNode) {
+        startNode = container;
+        startNodeOffset = container.childNodes.length;
+      }
+      if (!endNode) {
+        endNode = container;
+        endNodeOffset = container.childNodes.length;
+      }
+    }
+  }
+
+  // Create and set the range
+  const range = document.createRange();
+  range.setStart(startNode, startNodeOffset);
+  range.setEnd(endNode, endNodeOffset);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
