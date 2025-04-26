@@ -1194,14 +1194,6 @@ const Composer: FC<OwnProps & StateProps> = ({
         });
       }
 
-      // TODO: Check if this is needed!
-      // if (isForwarding) {
-      //   forwardMessages({
-      //     scheduledAt,
-      //     isSilent,
-      //   });
-      // }
-
       lastMessageSendTimeSeconds.current = getServerTime();
       clearDraft({
         chatId, threadId, isLocalOnly: true, shouldKeepReply: isForwarding,
