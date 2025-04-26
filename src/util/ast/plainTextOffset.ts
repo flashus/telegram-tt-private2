@@ -57,7 +57,6 @@ export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarker
 
   let currentNode;
   let plainText = '';
-  // let plainTextLength = 0;
   // eslint-disable-next-line no-cond-assign
   while ((currentNode = walker.nextNode())) {
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -76,22 +75,28 @@ export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarker
         || currentNode === precedingRange.startContainer || currentNode === precedingRange.endContainer
       ) {
         plainText += textToAdd;
-        // plainTextLength += textToAdd.length;
       }
     } else if (currentNode instanceof HTMLElement) {
       if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
         plainText += '\n';
-        // plainTextLength += 1;
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
-        plainText += '👋';
-        // plainTextLength += '👋'.length;
+        // Append the actual emoji character(s), assuming it's in textContent or alt
+        const emojiChar = currentNode.textContent || currentNode.getAttribute('alt') || ''; // Get actual emoji character
+        // Ensure the emoji node is within the range before adding its content
+        if (
+          precedingRange.intersectsNode(currentNode)
+          || currentNode === precedingRange.startContainer
+          || currentNode === precedingRange.endContainer
+        ) {
+          plainText += emojiChar;
+        }
       }
     }
   }
 
-  console.log('Preceding plain text:', JSON.stringify(plainText));
-  return plainText.length;
-  // return plainTextLength;
+  // console.log('Preceding plain text:', JSON.stringify(plainText));
+  // Calculate length based on Unicode code points, not UTF-16 units.
+  return Array.from(plainText).length;
 }
 
 export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarkers: boolean = true): SelectionOffsets {
@@ -151,8 +156,8 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
   );
 
   let currentNode;
-  let plainTextLengthStart = 0;
-  let plainTextLengthEnd = 0;
+  let plainTextStart = '';
+  let plainTextEnd = '';
   let startFinished = false;
 
   // eslint-disable-next-line no-cond-assign
@@ -175,12 +180,12 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
         precedingRangeStart.intersectsNode(currentNode)
         || currentNode === precedingRangeStart.startContainer || currentNode === precedingRangeStart.endContainer
       ) {
-        plainTextLengthStart += textToAdd.length;
+        plainTextStart += textToAdd;
       }
 
       // If start is not finished, we don't need to check the end, just add the whole text
       if (!startFinished) {
-        plainTextLengthEnd += textToAdd.length;
+        plainTextEnd += textToAdd;
         continue;
       }
 
@@ -195,22 +200,41 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
         precedingRangeEnd.intersectsNode(currentNode)
         || currentNode === precedingRangeEnd.startContainer || currentNode === precedingRangeEnd.endContainer
       ) {
-        plainTextLengthEnd += textToAdd.length;
+        plainTextEnd += textToAdd;
       }
     } else if (currentNode instanceof HTMLElement) {
       if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
-        // plainText += '\n';
-        plainTextLengthStart += 1;
-        plainTextLengthEnd += 1;
+        plainTextStart += '\n';
+        plainTextEnd += '\n';
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
-        // plainText += '👋';
-        plainTextLengthStart += '👋'.length;
-        plainTextLengthEnd += '👋'.length;
+        const emojiChar = currentNode.textContent || currentNode.getAttribute('alt') || ''; // Get actual emoji character
+
+        // Ensure the emoji node is within the range before adding its content
+        if (
+          precedingRangeStart.intersectsNode(currentNode)
+          || currentNode === precedingRangeStart.startContainer
+          || currentNode === precedingRangeStart.endContainer
+        ) {
+          // Append the actual emoji character(s), assuming it's in textContent or alt
+          plainTextStart += emojiChar;
+        }
+
+        if (
+          precedingRangeEnd.intersectsNode(currentNode)
+          || currentNode === precedingRangeEnd.startContainer
+          || currentNode === precedingRangeEnd.endContainer
+        ) {
+          // Append the actual emoji character(s), assuming it's in textContent or alt
+          plainTextEnd += emojiChar;
+        }
       }
     }
   }
 
-  return { start: plainTextLengthStart, end: plainTextLengthEnd };
+  return {
+    start: Array.from(plainTextStart).length,
+    end: Array.from(plainTextEnd).length,
+  };
 }
 
 export function setCaretByPlainTextOffset(
@@ -284,7 +308,8 @@ export function setCaretByPlainTextOffset(
         }
         currentOffset += 1; // Always add 1 for <br>
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
-        const emojiLength = '👋'.length; // Using standard emoji length as baseline
+        const emojiChar = currentNode.textContent || currentNode.getAttribute('alt') || ''; // Get actual emoji character
+        const emojiLength = emojiChar.length; // Using standard emoji length as baseline
         if (currentOffset === targetOffset) {
           targetNode = currentNode;
           targetNodeOffset = 0;
@@ -399,7 +424,8 @@ export function setSelectionByPlainTextOffsets(
         }
         currentOffset += 1; // Always add 1 for <br>
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
-        const emojiLength = '👋'.length; // Using standard emoji length as baseline
+        const emojiChar = currentNode.textContent || currentNode.getAttribute('alt') || ''; // Get actual emoji character
+        const emojiLength = emojiChar.length; // Using standard emoji length as baseline
         if (!startNode && currentOffset === targetOffsets.start) {
           startNode = currentNode;
           startNodeOffset = 0;
