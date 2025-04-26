@@ -110,17 +110,55 @@ export const setCaretCharacterOffsets = (el: HTMLElement, offset: number): void 
   }
 };
 
-const restoreCaretOffset = (
-  el: HTMLElement,
-  caretOffset: number,
-) => {
-  // Wait for DOM updates to complete
-  requestAnimationFrame(() => {
+class CaretRestorerSingleton {
+  private lastRequestId = 0; // <-- version counter
+
+  public static instance: CaretRestorerSingleton;
+
+  public static getInstance() {
+    if (!this.instance) {
+      this.instance = new CaretRestorerSingleton();
+    }
+    return this.instance;
+  }
+
+  public restoreCaretOffset(el: HTMLElement, caretOffset: number) {
+    // Bump the request counter
+    const localRequestId = ++this.lastRequestId;
+
+    // Flickering seems fixed by calling setCaretCharacterOffsets in three frames in a row
+    setCaretCharacterOffsets(el, caretOffset);
+
     requestAnimationFrame(() => {
+      // If there was a new call for restoreCaretOffset - previous calls must be superseded
+      if (this.lastRequestId !== localRequestId) return;
       setCaretCharacterOffsets(el, caretOffset);
+
+      requestAnimationFrame(() => {
+        // If there was a new call for restoreCaretOffset - previous calls must be superseded
+        if (this.lastRequestId !== localRequestId) return;
+        setCaretCharacterOffsets(el, caretOffset);
+        this.lastRequestId = 0;
+      });
     });
-  });
-};
+  }
+}
+
+// If CaretRestorerSingleton will get buggy someday - using KISS principle,
+// use this plain function - it should simple and stupid be enough
+// const restoreCaretOffset = (
+//   el: HTMLElement,
+//   caretOffset: number,
+// ) => {
+//   // Flickering... seems fixed by calling setCaretCharacterOffsets in three frames in a row...
+//   setCaretCharacterOffsets(el, caretOffset);
+//   requestAnimationFrame(() => {
+//     setCaretCharacterOffsets(el, caretOffset);
+//     requestAnimationFrame(() => {
+//       setCaretCharacterOffsets(el, caretOffset);
+//     });
+//   });
+// };
 
 const useLiveFormatting = ({
   getHtml,
@@ -143,12 +181,12 @@ const useLiveFormatting = ({
     const html = getHtml();
     const {
       formattedText,
-      newCaretOffset: newSelection,
     } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
-      restoreCaretOffset(el, newSelection);
+      const caretRestorer = CaretRestorerSingleton.getInstance();
+      caretRestorer.restoreCaretOffset(el, cursor);
     }
   }, [getHtml, setHtml]);
 
@@ -404,8 +442,9 @@ const useLiveFormatting = ({
       setHtml(newHtml); // Use the provided state setter
 
       // Restore selection using the cursor position captured *before* parsing/rendering
-      // Use a minimal callback for restoreCursorSelection as showRawMarkers is called next
-      restoreCaretOffset(el, caretOffset - mdMarkerCharsBeforeCaret);
+      const caretRestorer = CaretRestorerSingleton.getInstance();
+      caretRestorer.restoreCaretOffset(el, caretOffset);
+
 
       // Ensure markers are updated after DOM change and caret restoration
       // Use requestAnimationFrame to ensure DOM is settled before querying markers
