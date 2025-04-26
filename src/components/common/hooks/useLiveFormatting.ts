@@ -171,12 +171,14 @@ const useLiveFormatting = ({
   setHtml,
   editableInputId,
   liveFormat,
+  validOffsetMargin,
   keepMarkerWidth,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
   editableInputId: string;
   liveFormat: LiveFormat;
+  validOffsetMargin?: number;
   keepMarkerWidth?: boolean;
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -189,7 +191,7 @@ const useLiveFormatting = ({
     const html = getHtml();
     const {
       formattedText,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor);
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(html, cursor, validOffsetMargin);
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
@@ -198,7 +200,7 @@ const useLiveFormatting = ({
         caretRestorer.restoreCaretOffset(el, cursor);
       }
     }
-  }, [getHtml, setHtml]);
+  }, [getHtml, setHtml, validOffsetMargin]);
 
   // Toggle visibility of markers based on caret position
   const showRawMarkers = useCallback((plainCaretOffset?: number) => {
@@ -211,7 +213,7 @@ const useLiveFormatting = ({
     const currentHtml = el.innerHTML;
     const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     const entities = formattedText.entities ?? [];
-    const visibleIndexes = computeMarkerVisibility(entities, plainTextCaretOffset);
+    const visibleIndexes = computeMarkerVisibility(entities, plainTextCaretOffset, validOffsetMargin);
     const markerSpans = el.querySelectorAll<HTMLElement>('.md-marker[data-entity-index]');
     markerSpans.forEach((markerSpan) => {
       const idx = Number(markerSpan.dataset.entityIndex);
@@ -230,7 +232,7 @@ const useLiveFormatting = ({
     // Intuitive action - feels like this prevents cursor moving when typing. Remove if needed
     const caretRestorer = CaretRestorerSingleton.getInstance();
     caretRestorer.preventRestore();
-  }, [keepMarkerWidth]);
+  }, [validOffsetMargin, keepMarkerWidth]);
 
   // If selection is inside of a ".md-marker[data-entity-index]" marker, move caret in the same direction as the key
   const moveAroundNavWrapperMarkers = useCallback((event?: KeyboardEvent) => {
@@ -301,7 +303,9 @@ const useLiveFormatting = ({
     const {
       formattedText,
       focusedEntityIndexes,
-    } = parseMarkdownHtmlToEntitiesWithCursorSelection(currentHtml, plainTextCaretOffset);
+    } = parseMarkdownHtmlToEntitiesWithCursorSelection(
+      currentHtml, plainTextCaretOffset, validOffsetMargin,
+    );
     let entities = formattedText.entities;
     console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
     console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
@@ -375,7 +379,7 @@ const useLiveFormatting = ({
 
     const newHtml = getTextWithEntitiesAsHtml(
       { text: formattedText.text, entities },
-      { rawEntityIndexes: entityIndexes, visibleEntityIndexes: focusedEntityIndexes },
+      { rawEntityIndexes: entityIndexes, visibleEntityIndexes: focusedEntityIndexes, liveFormat },
     );
     console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
@@ -397,7 +401,7 @@ const useLiveFormatting = ({
       // We do not use requestAnimationFrame here because DOM is not updated here
       showRawMarkers(plainTextCaretOffset);
     }
-  }, [setHtml, showRawMarkers]); // Removed getHtml dependency as we use el.innerHTML
+  }, [setHtml, showRawMarkers, liveFormat, validOffsetMargin]); // Removed getHtml dependency as we use el.innerHTML
 
   const checkForMarkerEdit = useCallback(() => {
     const el = inputRef.current;
