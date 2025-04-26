@@ -126,6 +126,8 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
         // Only accept nodes within the preceding range
         if (
           !precedingRangeEnd.intersectsNode(node)
+          && !precedingRangeStart.intersectsNode(node)
+          && !(node === precedingRangeStart.startContainer && node === precedingRangeStart.endContainer)
           && !(node === precedingRangeEnd.startContainer && node === precedingRangeEnd.endContainer)
         ) {
           return NodeFilter.FILTER_REJECT;
@@ -158,7 +160,6 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
   let currentNode;
   let plainTextStart = '';
   let plainTextEnd = '';
-  let startFinished = false;
 
   // eslint-disable-next-line no-cond-assign
   while ((currentNode = walker.nextNode())) {
@@ -169,11 +170,9 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
 
       if (currentNode === precedingRangeStart.startContainer) {
         textToAdd = textToAdd.substring(precedingRangeStart.startOffset);
-        startFinished = true;
       }
       if (currentNode === precedingRangeStart.endContainer) {
         textToAdd = textToAdd.substring(0, precedingRangeStart.endOffset);
-        startFinished = true;
       }
       // Ensure we only add text if the node is fully or partially selected by the precedingRange
       if (
@@ -183,12 +182,7 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
         plainTextStart += textToAdd;
       }
 
-      // If start is not finished, we don't need to check the end, just add the whole text
-      if (!startFinished) {
-        plainTextEnd += textToAdd;
-        continue;
-      }
-
+      textToAdd = textNode.textContent || '';
       if (currentNode === precedingRangeEnd.startContainer) {
         textToAdd = textToAdd.substring(precedingRangeEnd.startOffset);
       }
@@ -237,17 +231,9 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
   };
 }
 
-export function setCaretByPlainTextOffset(
-  container: HTMLElement,
-  targetOffset: number,
-  ignoreMarkers: boolean = true,
-): void {
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  // Create a walker to traverse text and relevant elements
+const createSetSelectionTreeWalker = (container: HTMLElement, ignoreMarkers: boolean) => {
   // eslint-disable-next-line no-bitwise
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+  return document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
     acceptNode: (node) => {
       // Skip marker spans
       if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
@@ -274,6 +260,19 @@ export function setCaretByPlainTextOffset(
       return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
     },
   });
+};
+
+export function setCaretByPlainTextOffset(
+  container: HTMLElement,
+  targetOffset: number,
+  ignoreMarkers: boolean = true,
+): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  // Create a walker to traverse text and relevant elements
+  // eslint-disable-next-line no-bitwise
+  const walker = createSetSelectionTreeWalker(container, ignoreMarkers);
 
   let currentOffset = 0;
   // eslint-disable-next-line no-null/no-null
@@ -345,39 +344,13 @@ export function setSelectionByPlainTextOffsets(
   container: HTMLElement,
   targetOffsets: SelectionOffsets,
   ignoreMarkers: boolean = true,
+  startAfterOpeningMarker: boolean = true,
 ): void {
   const selection = window.getSelection();
   if (!selection) return;
 
   // Create a walker to traverse text and relevant elements
-  // eslint-disable-next-line no-bitwise
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (node) => {
-      // Skip marker spans
-      if (ignoreMarkers && node instanceof HTMLElement && node.classList.contains('md-marker')) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // Include text nodes
-      if (node.nodeType === Node.TEXT_NODE) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
-      // Include elements that represent newlines in plain text (e.g., <br>, maybe block elements)
-      if (
-        node instanceof HTMLElement
-        && (
-          node.tagName === 'BR'
-          || getComputedStyle(node).display === 'block'
-          // Include emoji and custom emojis
-          || node.classList.contains('emoji')
-          || node.classList.contains('custom-emoji')
-        )
-      ) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
-
-      return NodeFilter.FILTER_SKIP; // Skip other elements but traverse children
-    },
-  });
+  const walker = createSetSelectionTreeWalker(container, ignoreMarkers);
 
   let currentOffset = 0;
   // eslint-disable-next-line no-null/no-null
@@ -460,6 +433,48 @@ export function setSelectionByPlainTextOffsets(
       if (!endNode) {
         endNode = container;
         endNodeOffset = container.childNodes.length;
+      }
+    }
+  }
+
+  // Handle startAfterOpeningMarker logic
+  if (startAfterOpeningMarker && startNode && endNode) {
+    // Determine which node comes first in the DOM
+    const nodeComparison = startNode.compareDocumentPosition(endNode);
+    let nodeToAdjust: Node;
+    let offsetToAdjust: number;
+
+    // eslint-disable-next-line no-bitwise
+    if (nodeComparison & Node.DOCUMENT_POSITION_FOLLOWING) {
+      // startNode comes first
+      nodeToAdjust = startNode;
+      offsetToAdjust = startNodeOffset;
+    } else {
+      // endNode comes first
+      nodeToAdjust = endNode;
+      offsetToAdjust = endNodeOffset;
+    }
+
+    // Only proceed if we're not already at the start of a text node
+    if (offsetToAdjust !== 0 || nodeToAdjust.nodeType !== Node.TEXT_NODE) {
+      // Create a walker to traverse text and relevant elements
+      const correctionWalker = createSetSelectionTreeWalker(container, ignoreMarkers);
+      // Position walker at our current node
+      correctionWalker.currentNode = nodeToAdjust;
+
+      // Get the next text node
+      const nextTextNode = correctionWalker.nextNode();
+
+      if (nextTextNode) {
+        // Update the appropriate node and offset
+        // eslint-disable-next-line no-bitwise
+        if (nodeComparison & Node.DOCUMENT_POSITION_FOLLOWING) {
+          startNode = nextTextNode;
+          startNodeOffset = 0;
+        } else {
+          endNode = nextTextNode;
+          endNodeOffset = 0;
+        }
       }
     }
   }
