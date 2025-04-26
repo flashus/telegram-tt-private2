@@ -284,7 +284,6 @@ const useLiveFormatting = ({
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
-    // const formattedText = parseMarkdownHtmlToEntities(currentHtml);
     const {
       formattedText,
       focusedEntityIndexes,
