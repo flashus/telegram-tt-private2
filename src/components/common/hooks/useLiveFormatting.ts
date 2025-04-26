@@ -180,7 +180,7 @@ const useLiveFormatting = ({
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
 
-  const clearRawMarkersMode = useCallback(() => {
+  const clearRawMarkersMode = useCallback((preventRestore?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
     const cursor = getCaretCharacterOffsets(el);
@@ -191,8 +191,10 @@ const useLiveFormatting = ({
     const cleanedHtml = getTextWithEntitiesAsHtml(formattedText);
     if (cleanedHtml !== html) {
       setHtml(cleanedHtml);
-      const caretRestorer = CaretRestorerSingleton.getInstance();
-      caretRestorer.restoreCaretOffset(el, cursor);
+      if (!preventRestore) {
+        const caretRestorer = CaretRestorerSingleton.getInstance();
+        caretRestorer.restoreCaretOffset(el, cursor);
+      }
     }
   }, [getHtml, setHtml]);
 
