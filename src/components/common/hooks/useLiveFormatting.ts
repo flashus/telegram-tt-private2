@@ -395,8 +395,10 @@ const useLiveFormatting = ({
     if (sel.anchorNode.parentElement?.classList.contains('md-marker')) {
       // If we try to edit something inside of a marker - pass it through the parser grinder
       applyInlineEdit();
+    } else {
+      requestAnimationFrame(() => showRawMarkers());
     }
-  }, [applyInlineEdit]);
+  }, [applyInlineEdit, showRawMarkers]);
 
   useEffect(() => {
     inputRef.current = document.getElementById(editableInputId);
