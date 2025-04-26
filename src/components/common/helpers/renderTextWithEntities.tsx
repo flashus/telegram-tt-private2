@@ -292,6 +292,17 @@ export const ENTITY_TYPE_TO_MATCHER: { [key: string] : string } = {
   [ApiMessageEntityTypes.Blockquote]: 'blockquote',
 };
 
+export const ENTITY_TYPE_TO_MARKER_PATTERN: { [key: string]: string } = {
+  [ApiMessageEntityTypes.Bold]: TOKEN_PATTERNS[TokenType.BOLD_MARKER],
+  [ApiMessageEntityTypes.Italic]: TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
+  [ApiMessageEntityTypes.Underline]: TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
+  [ApiMessageEntityTypes.Strike]: TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
+  [ApiMessageEntityTypes.Spoiler]: TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
+  [ApiMessageEntityTypes.Code]: TOKEN_PATTERNS[TokenType.CODE_MARKER],
+  [ApiMessageEntityTypes.Pre]: TOKEN_PATTERNS[TokenType.CODE_BLOCK],
+  [ApiMessageEntityTypes.Blockquote]: TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
+};
+
 // helper to wrap raw markdown markers
 function wrapRawMarkers(
   htmlArg: string,
