@@ -59,9 +59,18 @@ const getNewSelectionOffsets = (
   let i = 0;
   let j = 0;
   let startFinished = false;
-  while (i < resultOffsets.end && j < cleanedHtml.length) {
+  let endFinished = false;
+  const max = Math.max(resultOffsets.start, resultOffsets.end);
+
+  while (i < max && j < cleanedHtml.length) {
     if (i >= resultOffsets.start) {
       startFinished = true;
+    }
+    if (i >= resultOffsets.end) {
+      endFinished = true;
+    }
+    if (startFinished && endFinished) {
+      break;
     }
     if (plainFormattedText[i] === cleanedHtml[j]) {
       i++;
@@ -75,9 +84,12 @@ const getNewSelectionOffsets = (
       if (MARKER_CHARS_SET.has(cleanedHtml[j])) {
         if (startFinished) {
           resultOffsets.end--;
+        } else if (endFinished) {
+          resultOffsets.start--;
+        } else {
+          resultOffsets.start--;
+          resultOffsets.end--;
         }
-        resultOffsets.start--;
-        resultOffsets.end--;
       }
       j++;
     }
