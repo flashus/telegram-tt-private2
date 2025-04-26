@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-escape */
-import type { ApiFormattedText, ApiMessageEntityTypes } from '../../api/types';
+import type { ApiFormattedText } from '../../api/types';
 import type {
   ASTNode, DocumentNode, HtmlTagNode, TextNode,
 } from './node';
@@ -10,6 +10,38 @@ import { normalizeTokens } from './normalizer';
 import { Parser } from './parser';
 import { Renderer } from './renderer';
 import { EntityRenderer } from './rendererAstAsEntities';
+
+// const MARKER_KEYS_SET = new Set(['*', '_', '~', '`', '|', '+', '>', '\n', '[', ']', '(', ')']);
+// const MARKER_CHARS_SET = new Set(['*', '_', '~', '`', '|', '+', '>']);
+const MARKER_CHARS_SET = new Set(['*', '_', '~', '`', '|', '+']); // No blockquotes accounted here...
+
+const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, caretOffset: number) => {
+  // 1. Keep two pointers, advance both of them if chars match.
+  // 2. Advance only the cleanedHtml if chars don't match.
+  // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
+  //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 4. Remove 1 from the result if the char is an edit key.
+  let resultOffset = caretOffset;
+  let i = 0;
+  let j = 0;
+  while (i < resultOffset && j < cleanedHtml.length) {
+    if (plainFormattedText[i] === cleanedHtml[j]) {
+      i++;
+      j++;
+    } else {
+      if (cleanedHtml[j] === '<') {
+        while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
+          j++;
+        }
+      }
+      if (MARKER_CHARS_SET.has(cleanedHtml[j])) {
+        resultOffset--;
+      }
+      j++;
+    }
+  }
+  return resultOffset;
+};
 
 export function cleanHtml(html: string) {
   let cleanedHtml = html.slice(0);
@@ -43,8 +75,11 @@ export function cleanHtml(html: string) {
   return cleanedHtml;
 }
 
-export function parseMarkdownToAST(inputText: string): DocumentNode | undefined {
-  const cleanedHtml = cleanHtml(inputText);
+export function parseMarkdownToAST(inputText: string, isCleaned = false): DocumentNode | undefined {
+  let cleanedHtml = inputText;
+  if (!isCleaned) {
+    cleanedHtml = cleanHtml(inputText);
+  }
   const lexer = new Lexer(cleanedHtml);
   const tokens = lexer.tokenize();
 
@@ -99,39 +134,43 @@ export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText
 export function parseMarkdownHtmlToEntitiesWithCursorSelection(
   inputText: string,
   caretOffset: number,
+  validOffsetMargin: number = 0,
 ): {
     formattedText: ApiFormattedText;
-    newCaretOffset: number;
-    focusedEntities: ApiMessageEntityTypes[];
     focusedEntityIndexes: number[];
-    mdMarkerCharsBeforeCaret: number;
   } {
-  const ast = parseMarkdownToAST(inputText);
+  const cleanedHtml = cleanHtml(inputText);
+  const ast = parseMarkdownToAST(cleanedHtml, true);
   if (!ast) {
     return {
       formattedText: { text: inputText, entities: [] },
-      newCaretOffset: caretOffset,
-      focusedEntities: [],
       focusedEntityIndexes: [],
-      mdMarkerCharsBeforeCaret: 0,
     };
   }
   const formattedText = renderASTToEntities(ast);
   const entitiesList = formattedText.entities ?? [];
+
+  // Caret offset that must be handled here - must be adjusted by the difference between pattern
+  // occurencies in input and output text.
+  const newPlainTextCaretOffset = getNewCaretOffset(
+    cleanedHtml,
+    formattedText.text,
+    caretOffset,
+  );
+
   const focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
-    if (e.offset <= caretOffset && caretOffset <= e.offset + e.length) acc.push(idx);
+    if (
+      newPlainTextCaretOffset + validOffsetMargin >= e.offset
+      && newPlainTextCaretOffset - validOffsetMargin <= e.offset + e.length
+    ) {
+      acc.push(idx);
+    }
     return acc;
   }, []);
-  const focusedEntities = focusedEntityIndexes.map(
-    (i) => entitiesList[i].type as ApiMessageEntityTypes,
-  );
 
   return {
     formattedText,
-    newCaretOffset: caretOffset,
-    focusedEntities,
     focusedEntityIndexes,
-    mdMarkerCharsBeforeCaret: 0,
   };
 }
 
