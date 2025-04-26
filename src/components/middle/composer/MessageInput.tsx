@@ -410,7 +410,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
       let parentElement: HTMLElement | null | undefined;
       if (e.key === 'Delete') {
         // if moved element is inside blockquote
-        parentElement = getExpectedParentElementRecursive(blockquoteTag, selection.anchorNode, 4);
+        parentElement = getExpectedParentElementRecursive(blockquoteTag, selection.anchorNode, '', 4);
       } else {
         parentElement = selection.anchorNode?.parentElement;
       }
@@ -506,7 +506,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     if (!isComposing && e.key === 'Enter' && (e.shiftKey || isMobileDevice)) {
       const selection = window.getSelection();
       if (!selection) return;
-      const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
+      const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, '', 4);
       if (!blockquote) return;
       e.preventDefault();
       const range = selection.getRangeAt(0);
