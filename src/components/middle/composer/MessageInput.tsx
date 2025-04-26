@@ -11,6 +11,7 @@ import type {
   IAnchorPosition, ISettings, MessageListType, ThreadId,
 } from '../../../types';
 import type { Signal } from '../../../util/signals';
+import type { ApplyInlineEditFn } from '../../common/hooks/useLiveFormatting';
 import { type ApiInputMessageReplyInfo, ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
@@ -80,6 +81,7 @@ type OwnProps = {
   onBlur?: NoneToVoidFunction;
   isNeedPremium?: boolean;
   messageListType?: MessageListType;
+  applyInlineEditForSelection: ApplyInlineEditFn;
 };
 
 type StateProps = {
@@ -147,6 +149,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
   onBlur,
   isNeedPremium,
   messageListType,
+  applyInlineEditForSelection,
 }) => {
   const {
     editLastMessage,
@@ -767,8 +770,9 @@ const MessageInput: FC<OwnProps & StateProps> = ({
         isOpen={isTextFormatterOpen}
         anchorPosition={textFormatterAnchorPosition}
         selectedRange={selectedRange}
-        setSelectedRange={setSelectedRange}
+        setSelectedRange={setSelectedRange} // TODO!!! Delete! Or not? now handled by applyInlineEdit
         onClose={handleCloseTextFormatter}
+        applyInlineEditForSelection={applyInlineEditForSelection}
       />
       {forcedPlaceholder && <span className="forced-placeholder">{renderText(forcedPlaceholder!)}</span>}
     </div>

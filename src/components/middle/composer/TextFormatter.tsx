@@ -4,15 +4,19 @@ import React, {
 } from '../../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../../types';
+import type { ApplyInlineEditFn } from '../../common/hooks/useLiveFormatting';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
+import { TokenType } from '../../../util/ast/astEnums';
+import { TOKEN_PATTERNS } from '../../../util/ast/token';
 import { ensureProtocol } from '../../../util/browser/url';
 import buildClassName from '../../../util/buildClassName';
 import captureEscKeyListener from '../../../util/captureEscKeyListener';
 import getKeyFromEvent from '../../../util/getKeyFromEvent';
 import stopEvent from '../../../util/stopEvent';
 import { INPUT_CUSTOM_EMOJI_SELECTOR } from './helpers/customEmoji';
+import { flushSurroundingMarkers } from './helpers/marker';
 import { getExpectedParentElementRecursive } from './helpers/selection';
 
 import useFlag from '../../../hooks/useFlag';
@@ -30,8 +34,9 @@ export type OwnProps = {
   isOpen: boolean;
   anchorPosition?: IAnchorPosition;
   selectedRange?: Range;
-  setSelectedRange: (range: Range) => void;
+  setSelectedRange: (range: Range) => void; // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose: () => void;
+  applyInlineEditForSelection: ApplyInlineEditFn;
 };
 
 interface ISelectedTextFormats {
@@ -43,6 +48,16 @@ interface ISelectedTextFormats {
   spoiler?: boolean;
   blockquote?: boolean;
 }
+
+const SELECTED_TEXT_FORMAT_TO_MARKER: Record<keyof ISelectedTextFormats, string> = {
+  bold: '**',
+  italic: '__',
+  underline: '++',
+  strikethrough: '~~',
+  monospace: '`',
+  spoiler: '||',
+  blockquote: '> ',
+};
 
 const TEXT_FORMAT_BY_TAG_NAME: Record<string, keyof ISelectedTextFormats> = {
   B: 'bold',
@@ -61,8 +76,9 @@ const TextFormatter: FC<OwnProps> = ({
   isOpen,
   anchorPosition,
   selectedRange,
-  setSelectedRange,
+  setSelectedRange, // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose,
+  applyInlineEditForSelection,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +154,7 @@ const TextFormatter: FC<OwnProps> = ({
     }
   });
 
+  // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   const updateSelectedRange = useLastCallback(() => {
     const selection = window.getSelection();
     if (selection) {
@@ -217,118 +234,229 @@ const TextFormatter: FC<OwnProps> = ({
   }
 
   const handleSpoilerText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.SPOILER_MARKER];
     if (selectedTextFormats.spoiler) {
-      const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
-      if (
-        !selectedRange
-        || !element
-        || element.dataset.entityType !== ApiMessageEntityTypes.Spoiler
-        || !element.textContent
-      ) {
-        return;
-      }
-
-      element.replaceWith(element.textContent);
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         spoiler: false,
       }));
 
-      return;
-    }
-
-    const text = getSelectedText();
-    document.execCommand(
-      'insertHTML', false, `<span class="spoiler" data-entity-type="${ApiMessageEntityTypes.Spoiler}">${text}</span>`,
-    );
-    onClose();
-  });
-
-  const handleBoldText = useLastCallback(() => {
-    setSelectedTextFormats((selectedFormats) => {
-      // Somehow re-applying 'bold' command to already bold text doesn't work
-      document.execCommand(selectedFormats.bold ? 'removeFormat' : 'bold');
-      Object.keys(selectedFormats).forEach((key) => {
-        if ((key === 'italic' || key === 'underline') && Boolean(selectedFormats[key])) {
-          document.execCommand(key);
-        }
-      });
-
-      updateSelectedRange();
-      return {
-        ...selectedFormats,
-        bold: !selectedFormats.bold,
-      };
-    });
-  });
-
-  const handleItalicText = useLastCallback(() => {
-    document.execCommand('italic');
-    updateSelectedRange();
-    setSelectedTextFormats((selectedFormats) => ({
-      ...selectedFormats,
-      italic: !selectedFormats.italic,
-    }));
-  });
-
-  const handleUnderlineText = useLastCallback(() => {
-    document.execCommand('underline');
-    updateSelectedRange();
-    setSelectedTextFormats((selectedFormats) => ({
-      ...selectedFormats,
-      underline: !selectedFormats.underline,
-    }));
-  });
-
-  const handleStrikethroughText = useLastCallback(() => {
-    if (selectedTextFormats.strikethrough) {
-      const element = getExpectedParentElementRecursive('DEL', getSelectedElement());
+      const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
       if (
         !selectedRange
         || !element
-        || element.tagName !== 'DEL'
-        || !element.textContent
+        || element.tagName !== 'SPAN'
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        spoiler: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
+    }
+
+    onClose();
+    // if (selectedTextFormats.spoiler) {
+    //   const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
+    //   if (
+    //     !selectedRange
+    //     || !element
+    //     || element.dataset.entityType !== ApiMessageEntityTypes.Spoiler
+    //     || !element.textContent
+    //   ) {
+    //     return;
+    //   }
+
+    //   element.replaceWith(element.textContent);
+    //   setSelectedTextFormats((selectedFormats) => ({
+    //     ...selectedFormats,
+    //     spoiler: false,
+    //   }));
+
+    //   return;
+    // }
+
+    // const text = getSelectedText();
+    // document.execCommand(
+    //   'insertHTML', false, `<span class="spoiler" data-entity-type="${ApiMessageEntityTypes.Spoiler}">${text}</span>`,
+    // );
+    // onClose();
+  });
+
+  const handleBoldText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.BOLD_MARKER];
+    if (selectedTextFormats.bold) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        bold: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('B', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'B'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        bold: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
+    }
+  });
+
+  const handleItalicText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.ITALIC_MARKER];
+    if (selectedTextFormats.italic) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        italic: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('I', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'I'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        italic: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
+    }
+  });
+
+  const handleUnderlineText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER];
+    if (selectedTextFormats.underline) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        underline: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('U', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'U'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        underline: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
+    }
+  });
+
+  const handleStrikethroughText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.STRIKE_MARKER];
+    if (selectedTextFormats.strikethrough) {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         strikethrough: false,
       }));
 
-      return;
-    }
-
-    const text = getSelectedText();
-    document.execCommand('insertHTML', false, `<del>${text}</del>`);
-    onClose();
-  });
-
-  const handleMonospaceText = useLastCallback(() => {
-    if (selectedTextFormats.monospace) {
-      const element = getExpectedParentElementRecursive('CODE', getSelectedElement());
+      const element = getExpectedParentElementRecursive('DEL', getSelectedElement());
       if (
         !selectedRange
         || !element
-        || element.tagName !== 'CODE'
-        || !element.textContent
+        || element.tagName !== 'DEL'
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        strikethrough: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
+    }
+  });
+
+  const handleMonospaceText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.CODE_MARKER];
+    if (selectedTextFormats.monospace) {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         monospace: false,
       }));
 
-      return;
+      const element = getExpectedParentElementRecursive('CODE', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'CODE'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+
+      element.replaceWith(element.textContent ?? '');
+      applyInlineEditForSelection(true);
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        monospace: true,
+      }));
+
+      const text = getSelectedText();
+      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
+      applyInlineEditForSelection();
     }
 
-    const text = getSelectedText(true);
-    document.execCommand('insertHTML', false, `<code class="text-entity-code" dir="auto">${text}</code>`);
     onClose();
   });
 
@@ -339,29 +467,47 @@ const TextFormatter: FC<OwnProps> = ({
         !selectedRange
         || !element
         || element.tagName !== 'BLOCKQUOTE'
-        || !element.textContent
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      element.replaceWith(element.textContent ?? '');
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         blockquote: false,
       }));
 
+      applyInlineEditForSelection();
       onClose();
       return;
     }
 
     const text = getSelectedText();
+
+    let leftMarkers: string = '';
+    let rightMarkers: string = '';
+
+    for (const format of Object.keys(selectedTextFormats)) {
+      if (format === 'blockquote') {
+        // Ignore self
+        continue;
+      }
+      const marker = SELECTED_TEXT_FORMAT_TO_MARKER[format as keyof ISelectedTextFormats];
+      if (marker) {
+        leftMarkers += marker;
+        rightMarkers = marker + rightMarkers;
+      }
+    }
+
     if (text) {
       document.execCommand(
         'insertHTML',
         false,
-        `<blockquote class="blockquote" data-entity-type="${ApiMessageEntityTypes.Blockquote}">${text}</blockquote>`,
+        `<blockquote class="blockquote" data-entity-type="${ApiMessageEntityTypes.Blockquote}">`
+        + `${leftMarkers}${text}${rightMarkers}</blockquote>`,
       );
     }
+    applyInlineEditForSelection();
     onClose();
   });
 
