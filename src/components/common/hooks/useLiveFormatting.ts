@@ -122,6 +122,7 @@ class CaretRestorerSingleton {
     return this.instance;
   }
 
+  /** Call this to restore caret position */
   public restoreCaretOffset(el: HTMLElement, caretOffset: number) {
     // Bump the request counter
     const localRequestId = ++this.lastRequestId;
