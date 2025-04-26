@@ -300,7 +300,7 @@ function wrapRawMarkers(
   entities: ApiMessageEntity[],
   rawEntityIndexes: number[],
   visibleEntityIndexes: number[],
-  keepMarkerSpace: boolean,
+  keepMarkerWidth: boolean,
 ): string {
   const es = entities ?? [];
   const rawIndexes = rawEntityIndexes ?? [];
@@ -321,7 +321,7 @@ function wrapRawMarkers(
     const entityIndex = ordinalToIndex.get(ordinal);
     if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
     // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
-    let markerString = keepMarkerSpace ? marker : '';
+    let markerString = keepMarkerWidth ? marker : '';
     if (visibleEntityIndexes.includes(entityIndex)) {
       wrapperClass = `${wrapperClass} visible`;
       markerString = marker;
@@ -345,7 +345,7 @@ function wrapRawMarkersAll(
   entities: ApiMessageEntity[],
   rawEntityIndexes: number[],
   visibleEntityIndexes: number[],
-  keepMarkerSpace: boolean,
+  keepMarkerWidth: boolean,
 ): string {
   let html = htmlArg;
   // apply wrapping via helper
@@ -356,7 +356,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -365,7 +365,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -374,7 +374,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -383,7 +383,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -392,7 +392,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -401,7 +401,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -410,7 +410,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -419,7 +419,7 @@ function wrapRawMarkersAll(
     entities,
     rawEntityIndexes,
     visibleEntityIndexes,
-    keepMarkerSpace,
+    keepMarkerWidth,
   );
 
   return html;
@@ -431,7 +431,7 @@ export function getTextWithEntitiesAsHtml(
     liveFormat?: LiveFormat;
     rawEntityIndexes?: number[];
     visibleEntityIndexes?: number[];
-    keepMarkerSpace?: boolean;
+    keepMarkerWidth?: boolean;
   } = {},
 ) {
   const { text, entities } = formattedText || {};
@@ -457,7 +457,7 @@ export function getTextWithEntitiesAsHtml(
       entities ?? [],
       opts.rawEntityIndexes,
       opts.visibleEntityIndexes ?? [],
-      opts.keepMarkerSpace ?? false,
+      opts.keepMarkerWidth ?? false,
     );
   }
 

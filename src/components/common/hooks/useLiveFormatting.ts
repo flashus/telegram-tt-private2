@@ -171,11 +171,13 @@ const useLiveFormatting = ({
   setHtml,
   editableInputId,
   liveFormat,
+  keepMarkerWidth,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
   editableInputId: string;
   liveFormat: LiveFormat;
+  keepMarkerWidth?: boolean;
 }) => {
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
@@ -220,7 +222,7 @@ const useLiveFormatting = ({
       const pattern = getPatternByClassList(markerSpan.classList);
       if (visible && markerSpan.textContent !== pattern) {
         markerSpan.textContent = pattern;
-      } else if (!visible && markerSpan.textContent !== '') {
+      } else if (!visible && markerSpan.textContent !== '' && !keepMarkerWidth) {
         markerSpan.textContent = '';
       }
     });
@@ -228,7 +230,7 @@ const useLiveFormatting = ({
     // Intuitive action - feels like this prevents cursor moving when typing. Remove if needed
     const caretRestorer = CaretRestorerSingleton.getInstance();
     caretRestorer.preventRestore();
-  }, []);
+  }, [keepMarkerWidth]);
 
   // If selection is inside of a ".md-marker[data-entity-index]" marker, move caret in the same direction as the key
   const moveAroundNavWrapperMarkers = useCallback((event?: KeyboardEvent) => {
