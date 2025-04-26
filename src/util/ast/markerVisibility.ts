@@ -5,9 +5,10 @@
 export function computeMarkerVisibility(
   entities: { offset: number; length: number }[],
   caretOffset: number,
+  validOffsetMargin: number = 0,
 ): number[] {
   return entities.reduce<number[]>((acc, e, idx) => {
-    if (caretOffset + 1 >= e.offset && caretOffset - 1 <= e.offset + e.length) {
+    if (caretOffset + validOffsetMargin >= e.offset && caretOffset - validOffsetMargin <= e.offset + e.length) {
       acc.push(idx);
     }
     return acc;
