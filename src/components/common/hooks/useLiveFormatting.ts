@@ -461,7 +461,12 @@ const useLiveFormatting = ({
 
     const newHtml = getTextWithEntitiesAsHtml(
       { text: formattedText.text, entities },
-      { rawEntityIndexes: entityIndexes, visibleEntityIndexes: focusedEntityIndexes, liveFormatMode },
+      {
+        rawEntityIndexes: entityIndexes,
+        visibleEntityIndexes: focusedEntityIndexes,
+        liveFormatMode,
+        keepMarkerWidth,
+      },
     );
     console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
@@ -483,7 +488,7 @@ const useLiveFormatting = ({
       // We do not use requestAnimationFrame here because DOM is not updated here
       showRawMarkers(plainTextCaretOffset);
     }
-  }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin]); // Removed getHtml dependency as we use el.innerHTML
+  }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
 
   const checkForMarkerEdit = useCallback(() => {
     const el = inputRef.current;
