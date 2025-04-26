@@ -3,7 +3,7 @@ import { getActions } from '../../../global';
 
 import type { ApiFormattedText, ApiMessageEntity } from '../../../api/types';
 import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
-import type { LiveFormat, TextPart, ThreadId } from '../../../types';
+import type { LiveFormatMode, TextPart, ThreadId } from '../../../types';
 import type { TextFilter } from './renderText';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
@@ -428,7 +428,7 @@ function wrapRawMarkersAll(
 export function getTextWithEntitiesAsHtml(
   formattedText?: ApiFormattedText,
   opts: {
-    liveFormat?: LiveFormat;
+    liveFormatMode?: LiveFormatMode;
     rawEntityIndexes?: number[];
     visibleEntityIndexes?: number[];
     keepMarkerWidth?: boolean;
@@ -448,7 +448,7 @@ export function getTextWithEntitiesAsHtml(
   let html = Array.isArray(result) ? result.join('') : result;
 
   if (
-    opts.liveFormat === 'on'
+    opts.liveFormatMode === 'on'
     && opts.rawEntityIndexes
     && opts.rawEntityIndexes?.length > 0
   ) {

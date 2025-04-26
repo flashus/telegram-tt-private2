@@ -15,7 +15,7 @@ import { callApi, setShouldEnableDebugLog } from '../../../api/gramjs';
 import {
   addActionHandler, getActions, getGlobal, setGlobal,
 } from '../../index';
-import { replaceSettings, replaceThemeSettings } from '../../reducers';
+import { replaceLiveFormatSettings, replaceSettings, replaceThemeSettings } from '../../reducers';
 import { updateTabState } from '../../reducers/tabs';
 import { selectCanAnimateInterface, selectChatFolder } from '../../selectors';
 
@@ -145,6 +145,10 @@ addActionHandler('setThemeSettings', (global, actions, payload): ActionReturnTyp
   const { theme, ...settings } = payload;
 
   return replaceThemeSettings(global, theme, settings);
+});
+
+addActionHandler('setLiveFormatSettings', (global, actions, payload): ActionReturnType => {
+  return replaceLiveFormatSettings(global, payload);
 });
 
 addActionHandler('requestNextSettingsScreen', (global, actions, payload): ActionReturnType => {

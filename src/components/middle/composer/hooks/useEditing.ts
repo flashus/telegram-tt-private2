@@ -2,7 +2,7 @@ import { useEffect, useState } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
 import type { ApiDraft, ApiFormattedText, ApiMessage } from '../../../../api/types';
-import type { LiveFormat, MessageListType, ThreadId } from '../../../../types';
+import type { LiveFormatMode, MessageListType, ThreadId } from '../../../../types';
 import type { Signal } from '../../../../util/signals';
 import { ApiMessageEntityTypes } from '../../../../api/types';
 
@@ -31,7 +31,7 @@ const useEditing = (
   chatId: string,
   threadId: ThreadId,
   type: MessageListType,
-  liveFormat: LiveFormat,
+  liveFormatMode: LiveFormatMode,
   draft?: ApiDraft,
   editingDraft?: ApiFormattedText,
 ): [VoidFunction, VoidFunction, boolean] => {
@@ -87,7 +87,7 @@ const useEditing = (
   }, [chatId, threadId, editedMessage]);
 
   useEffect(() => {
-    if (!editedMessage || liveFormat === 'on') {
+    if (!editedMessage || liveFormatMode === 'on') {
       return undefined;
     }
     return () => {
@@ -98,10 +98,10 @@ const useEditing = (
         chatId, threadId, type, text: update,
       });
     };
-  }, [chatId, editedMessage, getHtml, setEditingDraft, threadId, type, liveFormat]);
+  }, [chatId, editedMessage, getHtml, setEditingDraft, threadId, type, liveFormatMode]);
 
   const detectLinkDebounced = useDebouncedResolver(() => {
-    if (liveFormat === 'on') {
+    if (liveFormatMode === 'on') {
       return undefined;
     }
 
@@ -113,7 +113,7 @@ const useEditing = (
     return !('webPage' in editedMessage.content)
       && editedMessage.content.text?.entities?.some((entity) => URL_ENTITIES.has(entity.type))
       && !(edited.entities?.some((entity) => URL_ENTITIES.has(entity.type)));
-  }, [editedMessage, getHtml, liveFormat], DEBOUNCE_MS, true);
+  }, [editedMessage, getHtml, liveFormatMode], DEBOUNCE_MS, true);
 
   const getShouldResetNoWebPageDebounced = useDerivedSignal(detectLinkDebounced, [detectLinkDebounced, getHtml], true);
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from '../../../lib/teact/teact';
 
-import type { LiveFormat } from '../../../types';
+import type { ILiveFormatSettings } from '../../../types';
 import type { Signal } from '../../../util/signals';
 
 import { computeMarkerVisibility } from '../../../util/ast/markerVisibility';
@@ -173,16 +173,18 @@ const useLiveFormatting = ({
   setHtml,
   editableInputId,
   liveFormat,
-  validOffsetMargin,
-  keepMarkerWidth,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
   editableInputId: string;
-  liveFormat: LiveFormat;
-  validOffsetMargin?: number;
-  keepMarkerWidth?: boolean;
+  liveFormat: ILiveFormatSettings;
 }) => {
+  const {
+    mode: liveFormatMode,
+    validOffsetMargin,
+    keepMarkerWidth,
+  } = liveFormat;
+
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLElement | null>(null);
 
@@ -381,7 +383,7 @@ const useLiveFormatting = ({
 
     const newHtml = getTextWithEntitiesAsHtml(
       { text: formattedText.text, entities },
-      { rawEntityIndexes: entityIndexes, visibleEntityIndexes: focusedEntityIndexes, liveFormat },
+      { rawEntityIndexes: entityIndexes, visibleEntityIndexes: focusedEntityIndexes, liveFormatMode },
     );
     console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
@@ -403,7 +405,7 @@ const useLiveFormatting = ({
       // We do not use requestAnimationFrame here because DOM is not updated here
       showRawMarkers(plainTextCaretOffset);
     }
-  }, [setHtml, showRawMarkers, liveFormat, validOffsetMargin]); // Removed getHtml dependency as we use el.innerHTML
+  }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin]); // Removed getHtml dependency as we use el.innerHTML
 
   const checkForMarkerEdit = useCallback(() => {
     const el = inputRef.current;
@@ -424,7 +426,7 @@ const useLiveFormatting = ({
   }, [editableInputId]);
 
   useEffect(() => {
-    if (liveFormat !== 'on' || !inputRef.current) {
+    if (liveFormatMode !== 'on' || !inputRef.current) {
       return;
     }
 
@@ -482,15 +484,15 @@ const useLiveFormatting = ({
       window.removeEventListener('focus', handleWindowFocus);
     };
   }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers,
-    clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormat, checkForMarkerEdit]);
+    clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormatMode, checkForMarkerEdit]);
 
   useEffect(() => {
-    if (liveFormat !== 'combo' || !inputRef.current) {
+    if (liveFormatMode !== 'combo' || !inputRef.current) {
       return;
     }
 
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (liveFormat === 'combo' && e.key.toLowerCase() === COMBO_KEY && (e.metaKey || e.ctrlKey) && e.altKey) {
+      if (liveFormatMode === 'combo' && e.key.toLowerCase() === COMBO_KEY && (e.metaKey || e.ctrlKey) && e.altKey) {
         applyInlineEdit();
       }
     };
@@ -504,7 +506,7 @@ const useLiveFormatting = ({
       }
       inputRef.current.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editableInputId, applyInlineEdit, liveFormat]);
+  }, [editableInputId, applyInlineEdit, liveFormatMode]);
 
   return { applyInlineEdit, clearRawMarkersMode };
 };

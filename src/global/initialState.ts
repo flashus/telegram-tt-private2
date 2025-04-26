@@ -278,8 +278,6 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       shouldUpdateStickerSetOrder: true,
       language: 'en',
       timeFormat: '24h',
-      liveFormat: 'on',
-      isComposerLiveFormatConfigButtonShown: true,
       wasTimeFormatSetManually: false,
       isConnectionStatusMinimized: true,
       shouldArchiveAndMuteNewNonContact: false,
@@ -292,6 +290,12 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       canDisplayChatInTitle: true,
       shouldAllowHttpTransport: true,
       shouldWarnAboutSvg: true,
+    },
+    liveFormat: {
+      mode: 'on',
+      composerButtonShown: true,
+      validOffsetMargin: 1,
+      keepMarkerWidth: false,
     },
     themes: {
       light: {

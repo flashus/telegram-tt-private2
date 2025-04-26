@@ -4,7 +4,7 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions } from '../../../global';
 
-import type { LiveFormat } from '../../../types';
+import type { LiveFormatMode } from '../../../types';
 
 import buildClassName from '../../../util/buildClassName';
 import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
@@ -22,7 +22,7 @@ import './LiveFormatMenu.scss';
 
 export type OwnProps = {
   isButtonVisible: boolean;
-  liveFormat: LiveFormat;
+  liveFormatMode: LiveFormatMode;
   forceMenuClose?: boolean;
   onMenuOpen: NoneToVoidFunction;
   onMenuClose: NoneToVoidFunction;
@@ -30,13 +30,13 @@ export type OwnProps = {
 
 const LiveFormatMenu: FC<OwnProps> = ({
   isButtonVisible,
-  liveFormat,
+  liveFormatMode,
   forceMenuClose,
   onMenuOpen,
   onMenuClose,
 }) => {
   const {
-    setSettingOption,
+    setLiveFormatSettings,
   } = getActions();
 
   const [isLiveFormatMenuOpen, openLiveFormatMenu, closeLiveFormatMenu] = useFlag();
@@ -76,17 +76,17 @@ const LiveFormatMenu: FC<OwnProps> = ({
   });
 
   const handleLiveFormatOn = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'on' });
+    setLiveFormatSettings({ mode: 'on' });
     closeLiveFormatMenu();
   });
 
   const handleLiveFormatCombo = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'combo' });
+    setLiveFormatSettings({ mode: 'combo' });
     closeLiveFormatMenu();
   });
 
   const handleLiveFormatOff = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'off' });
+    setLiveFormatSettings({ mode: 'off' });
     closeLiveFormatMenu();
   });
 
@@ -124,21 +124,21 @@ const LiveFormatMenu: FC<OwnProps> = ({
       >
         <MenuItem
           icon="check"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'on' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'on' && 'active')}
           onClick={handleLiveFormatOn}
         >
           On {/* lang('SettingsLiveFormatOn') */}
         </MenuItem>
         <MenuItem
           icon="keyboard"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'combo' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'combo' && 'active')}
           onClick={handleLiveFormatCombo}
         >
           Combo (cmd + alt + f) {/* lang('SettingsLiveFormatCombo') */}
         </MenuItem>
         <MenuItem
           icon="close"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'off' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'off' && 'active')}
           onClick={handleLiveFormatOff}
         >
           Off {/* lang('SettingsLiveFormatOff') */}

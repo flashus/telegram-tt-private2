@@ -34,9 +34,9 @@ import type {
 } from '../../global/types';
 import type {
   IAnchorPosition,
+  ILiveFormatSettings,
   InlineBotSettings,
   ISettings,
-  LiveFormat,
   MessageList,
   MessageListType,
   ThreadId,
@@ -296,8 +296,7 @@ type StateProps =
     isPaymentMessageConfirmDialogOpen: boolean;
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
-    liveFormat: LiveFormat;
-    isComposerLiveFormatConfigButtonShown?: boolean;
+    liveFormat: ILiveFormatSettings;
   };
 
 enum MainButtonState {
@@ -421,7 +420,6 @@ const Composer: FC<OwnProps & StateProps> = ({
   starsBalance,
   isStarsBalanceModalOpen,
   liveFormat,
-  isComposerLiveFormatConfigButtonShown,
 }) => {
   const {
     sendMessage,
@@ -842,6 +840,11 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
   });
 
+  const {
+    mode: liveFormatMode,
+    composerButtonShown: liveFormatComposerButtonShown,
+  } = liveFormat;
+
   const [handleEditComplete, handleEditCancel, shouldForceShowEditing] = useEditing(
     getHtml,
     setHtml,
@@ -850,7 +853,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     chatId,
     threadId,
     messageListType,
-    liveFormat,
+    liveFormatMode,
     draft,
     editingDraft,
   );
@@ -2152,9 +2155,9 @@ const Composer: FC<OwnProps & StateProps> = ({
               {formatVoiceRecordDuration(currentRecordTime - startRecordTimeRef.current!)}
             </span>
           )}
-          {isComposerLiveFormatConfigButtonShown && (
+          {liveFormatComposerButtonShown && (
             <LiveFormatMenu
-              liveFormat={liveFormat}
+              liveFormatMode={liveFormatMode}
               isButtonVisible={!activeVoiceRecording}
               onMenuOpen={handleLiveFormatMenuOpen}
               onMenuClose={handleLiveFormatMenuClose}
@@ -2387,8 +2390,9 @@ export default memo(withGlobal<OwnProps>(
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove, liveFormat, isComposerLiveFormatConfigButtonShown,
+      shouldPaidMessageAutoApprove,
     } = global.settings.byKey;
+    const { liveFormat } = global.settings;
     const {
       forwardMessages: { messageIds: forwardMessageIds },
     } = selectTabState(global);
@@ -2544,7 +2548,6 @@ export default memo(withGlobal<OwnProps>(
       starsBalance,
       isStarsBalanceModalOpen,
       liveFormat,
-      isComposerLiveFormatConfigButtonShown,
     };
   },
 )(Composer));
