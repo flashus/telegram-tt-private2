@@ -30,6 +30,8 @@ const NAV_KEYS = [
 
 const COMBO_KEY = 'f';
 
+export type ApplyInlineEditFn = (isDelete?: boolean) => void;
+
 /**
  * Call only for some class list that for sure contains md-marker class
  */
@@ -283,7 +285,7 @@ const useLiveFormatting = ({
     }
   }, []);
 
-  const applyInlineEdit = useCallback((isDelete?: boolean) => {
+  const applyInlineEdit: ApplyInlineEditFn = useCallback((isDelete?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
 
