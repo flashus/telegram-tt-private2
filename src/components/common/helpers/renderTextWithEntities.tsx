@@ -296,9 +296,10 @@ export const ENTITY_TYPE_TO_MATCHER: { [key: string] : string } = {
 function wrapRawMarkers(
   htmlArg: string,
   entityType: ApiMessageEntityTypes,
-  marker: string | RegExp,
-  entities: ApiMessageEntity[] | undefined,
-  rawEntityIndexes: number[] | undefined,
+  marker: string,
+  entities: ApiMessageEntity[],
+  rawEntityIndexes: number[],
+  visibleEntityIndexes: number[],
 ): string {
   const es = entities ?? [];
   const rawIndexes = rawEntityIndexes ?? [];
@@ -313,13 +314,18 @@ function wrapRawMarkers(
   let idx = 0;
   const matcher = ENTITY_TYPE_TO_MATCHER[entityType];
   const pattern = HTML_TAG_MATCH_REGEXPS[matcher];
-  const wrapperClass = TAG_TO_WRAPPER_CLASS[matcher];
+  let wrapperClass = TAG_TO_WRAPPER_CLASS[matcher];
   return htmlArg.replace(pattern, (match) => {
     const ordinal = idx++;
     const entityIndex = ordinalToIndex.get(ordinal);
     if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
     // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
-    const markerString = typeof marker === 'string' ? marker : ''; // Ensure marker is a string
+    let markerString = '';
+    if (visibleEntityIndexes.includes(entityIndex)) {
+      wrapperClass = `${wrapperClass} visible`;
+      markerString = marker;
+    }
+
     const startMarkerSpan = (
       `<span class="md-marker ${wrapperClass}" `
         + `data-pos="start" data-entity-index="${entityIndex}">${markerString}</span>`
@@ -335,8 +341,9 @@ function wrapRawMarkers(
 
 function wrapRawMarkersAll(
   htmlArg: string,
-  entities: ApiMessageEntity[] | undefined,
-  rawEntityIndexes: number[] | undefined,
+  entities: ApiMessageEntity[],
+  rawEntityIndexes: number[],
+  visibleEntityIndexes: number[],
 ): string {
   let html = htmlArg;
   // apply wrapping via helper
@@ -346,6 +353,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.BOLD_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -353,6 +361,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -360,6 +369,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -367,6 +377,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -374,6 +385,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -381,6 +393,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.CODE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -388,6 +401,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.CODE_BLOCK],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
   html = wrapRawMarkers(
     html,
@@ -395,6 +409,7 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
   );
 
   return html;
@@ -403,8 +418,8 @@ function wrapRawMarkersAll(
 export function getTextWithEntitiesAsHtml(
   formattedText?: ApiFormattedText,
   opts: {
-    // rawMarkersFor?: ApiMessageEntityTypes[];
     rawEntityIndexes?: number[];
+    visibleEntityIndexes?: number[];
   } = {},
 ) {
   const { text, entities } = formattedText || {};
@@ -421,7 +436,7 @@ export function getTextWithEntitiesAsHtml(
   let html = Array.isArray(result) ? result.join('') : result;
 
   if (opts.rawEntityIndexes && opts.rawEntityIndexes?.length > 0) {
-    html = wrapRawMarkersAll(html, entities, opts.rawEntityIndexes);
+    html = wrapRawMarkersAll(html, entities ?? [], opts.rawEntityIndexes, opts.visibleEntityIndexes ?? []);
   }
 
   return html;
