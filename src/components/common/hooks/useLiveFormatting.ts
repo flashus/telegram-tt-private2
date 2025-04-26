@@ -224,6 +224,10 @@ const useLiveFormatting = ({
         markerSpan.textContent = '';
       }
     });
+
+    // Intuitive action - feels like this prevents cursor moving when typing. Remove if needed
+    const caretRestorer = CaretRestorerSingleton.getInstance();
+    caretRestorer.preventRestore();
   }, []);
 
   // If selection is inside of a ".md-marker[data-entity-index]" marker, move caret in the same direction as the key
