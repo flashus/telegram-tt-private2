@@ -41,6 +41,7 @@ const NAV_KEYS = [
 const COMBO_KEY = 'f';
 
 export type ApplyInlineEditFn = (isDelete?: boolean) => void;
+export type ApplyInlineEditForSelectionFn = (isDelete?: boolean, _selectionOffsets?: SelectionOffsets) => void;
 
 /**
  * Call only for some class list that for sure contains md-marker class
@@ -323,7 +324,7 @@ const useLiveFormatting = ({
     }
   }, []);
 
-  const applyInlineEdit: ApplyInlineEditFn = useCallback((isDelete?: boolean) => {
+  const applyInlineEdit: ApplyInlineEditForSelectionFn = useCallback((isDelete?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
 
@@ -445,7 +446,9 @@ const useLiveFormatting = ({
     }
   }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
 
-  const applyInlineEditForSelection: ApplyInlineEditFn = useCallback((isDelete?: boolean) => {
+  const applyInlineEditForSelection: ApplyInlineEditForSelectionFn = useCallback((
+    isDelete?: boolean, _selectionOffsets?: SelectionOffsets,
+  ) => {
     const el = inputRef.current;
     if (!el) return;
 
@@ -454,9 +457,8 @@ const useLiveFormatting = ({
     if (!sel || !el.contains(sel.anchorNode)) return;
 
     // 1. Get current state
-    const selectionOffsets = getPlainTextOffsetsFromRange(el, false);
+    const selectionOffsets = _selectionOffsets ?? getPlainTextOffsetsFromRange(el, false);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
-    console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
@@ -468,8 +470,6 @@ const useLiveFormatting = ({
       currentHtml, selectionOffsets, validOffsetMargin,
     );
     let entities = formattedText.entities;
-    console.log('ApplyInlineEdit - Parsed Text:', formattedText.text); // DEBUG
-    console.log('ApplyInlineEdit - Parsed Entities:', JSON.stringify(entities)); // DEBUG
 
     // 3. If delete, process delete - if the deleted char is a part of a marker, remove corresponding entity
     if (isDelete && entities) {
@@ -530,9 +530,6 @@ const useLiveFormatting = ({
           return true;
         }
       });
-
-      console.log('ApplyInlineEdit - Span Status after delete:', Object.fromEntries(spanStatus)); // DEBUG
-      console.log('ApplyInlineEdit - Filtered Entities (new logic):', JSON.stringify(entities)); // DEBUG
     }
 
     // 4. Render the formatted text back to HTML with markers enabled for all entities
@@ -547,10 +544,7 @@ const useLiveFormatting = ({
         keepMarkerWidth,
       },
     );
-    console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
-
-    console.log('ApplyInlineEdit - END --------------------');
 
     if (htmlChanged) {
       // Update the state/DOM
@@ -670,7 +664,16 @@ const useLiveFormatting = ({
     };
   }, [editableInputId, applyInlineEdit, liveFormatMode]);
 
-  return { applyInlineEdit, applyInlineEditForSelection, clearRawMarkersMode };
+  const getLiveFormatInputRef = useCallback(() => {
+    return inputRef.current;
+  }, [inputRef]);
+
+  return {
+    applyInlineEdit,
+    applyInlineEditForSelection,
+    clearRawMarkersMode,
+    getLiveFormatInputRef,
+  };
 };
 
 export default useLiveFormatting;
