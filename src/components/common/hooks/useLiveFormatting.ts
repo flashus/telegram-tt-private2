@@ -381,7 +381,8 @@ const useLiveFormatting = ({
       // in getTextWithEntitiesAsHtml that gets the visible entity indexes from parseMarkdownHtmlToEntitiesWithCursorSelection
     } else {
       // Even if HTML didn't change, marker visibility might need update based on cursor move
-      requestAnimationFrame(() => showRawMarkers(plainTextCaretOffset - mdMarkerCharsBeforeCaret));
+      // We do not use requestAnimationFrame here because DOM is not updated here
+      showRawMarkers(plainTextCaretOffset);
     }
   }, [setHtml, showRawMarkers]); // Removed getHtml dependency as we use el.innerHTML
 
