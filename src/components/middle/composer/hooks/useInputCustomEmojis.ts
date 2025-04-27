@@ -47,7 +47,9 @@ export default function useInputCustomEmojis(
   canPlayAnimatedEmojis: boolean,
   isReady?: boolean,
   isActive?: boolean,
-) {
+): {
+    synchronizeElements: () => void;
+  } {
   const customColor = useDynamicColorListener(inputRef, undefined, !isReady);
   const colorFilter = useColorFilter(customColor, true);
   const dpr = useDevicePixelRatio();
@@ -200,6 +202,10 @@ export default function useInputCustomEmojis(
   // so we need to make sure it happens right after focusing,
   // then we can play again.
   useBackgroundMode(freezeAnimation, unfreezeAnimationOnRaf);
+
+  return {
+    synchronizeElements,
+  };
 }
 
 async function createPlayer({

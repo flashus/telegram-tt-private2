@@ -154,7 +154,6 @@ import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import usePaidMessageConfirmation from '../middle/composer/hooks/usePaidMessageConfirmation';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
 import useVoiceRecording from '../middle/composer/hooks/useVoiceRecording';
-import useLiveFormatting from './hooks/useLiveFormatting';
 import { useUndoRedo } from './hooks/useUndoRedo';
 
 import AttachmentModal from '../middle/composer/AttachmentModal.async';
@@ -858,16 +857,6 @@ const Composer: FC<OwnProps & StateProps> = ({
     draft,
     editingDraft,
   );
-
-  const {
-    applyInlineEditForSelection,
-    getLiveFormatInputRef,
-  } = useLiveFormatting({
-    getHtml,
-    setHtml,
-    editableInputId,
-    liveFormat,
-  });
 
   // Handle chat change (should be placed after `useDraft` and `useEditing`)
   const resetComposerRef = useStateRef(resetComposer);
@@ -2095,8 +2084,6 @@ const Composer: FC<OwnProps & StateProps> = ({
             onBlur={unmarkInputHasFocus}
             isNeedPremium={isNeedPremium}
             messageListType={messageListType}
-            applyInlineEditForSelection={applyInlineEditForSelection}
-            getLiveFormatInputRef={getLiveFormatInputRef}
           />
           {isInMessageList && (
             <>

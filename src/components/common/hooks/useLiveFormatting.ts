@@ -178,11 +178,13 @@ const useLiveFormatting = ({
   setHtml,
   editableInputId,
   liveFormat,
+  synchronizeCustomEmojis,
 }: {
   getHtml: Signal<string>;
   setHtml: (html: string) => void;
-  editableInputId: string;
+  editableInputId: string | undefined;
   liveFormat: ILiveFormatSettings;
+  synchronizeCustomEmojis: () => void;
 }) => {
   const {
     mode: liveFormatMode,
@@ -578,6 +580,7 @@ const useLiveFormatting = ({
   }, [applyInlineEdit, showRawMarkers]);
 
   useEffect(() => {
+    if (!editableInputId) return;
     inputRef.current = document.getElementById(editableInputId);
   }, [editableInputId]);
 
@@ -595,6 +598,7 @@ const useLiveFormatting = ({
         // Could move this to onkeyDown, but handling would be a lot more complicated
         moveAroundNavWrapperMarkers(e);
         requestAnimationFrame(() => showRawMarkers());
+        requestAnimationFrame(() => synchronizeCustomEmojis());
       } else {
         checkForMarkerEdit();
       }
@@ -639,7 +643,7 @@ const useLiveFormatting = ({
       inputRef.current.removeEventListener('focus', handleFocus);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers,
+  }, [editableInputId, getHtml, setHtml, applyInlineEdit, showRawMarkers, synchronizeCustomEmojis,
     clearRawMarkersMode, moveAroundNavWrapperMarkers, liveFormatMode, checkForMarkerEdit]);
 
   useEffect(() => {

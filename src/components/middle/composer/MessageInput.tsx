@@ -8,10 +8,9 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type {
-  IAnchorPosition, ISettings, MessageListType, ThreadId,
+  IAnchorPosition, ILiveFormatSettings, ISettings, MessageListType, ThreadId,
 } from '../../../types';
 import type { Signal } from '../../../util/signals';
-import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { type ApiInputMessageReplyInfo, ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
@@ -36,6 +35,7 @@ import useDerivedState from '../../../hooks/useDerivedState';
 import useFlag from '../../../hooks/useFlag';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
+import useLiveFormatting from '../../common/hooks/useLiveFormatting';
 import useInputCustomEmojis from './hooks/useInputCustomEmojis';
 
 import Icon from '../../common/icons/Icon';
@@ -81,8 +81,6 @@ type OwnProps = {
   onBlur?: NoneToVoidFunction;
   isNeedPremium?: boolean;
   messageListType?: MessageListType;
-  applyInlineEditForSelection: ApplyInlineEditForSelectionFn;
-  getLiveFormatInputRef: () => HTMLElement | null;
 };
 
 type StateProps = {
@@ -90,6 +88,7 @@ type StateProps = {
   isSelectModeActive?: boolean;
   messageSendKeyCombo?: ISettings['messageSendKeyCombo'];
   canPlayAnimatedEmojis: boolean;
+  liveFormat: ILiveFormatSettings;
 };
 
 const MAX_ATTACHMENT_MODAL_INPUT_HEIGHT = 160;
@@ -150,8 +149,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
   onBlur,
   isNeedPremium,
   messageListType,
-  applyInlineEditForSelection,
-  getLiveFormatInputRef,
+  liveFormat,
 }) => {
   const {
     editLastMessage,
@@ -198,7 +196,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     setShouldDisplayTimer(false);
   });
 
-  useInputCustomEmojis(
+  const { synchronizeElements } = useInputCustomEmojis(
     getHtml,
     inputRef,
     sharedCanvasRef,
@@ -209,6 +207,18 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     isReady,
     isActive,
   );
+
+  const {
+    applyInlineEditForSelection,
+    getLiveFormatInputRef,
+  } = useLiveFormatting({
+    getHtml,
+    // Always check that this is true: onUpdate of MessageInput is _the_ setHtml of Composer. true at moment of 27.04.2025
+    setHtml: onUpdate,
+    editableInputId,
+    liveFormat,
+    synchronizeCustomEmojis: synchronizeElements,
+  });
 
   const maxInputHeight = isAttachmentModalInput
     ? MAX_ATTACHMENT_MODAL_INPUT_HEIGHT
@@ -791,6 +801,7 @@ export default memo(withGlobal<OwnProps>(
       replyInfo: chatId && threadId ? selectDraft(global, chatId, threadId)?.replyInfo : undefined,
       isSelectModeActive: selectIsInSelectMode(global),
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
+      liveFormat: global.settings.liveFormat,
     };
   },
 )(MessageInput));
