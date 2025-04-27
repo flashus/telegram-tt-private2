@@ -21,6 +21,7 @@ const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, care
   // 2. Advance only the cleanedHtml if chars don't match.
   // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
   //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 3.1. If img is encountered - check if that is an emoji - if so, increment i by its length
   // 4. Remove 1 from the result if the char is an edit key.
   let resultOffset = caretOffset;
   let i = 0;
@@ -31,6 +32,17 @@ const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, care
       j++;
     } else {
       if (cleanedHtml[j] === '<') {
+        // Check if this is an img tag
+        const isImg = cleanedHtml[j + 1] === 'i' && cleanedHtml[j + 2] === 'm' && cleanedHtml[j + 3] === 'g';
+        if (isImg) {
+          // Find the alt attribute value which contains the emoji
+          const altMatch = cleanedHtml.slice(j).match(/alt="([^"]+)"/);
+          if (altMatch && altMatch[1]) {
+            // If we found an emoji in alt, increment i to skip over it in plainFormattedText
+            i += altMatch[1].length;
+          }
+        }
+        // Skip to the end of the tag
         while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
           j++;
         }
@@ -53,6 +65,7 @@ const getNewSelectionOffsets = (
   // 2. Advance only the cleanedHtml if chars don't match.
   // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
   //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 3.1. If img is encountered - check if that is an emoji - if so, increment i by its length
   // 4. Remove 1 from the result if the char is an edit key.
   // 5. Keep track of startFinished flag.
   const resultOffsets = { ...selectionOffsets };
@@ -76,6 +89,17 @@ const getNewSelectionOffsets = (
       i++;
       j++;
     } else {
+      // Check if this is an img tag
+      const isImg = cleanedHtml[j + 1] === 'i' && cleanedHtml[j + 2] === 'm' && cleanedHtml[j + 3] === 'g';
+      if (isImg) {
+        // Find the alt attribute value which contains the emoji
+        const altMatch = cleanedHtml.slice(j).match(/alt="([^"]+)"/);
+        if (altMatch && altMatch[1]) {
+          // If we found an emoji in alt, increment i to skip over it in plainFormattedText
+          i += altMatch[1].length;
+        }
+      }
+      // Skip to the end of the tag
       if (cleanedHtml[j] === '<') {
         while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
           j++;
