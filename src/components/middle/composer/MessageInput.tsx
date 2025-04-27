@@ -213,7 +213,8 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     getLiveFormatInputRef,
   } = useLiveFormatting({
     getHtml,
-    // Always check that this is true: onUpdate of MessageInput is _the_ setHtml of Composer. true at moment of 27.04.2025
+    // Always check that this is true: onUpdate of MessageInput
+    // is _the_ setHtml of Composer. true at moment of 27.04.2025
     setHtml: onUpdate,
     editableInputId,
     liveFormat,
