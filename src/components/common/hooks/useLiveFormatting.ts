@@ -73,47 +73,6 @@ const getPatternByClassList = (classList: DOMTokenList): string => {
   return '';
 };
 
-// const getMarkerAccumulatedLength = (
-//   entities: ApiMessageEntity[],
-//   visibleEntityIndexes: number[],
-//   keepMarkerWidth: boolean,
-//   caretOffset: number,
-// ): number => {
-//   // 1. Traverse the entities
-//   // 1.1. For each entity, check if caretOffset is on the left of it or inside or right of it
-//   // 1.2. If inside, add corresponding entity marker length to accumulated length
-//   // 1.3. If on the right, add double entity marker length to accumulated length
-//   // 2. Return accumulated length
-//   // It is not guaranteed that entities are sorted by offset
-
-//   let accumulatedLength = 0;
-//   for (let i = 0; i < entities.length; i++) {
-//     if (!keepMarkerWidth && !visibleEntityIndexes.includes(i)) {
-//       continue;
-//     }
-//     const entity = entities[i];
-//     const entityStartOffset = entity.offset;
-//     const entityEndOffset = entity.offset + entity.length;
-
-//     if (caretOffset < entityStartOffset) {
-//       continue;
-//     } else if (caretOffset >= entityEndOffset) {
-//       const marker = ENTITY_TYPE_TO_MARKER_PATTERN[entity.type];
-//       if (marker) {
-//         accumulatedLength += marker.length * 2;
-//       }
-//       continue;
-//     // } else if (caretOffset >= entityStartOffset) {
-//     } else {
-//       const marker = ENTITY_TYPE_TO_MARKER_PATTERN[entity.type];
-//       if (marker) {
-//         accumulatedLength += marker.length;
-//       }
-//     }
-//   }
-//   return accumulatedLength;
-// };
-
 class SelectionRestorerSingleton {
   private lastRequestId = 0; // <-- version counter
 
@@ -368,7 +327,7 @@ const useLiveFormatting = ({
     const sel = window.getSelection();
     // Only proceed if selection is collapsed and within the editor
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
-    console.log('ApplyInlineEdit - START ------------------');
+
     // 1. Get current state
     const caretOffset = getPlainTextOffsetFromRange(el, false);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
@@ -459,8 +418,6 @@ const useLiveFormatting = ({
     );
 
     const htmlChanged = newHtml !== currentHtml;
-
-    console.log('ApplyInlineEdit - END --------------------');
 
     if (htmlChanged) {
       // Update the state/DOM
