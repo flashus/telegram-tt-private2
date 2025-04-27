@@ -3,16 +3,22 @@ import React, {
   memo, useEffect, useRef, useState,
 } from '../../../lib/teact/teact';
 
+import type { ApiMessageEntityBlockquote, ApiMessageEntityDefault } from '../../../api/types';
 import type { IAnchorPosition } from '../../../types';
+import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
+import { TokenType } from '../../../util/ast/astEnums';
+import { getPlainTextOffsetsFromRange } from '../../../util/ast/plainTextOffset';
+import { TOKEN_PATTERNS } from '../../../util/ast/token';
 import { ensureProtocol } from '../../../util/browser/url';
 import buildClassName from '../../../util/buildClassName';
 import captureEscKeyListener from '../../../util/captureEscKeyListener';
 import getKeyFromEvent from '../../../util/getKeyFromEvent';
 import stopEvent from '../../../util/stopEvent';
 import { INPUT_CUSTOM_EMOJI_SELECTOR } from './helpers/customEmoji';
+import { flushSurroundingMarkers } from './helpers/marker';
 import { getExpectedParentElementRecursive } from './helpers/selection';
 
 import useFlag from '../../../hooks/useFlag';
@@ -30,8 +36,10 @@ export type OwnProps = {
   isOpen: boolean;
   anchorPosition?: IAnchorPosition;
   selectedRange?: Range;
-  setSelectedRange: (range: Range) => void;
+  setSelectedRange: (range: Range) => void; // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose: () => void;
+  applyInlineEditForSelection: ApplyInlineEditForSelectionFn;
+  getLiveFormatInputRef: () => HTMLElement | null;
 };
 
 interface ISelectedTextFormats {
@@ -43,6 +51,16 @@ interface ISelectedTextFormats {
   spoiler?: boolean;
   blockquote?: boolean;
 }
+
+// const SELECTED_TEXT_FORMAT_TO_MARKER: Record<keyof ISelectedTextFormats, string> = {
+//   bold: '**',
+//   italic: '__',
+//   underline: '++',
+//   strikethrough: '~~',
+//   monospace: '`',
+//   spoiler: '||',
+//   blockquote: '> ',
+// };
 
 const TEXT_FORMAT_BY_TAG_NAME: Record<string, keyof ISelectedTextFormats> = {
   B: 'bold',
@@ -61,8 +79,10 @@ const TextFormatter: FC<OwnProps> = ({
   isOpen,
   anchorPosition,
   selectedRange,
-  setSelectedRange,
+  setSelectedRange, // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose,
+  applyInlineEditForSelection,
+  getLiveFormatInputRef,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +158,7 @@ const TextFormatter: FC<OwnProps> = ({
     }
   });
 
+  // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   const updateSelectedRange = useLastCallback(() => {
     const selection = window.getSelection();
     if (selection) {
@@ -217,155 +238,367 @@ const TextFormatter: FC<OwnProps> = ({
   }
 
   const handleSpoilerText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.SPOILER_MARKER];
     if (selectedTextFormats.spoiler) {
-      const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
-      if (
-        !selectedRange
-        || !element
-        || element.dataset.entityType !== ApiMessageEntityTypes.Spoiler
-        || !element.textContent
-      ) {
-        return;
-      }
-
-      element.replaceWith(element.textContent);
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         spoiler: false,
       }));
 
-      return;
-    }
-
-    const text = getSelectedText();
-    document.execCommand(
-      'insertHTML', false, `<span class="spoiler" data-entity-type="${ApiMessageEntityTypes.Spoiler}">${text}</span>`,
-    );
-    onClose();
-  });
-
-  const handleBoldText = useLastCallback(() => {
-    setSelectedTextFormats((selectedFormats) => {
-      // Somehow re-applying 'bold' command to already bold text doesn't work
-      document.execCommand(selectedFormats.bold ? 'removeFormat' : 'bold');
-      Object.keys(selectedFormats).forEach((key) => {
-        if ((key === 'italic' || key === 'underline') && Boolean(selectedFormats[key])) {
-          document.execCommand(key);
-        }
-      });
-
-      updateSelectedRange();
-      return {
-        ...selectedFormats,
-        bold: !selectedFormats.bold,
-      };
-    });
-  });
-
-  const handleItalicText = useLastCallback(() => {
-    document.execCommand('italic');
-    updateSelectedRange();
-    setSelectedTextFormats((selectedFormats) => ({
-      ...selectedFormats,
-      italic: !selectedFormats.italic,
-    }));
-  });
-
-  const handleUnderlineText = useLastCallback(() => {
-    document.execCommand('underline');
-    updateSelectedRange();
-    setSelectedTextFormats((selectedFormats) => ({
-      ...selectedFormats,
-      underline: !selectedFormats.underline,
-    }));
-  });
-
-  const handleStrikethroughText = useLastCallback(() => {
-    if (selectedTextFormats.strikethrough) {
-      const element = getExpectedParentElementRecursive('DEL', getSelectedElement());
+      const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
       if (
         !selectedRange
         || !element
-        || element.tagName !== 'DEL'
-        || !element.textContent
+        || element.tagName !== 'SPAN'
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Spoiler],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        spoiler: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Spoiler,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleBoldText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.BOLD_MARKER];
+    if (selectedTextFormats.bold) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        bold: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('B', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'B'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Bold],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        bold: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Bold,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleItalicText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.ITALIC_MARKER];
+    if (selectedTextFormats.italic) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        italic: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('I', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'I'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Italic],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        italic: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Italic,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleUnderlineText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER];
+    if (selectedTextFormats.underline) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        underline: false,
+      }));
+
+      const element = getExpectedParentElementRecursive('U', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'U'
+      ) {
+        return;
+      }
+
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Underline],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        underline: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Underline,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleStrikethroughText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.STRIKE_MARKER];
+    if (selectedTextFormats.strikethrough) {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         strikethrough: false,
       }));
 
-      return;
-    }
-
-    const text = getSelectedText();
-    document.execCommand('insertHTML', false, `<del>${text}</del>`);
-    onClose();
-  });
-
-  const handleMonospaceText = useLastCallback(() => {
-    if (selectedTextFormats.monospace) {
-      const element = getExpectedParentElementRecursive('CODE', getSelectedElement());
+      const element = getExpectedParentElementRecursive('DEL', getSelectedElement());
       if (
         !selectedRange
         || !element
-        || element.tagName !== 'CODE'
-        || !element.textContent
+        || element.tagName !== 'DEL'
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Strike],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        strikethrough: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Strike,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleMonospaceText = useLastCallback(() => {
+    const marker = TOKEN_PATTERNS[TokenType.CODE_MARKER];
+    if (selectedTextFormats.monospace) {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         monospace: false,
       }));
 
-      return;
-    }
-
-    const text = getSelectedText(true);
-    document.execCommand('insertHTML', false, `<code class="text-entity-code" dir="auto">${text}</code>`);
-    onClose();
-  });
-
-  const handleBlockquoteText = useLastCallback(() => {
-    if (selectedTextFormats.blockquote) {
-      const element = getExpectedParentElementRecursive('BLOCKQUOTE', getSelectedElement());
+      const element = getExpectedParentElementRecursive('CODE', getSelectedElement());
       if (
         !selectedRange
         || !element
-        || element.tagName !== 'BLOCKQUOTE'
-        || !element.textContent
+        || element.tagName !== 'CODE'
       ) {
         return;
       }
 
-      element.replaceWith(element.textContent);
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Code],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        monospace: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Code,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
+    }
+    requestAnimationFrame(() => updateSelectedRange());
+  });
+
+  const handleBlockquoteText = useLastCallback(() => {
+    // TODO!!!! Handle creating nested blockquotes!
+
+    const marker = TOKEN_PATTERNS[TokenType.QUOTE_MARKER];
+    if (selectedTextFormats.blockquote) {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         blockquote: false,
       }));
 
-      onClose();
-      return;
-    }
+      const element = getExpectedParentElementRecursive('BLOCKQUOTE', getSelectedElement());
+      if (
+        !selectedRange
+        || !element
+        || element.tagName !== 'BLOCKQUOTE'
+      ) {
+        return;
+      }
 
-    const text = getSelectedText();
-    if (text) {
-      document.execCommand(
-        'insertHTML',
-        false,
-        `<blockquote class="blockquote" data-entity-type="${ApiMessageEntityTypes.Blockquote}">${text}</blockquote>`,
-      );
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Blockquote],
+        forceSelectionRestore: true,
+      });
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        blockquote: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityBlockquote = {
+        type: ApiMessageEntityTypes.Blockquote,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
     }
-    onClose();
+    requestAnimationFrame(() => updateSelectedRange());
   });
 
   const handleLinkUrlConfirm = useLastCallback(() => {
+    // TODO!!! Handle url links!
+
     const formattedLinkUrl = (ensureProtocol(linkUrl) || '').split('%').map(encodeURI).join('%');
 
     if (isEditingLink) {

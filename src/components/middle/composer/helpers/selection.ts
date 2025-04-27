@@ -75,18 +75,24 @@ export function isDeepBlockquoteEnd(range: Range, blockquote: HTMLElement): bool
 export function getExpectedParentElementRecursive(
   expectedTagName: string,
   element: Node | HTMLElement | null | undefined,
+  expectedClassName: string = '',
   maxDepth: number = MAX_NESTING_PARENTS,
   iter: number = 1,
 ) {
   if (element instanceof HTMLElement && element?.tagName === expectedTagName) {
-    return element;
+    if (!expectedClassName) {
+      return element;
+    }
+    if (element.classList.contains(expectedClassName)) {
+      return element;
+    }
   }
 
   if (iter >= MAX_NESTING_PARENTS || !element) {
     return undefined;
   } else {
     return getExpectedParentElementRecursive(
-      expectedTagName, element?.parentElement, maxDepth, iter + 1,
+      expectedTagName, element?.parentElement, expectedClassName, maxDepth, iter + 1,
     );
   }
 }

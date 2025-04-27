@@ -38,7 +38,12 @@
 
     &--item {
       &.active {
-        background-color: var(--color-item-active);
+        background-color: var(--color-interactive-element-hover);
+      }
+
+      .Switcher {
+        margin-left: 0;
+        margin-right: 0.875rem;
       }
     }
   }

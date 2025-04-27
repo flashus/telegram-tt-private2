@@ -107,7 +107,14 @@ export type LangCode = (
 );
 
 export type TimeFormat = '24h' | '12h';
-export type LiveFormat = 'on' | 'off' | 'combo';
+export type LiveFormatMode = 'on' | 'off' | 'combo';
+
+export interface ILiveFormatSettings {
+  mode: LiveFormatMode;
+  composerButtonShown: boolean;
+  validOffsetMargin: number;
+  keepMarkerWidth: boolean;
+}
 
 export interface ISettings {
   theme: ThemeKey;
@@ -136,8 +143,6 @@ export interface ISettings {
   isSensitiveEnabled?: boolean;
   canChangeSensitive?: boolean;
   timeFormat: TimeFormat;
-  liveFormat: LiveFormat;
-  isComposerLiveFormatConfigButtonShown?: boolean;
   wasTimeFormatSetManually: boolean;
   isConnectionStatusMinimized: boolean;
   shouldArchiveAndMuteNewNonContact?: boolean;

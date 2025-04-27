@@ -64,6 +64,7 @@ import type {
   GiftProfileFilterOptions,
   GlobalSearchContent,
   IAnchorPosition,
+  ILiveFormatSettings,
   ISettings,
   IThemeSettings,
   LoadMoreDirection,
@@ -248,6 +249,7 @@ export interface ActionPayloads {
   };
   loadNotificationExceptions: undefined;
   setThemeSettings: { theme: ThemeKey } & Partial<IThemeSettings>;
+  setLiveFormatSettings: Partial<ILiveFormatSettings>;
   updateIsOnline: boolean;
 
   loadContentSettings: undefined;

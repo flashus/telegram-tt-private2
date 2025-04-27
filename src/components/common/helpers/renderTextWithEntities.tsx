@@ -3,7 +3,7 @@ import { getActions } from '../../../global';
 
 import type { ApiFormattedText, ApiMessageEntity } from '../../../api/types';
 import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
-import type { TextPart, ThreadId } from '../../../types';
+import type { LiveFormatMode, TextPart, ThreadId } from '../../../types';
 import type { TextFilter } from './renderText';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
@@ -292,13 +292,26 @@ export const ENTITY_TYPE_TO_MATCHER: { [key: string] : string } = {
   [ApiMessageEntityTypes.Blockquote]: 'blockquote',
 };
 
+export const ENTITY_TYPE_TO_MARKER_PATTERN: { [key: string]: string } = {
+  [ApiMessageEntityTypes.Bold]: TOKEN_PATTERNS[TokenType.BOLD_MARKER],
+  [ApiMessageEntityTypes.Italic]: TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
+  [ApiMessageEntityTypes.Underline]: TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
+  [ApiMessageEntityTypes.Strike]: TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
+  [ApiMessageEntityTypes.Spoiler]: TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
+  [ApiMessageEntityTypes.Code]: TOKEN_PATTERNS[TokenType.CODE_MARKER],
+  [ApiMessageEntityTypes.Pre]: TOKEN_PATTERNS[TokenType.CODE_BLOCK],
+  [ApiMessageEntityTypes.Blockquote]: TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
+};
+
 // helper to wrap raw markdown markers
 function wrapRawMarkers(
   htmlArg: string,
   entityType: ApiMessageEntityTypes,
-  marker: string | RegExp,
-  entities: ApiMessageEntity[] | undefined,
-  rawEntityIndexes: number[] | undefined,
+  marker: string,
+  entities: ApiMessageEntity[],
+  rawEntityIndexes: number[],
+  visibleEntityIndexes: number[],
+  keepMarkerWidth: boolean,
 ): string {
   const es = entities ?? [];
   const rawIndexes = rawEntityIndexes ?? [];
@@ -313,13 +326,18 @@ function wrapRawMarkers(
   let idx = 0;
   const matcher = ENTITY_TYPE_TO_MATCHER[entityType];
   const pattern = HTML_TAG_MATCH_REGEXPS[matcher];
-  const wrapperClass = TAG_TO_WRAPPER_CLASS[matcher];
+  let wrapperClass = TAG_TO_WRAPPER_CLASS[matcher];
   return htmlArg.replace(pattern, (match) => {
     const ordinal = idx++;
     const entityIndex = ordinalToIndex.get(ordinal);
     if (entityIndex === undefined) return match; // Not a raw entity index, return original tag
     // Wrap match with explicit marker spans instead of a single wrapper + pseudo-elements
-    const markerString = typeof marker === 'string' ? marker : ''; // Ensure marker is a string
+    let markerString = keepMarkerWidth ? marker : '';
+    if (visibleEntityIndexes.includes(entityIndex)) {
+      wrapperClass = `${wrapperClass} visible`;
+      markerString = marker;
+    }
+
     const startMarkerSpan = (
       `<span class="md-marker ${wrapperClass}" `
         + `data-pos="start" data-entity-index="${entityIndex}">${markerString}</span>`
@@ -335,8 +353,10 @@ function wrapRawMarkers(
 
 function wrapRawMarkersAll(
   htmlArg: string,
-  entities: ApiMessageEntity[] | undefined,
-  rawEntityIndexes: number[] | undefined,
+  entities: ApiMessageEntity[],
+  rawEntityIndexes: number[],
+  visibleEntityIndexes: number[],
+  keepMarkerWidth: boolean,
 ): string {
   let html = htmlArg;
   // apply wrapping via helper
@@ -346,6 +366,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.BOLD_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -353,6 +375,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.ITALIC_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -360,6 +384,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.UNDERLINE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -367,6 +393,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.STRIKE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -374,6 +402,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.SPOILER_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -381,6 +411,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.CODE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -388,6 +420,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.CODE_BLOCK],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
   html = wrapRawMarkers(
     html,
@@ -395,6 +429,8 @@ function wrapRawMarkersAll(
     TOKEN_PATTERNS[TokenType.QUOTE_MARKER],
     entities,
     rawEntityIndexes,
+    visibleEntityIndexes,
+    keepMarkerWidth,
   );
 
   return html;
@@ -403,8 +439,10 @@ function wrapRawMarkersAll(
 export function getTextWithEntitiesAsHtml(
   formattedText?: ApiFormattedText,
   opts: {
-    // rawMarkersFor?: ApiMessageEntityTypes[];
+    liveFormatMode?: LiveFormatMode;
     rawEntityIndexes?: number[];
+    visibleEntityIndexes?: number[];
+    keepMarkerWidth?: boolean;
   } = {},
 ) {
   const { text, entities } = formattedText || {};
@@ -420,8 +458,18 @@ export function getTextWithEntitiesAsHtml(
   });
   let html = Array.isArray(result) ? result.join('') : result;
 
-  if (opts.rawEntityIndexes && opts.rawEntityIndexes?.length > 0) {
-    html = wrapRawMarkersAll(html, entities, opts.rawEntityIndexes);
+  if (
+    opts.liveFormatMode === 'on'
+    && opts.rawEntityIndexes
+    && opts.rawEntityIndexes?.length > 0
+  ) {
+    html = wrapRawMarkersAll(
+      html,
+      entities ?? [],
+      opts.rawEntityIndexes,
+      opts.visibleEntityIndexes ?? [],
+      opts.keepMarkerWidth ?? false,
+    );
   }
 
   return html;

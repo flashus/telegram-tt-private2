@@ -4,7 +4,9 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import type { ISettings, LiveFormat, TimeFormat } from '../../../types';
+import type {
+  ILiveFormatSettings, ISettings, LiveFormatMode, TimeFormat,
+} from '../../../types';
 import type { IRadioOption } from '../../ui/RadioGroup';
 import { SettingsScreens } from '../../../types';
 
@@ -35,12 +37,11 @@ type StateProps =
     'messageTextSize' |
     'animationLevel' |
     'messageSendKeyCombo' |
-    'timeFormat' |
-    'liveFormat' |
-    'isComposerLiveFormatConfigButtonShown'
+    'timeFormat'
   )> & {
     theme: ISettings['theme'];
     shouldUseSystemTheme: boolean;
+    liveFormat: ILiveFormatSettings;
   };
 
 const SettingsGeneral: FC<OwnProps & StateProps> = ({
@@ -53,10 +54,10 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
   theme,
   shouldUseSystemTheme,
   liveFormat,
-  isComposerLiveFormatConfigButtonShown,
 }) => {
   const {
     setSettingOption,
+    setLiveFormatSettings,
   } = getActions();
 
   const lang = useLang();
@@ -92,7 +93,7 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     },
   ] : undefined;
 
-  const liveFormatOptions: IRadioOption<LiveFormat>[] = [
+  const liveFormatOptions: IRadioOption<LiveFormatMode>[] = [
     { value: 'on', label: 'On'/* lang('SettingsLiveFormatOn') */ },
     { value: 'combo', label: 'Combo (cmd + alt + f)' /* lang('SettingsLiveFormatCombo') */ },
     { value: 'off', label: 'Off'/* lang('SettingsLiveFormatOff') */ },
@@ -127,10 +128,6 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     setSettingOption({ messageSendKeyCombo: newCombo as ISettings['messageSendKeyCombo'] });
   }, [setSettingOption]);
 
-  const handleLiveFormatChange = useCallback((newValue: LiveFormat) => {
-    setSettingOption({ liveFormat: newValue });
-  }, [setSettingOption]);
-
   const [isTrayIconEnabled, setIsTrayIconEnabled] = useState(false);
   useEffect(() => {
     window.electron?.getIsTrayIconEnabled().then(setIsTrayIconEnabled);
@@ -140,9 +137,21 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
     window.electron?.setIsTrayIconEnabled(isChecked);
   }, []);
 
-  const handleIsComposerLiveFormatConfigButtonShownChange = useCallback((isChecked: boolean) => {
-    setSettingOption({ isComposerLiveFormatConfigButtonShown: isChecked });
-  }, []);
+  const handleLiveFormatModeChange = useCallback((newValue: LiveFormatMode) => {
+    setLiveFormatSettings({ mode: newValue });
+  }, [setLiveFormatSettings]);
+
+  const handleLiveFormatValidOffsetMarginChange = useCallback((newValue: number) => {
+    setLiveFormatSettings({ validOffsetMargin: newValue });
+  }, [setLiveFormatSettings]);
+
+  const handleLiveFormatKeepMarkerWidthChange = useCallback((isChecked: boolean) => {
+    setLiveFormatSettings({ keepMarkerWidth: isChecked });
+  }, [setLiveFormatSettings]);
+
+  const handleLiveFormatComposerButtonShownChange = useCallback((isChecked: boolean) => {
+    setLiveFormatSettings({ composerButtonShown: isChecked });
+  }, [setLiveFormatSettings]);
 
   useHistoryBack({
     isActive,
@@ -224,14 +233,28 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
         <RadioGroup
           name="liveformat"
           options={liveFormatOptions}
-          selected={liveFormat}
-          onChange={handleLiveFormatChange as (value: string) => void}
+          selected={liveFormat.mode}
+          onChange={handleLiveFormatModeChange as (value: string) => void}
+        />
+        <RangeSlider
+          // label={lang('SettingsLiveFormatValidOffset')}
+          label="Marker visibility offset margin"
+          min={0}
+          max={10}
+          value={liveFormat.validOffsetMargin}
+          onChange={handleLiveFormatValidOffsetMarginChange}
+        />
+        <Checkbox
+          // label={lang('SettingsComposerLiveFormatMarkerVisible')}
+          label="Keep marker width when invisible"
+          checked={Boolean(liveFormat.keepMarkerWidth)}
+          onCheck={handleLiveFormatKeepMarkerWidthChange}
         />
         <Checkbox
           // label={lang('SettingsComposerLiveFormatButton')}
           label="Show settings button in composer"
-          checked={Boolean(isComposerLiveFormatConfigButtonShown)}
-          onCheck={handleIsComposerLiveFormatConfigButtonShownChange}
+          checked={Boolean(liveFormat.composerButtonShown)}
+          onCheck={handleLiveFormatComposerButtonShownChange}
         />
       </div>
     </div>
@@ -241,6 +264,7 @@ const SettingsGeneral: FC<OwnProps & StateProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const { theme, shouldUseSystemTheme } = global.settings.byKey;
+    const { liveFormat } = global.settings;
 
     return {
       ...pick(global.settings.byKey, [
@@ -250,11 +274,10 @@ export default memo(withGlobal<OwnProps>(
         'isSensitiveEnabled',
         'canChangeSensitive',
         'timeFormat',
-        'liveFormat',
-        'isComposerLiveFormatConfigButtonShown',
       ]),
       theme,
       shouldUseSystemTheme,
+      liveFormat,
     };
   },
 )(SettingsGeneral));

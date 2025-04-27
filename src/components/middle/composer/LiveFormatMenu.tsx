@@ -4,7 +4,7 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions } from '../../../global';
 
-import type { LiveFormat } from '../../../types';
+import type { LiveFormatMode } from '../../../types';
 
 import buildClassName from '../../../util/buildClassName';
 import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
@@ -16,13 +16,16 @@ import useMouseInside from '../../../hooks/useMouseInside';
 import Icon from '../../common/icons/Icon';
 import Menu from '../../ui/Menu';
 import MenuItem from '../../ui/MenuItem';
+import MenuSeparator from '../../ui/MenuSeparator';
 import ResponsiveHoverButton from '../../ui/ResponsiveHoverButton';
+import Switcher from '../../ui/Switcher';
 
 import './LiveFormatMenu.scss';
 
 export type OwnProps = {
   isButtonVisible: boolean;
-  liveFormat: LiveFormat;
+  liveFormatMode: LiveFormatMode;
+  keepMarkerWidth: boolean;
   forceMenuClose?: boolean;
   onMenuOpen: NoneToVoidFunction;
   onMenuClose: NoneToVoidFunction;
@@ -30,13 +33,14 @@ export type OwnProps = {
 
 const LiveFormatMenu: FC<OwnProps> = ({
   isButtonVisible,
-  liveFormat,
+  liveFormatMode,
+  keepMarkerWidth,
   forceMenuClose,
   onMenuOpen,
   onMenuClose,
 }) => {
   const {
-    setSettingOption,
+    setLiveFormatSettings,
   } = getActions();
 
   const [isLiveFormatMenuOpen, openLiveFormatMenu, closeLiveFormatMenu] = useFlag();
@@ -76,18 +80,19 @@ const LiveFormatMenu: FC<OwnProps> = ({
   });
 
   const handleLiveFormatOn = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'on' });
-    closeLiveFormatMenu();
+    setLiveFormatSettings({ mode: 'on' });
   });
 
   const handleLiveFormatCombo = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'combo' });
-    closeLiveFormatMenu();
+    setLiveFormatSettings({ mode: 'combo' });
   });
 
   const handleLiveFormatOff = useLastCallback(() => {
-    setSettingOption({ liveFormat: 'off' });
-    closeLiveFormatMenu();
+    setLiveFormatSettings({ mode: 'off' });
+  });
+
+  const handleKeepMarkerWidthChange = useLastCallback(() => {
+    setLiveFormatSettings({ keepMarkerWidth: !keepMarkerWidth });
   });
 
   if (!isButtonVisible) {
@@ -124,24 +129,40 @@ const LiveFormatMenu: FC<OwnProps> = ({
       >
         <MenuItem
           icon="check"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'on' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'on' && 'active')}
           onClick={handleLiveFormatOn}
         >
           On {/* lang('SettingsLiveFormatOn') */}
         </MenuItem>
         <MenuItem
           icon="keyboard"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'combo' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'combo' && 'active')}
           onClick={handleLiveFormatCombo}
         >
           Combo (cmd + alt + f) {/* lang('SettingsLiveFormatCombo') */}
         </MenuItem>
         <MenuItem
           icon="close"
-          className={buildClassName('LiveFormatMenu--menu--item', liveFormat === 'off' && 'active')}
+          className={buildClassName('LiveFormatMenu--menu--item', liveFormatMode === 'off' && 'active')}
           onClick={handleLiveFormatOff}
         >
           Off {/* lang('SettingsLiveFormatOff') */}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem
+          customIcon={(
+            <Switcher
+              id="live-format-keep-marker-width-switcher"
+              // label={lang('SettingsLiveFormatKeepMarkerWidth')}
+              label="Keep marker width"
+              checked={keepMarkerWidth}
+              inactive
+            />
+          )}
+          className="LiveFormatMenu--menu--item"
+          onClick={handleKeepMarkerWidthChange}
+        >
+          Keep marker width {/* lang('SettingsLiveFormatKeepMarkerWidth') */}
         </MenuItem>
       </Menu>
     </div>

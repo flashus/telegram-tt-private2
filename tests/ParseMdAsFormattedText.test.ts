@@ -448,7 +448,7 @@ describe('Parse Edges4', () => {
   });
 });
 
-describe('Parse Edges4', () => {
+describe('Parse Edges5', () => {
   it('MD->AST bold, italic, strike, code, spoiler, link', () => {
     const [inputMarkdown, result] = ['**Bold __Italic__ ~~Strike~~ `Code` ||Spoiler||** [Link](https://example.com)', `<b>Bold <i>Italic</i> <s>Strike</s> <code>Code</code> <span data-entity-type="${ApiMessageEntityTypes.Spoiler}">Spoiler</span></b> <a href="https://example.com">Link</a>`];
     const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
@@ -845,6 +845,39 @@ describe('Parse Edges4', () => {
     const htmlOutput = renderASTToHTML(ast);
     expect(htmlOutput).toBe(result);
   });
+});
+
+describe('Parse Edges6 - multiple markers', () => {
+  /*
+  please deeply investigate possible root causes of an issue: "** bold and __|italic__and ++under++**" -press "_"-> "** bold and _______italic__ and ++under++**", single underscore got inside separate "__" before italic, i need "** bold and ___italic__ and ++under++**" result. Please think hard and first list all possible issues.
+  after window lost focus/get focus back i got intended string "** bold and ___italic__ and ++under++**"
+  */
+  it('MD->AST multiple markers: treat first chars of marker as marker', () => {
+    const [inputMarkdown, result] = ['**bold and ___italic__ and ++under++**',
+      '<b>bold and <i>_italic</i> and <u>under</u></b>'];
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    expect(ast.type).toBe(NodeType.DOCUMENT);
+    expect(ast.children.length).toBe(2);
+    expect(ast.children[0].type).toBe(NodeType.BOLD);
+    expect(ast.children[1].type).toBe(NodeType.EOF);
+
+    const htmlOutput = renderASTToHTML(ast);
+
+    expect(htmlOutput).toBe(result);
+  });
+
+  it('MD->AST: inserting _ inside __italic__ does not produce extra underscores', () => {
+    const inputMarkdown = '**bold and _______italic__ and ++under++**'; // 7 underscores
+    const expectedHtml = '<b>bold and <i>___italic</i> and <u>under</u></b>'; // This is the WRONG output, should not happen!
+    const ast = parseMarkdownToAST(inputMarkdown) || { type: NodeType.DOCUMENT, value: '', children: [] };
+    const htmlOutput = renderASTToHTML(ast);
+    expect(htmlOutput).not.toBe(expectedHtml); // This should fail if the bug is present
+  });
+
+  /**
+   please deeply investigate possible root causes of an issue, Please think hardest and first list all possible issues.
+   issue: "** bold and ___italic__ and |++under++**" -del-> "** bold and ___italic__ and |+++under++++**" (underlined style inplace, should be removed), expected:  "** bold and ___italic__ and |+under++**" (underline style removed).
+   */
 });
 
 describe('ParseMixedMarkdownAndHTML', () => {

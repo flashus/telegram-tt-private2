@@ -54,6 +54,7 @@ import type {
   ChatListType,
   ChatTranslatedMessages,
   EmojiKeywords,
+  ILiveFormatSettings,
   ISettings,
   IThemeSettings,
   PerformanceType,
@@ -409,6 +410,7 @@ export type GlobalState = {
 
   settings: {
     byKey: ISettings;
+    liveFormat: ILiveFormatSettings;
     performance: PerformanceType;
     loadedWallpapers?: ApiWallpaper[];
     themes: Partial<Record<ThemeKey, IThemeSettings>>;

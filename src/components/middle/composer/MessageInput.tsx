@@ -8,7 +8,7 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type {
-  IAnchorPosition, ISettings, MessageListType, ThreadId,
+  IAnchorPosition, ILiveFormatSettings, ISettings, MessageListType, ThreadId,
 } from '../../../types';
 import type { Signal } from '../../../util/signals';
 import { type ApiInputMessageReplyInfo, ApiMessageEntityTypes } from '../../../api/types';
@@ -35,6 +35,7 @@ import useDerivedState from '../../../hooks/useDerivedState';
 import useFlag from '../../../hooks/useFlag';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
+import useLiveFormatting from '../../common/hooks/useLiveFormatting';
 import useInputCustomEmojis from './hooks/useInputCustomEmojis';
 
 import Icon from '../../common/icons/Icon';
@@ -87,6 +88,7 @@ type StateProps = {
   isSelectModeActive?: boolean;
   messageSendKeyCombo?: ISettings['messageSendKeyCombo'];
   canPlayAnimatedEmojis: boolean;
+  liveFormat: ILiveFormatSettings;
 };
 
 const MAX_ATTACHMENT_MODAL_INPUT_HEIGHT = 160;
@@ -147,6 +149,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
   onBlur,
   isNeedPremium,
   messageListType,
+  liveFormat,
 }) => {
   const {
     editLastMessage,
@@ -193,7 +196,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     setShouldDisplayTimer(false);
   });
 
-  useInputCustomEmojis(
+  const { synchronizeElements } = useInputCustomEmojis(
     getHtml,
     inputRef,
     sharedCanvasRef,
@@ -204,6 +207,19 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     isReady,
     isActive,
   );
+
+  const {
+    applyInlineEditForSelection,
+    getLiveFormatInputRef,
+  } = useLiveFormatting({
+    getHtml,
+    // Always check that this is true: onUpdate of MessageInput
+    // is _the_ setHtml of Composer. true at moment of 27.04.2025
+    setHtml: onUpdate,
+    editableInputId,
+    liveFormat,
+    synchronizeCustomEmojis: synchronizeElements,
+  });
 
   const maxInputHeight = isAttachmentModalInput
     ? MAX_ATTACHMENT_MODAL_INPUT_HEIGHT
@@ -410,7 +426,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
       let parentElement: HTMLElement | null | undefined;
       if (e.key === 'Delete') {
         // if moved element is inside blockquote
-        parentElement = getExpectedParentElementRecursive(blockquoteTag, selection.anchorNode, 4);
+        parentElement = getExpectedParentElementRecursive(blockquoteTag, selection.anchorNode, '', 4);
       } else {
         parentElement = selection.anchorNode?.parentElement;
       }
@@ -506,7 +522,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
     if (!isComposing && e.key === 'Enter' && (e.shiftKey || isMobileDevice)) {
       const selection = window.getSelection();
       if (!selection) return;
-      const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, 4);
+      const blockquote = getExpectedParentElementRecursive('BLOCKQUOTE', selection.anchorNode, '', 4);
       if (!blockquote) return;
       e.preventDefault();
       const range = selection.getRangeAt(0);
@@ -767,8 +783,10 @@ const MessageInput: FC<OwnProps & StateProps> = ({
         isOpen={isTextFormatterOpen}
         anchorPosition={textFormatterAnchorPosition}
         selectedRange={selectedRange}
-        setSelectedRange={setSelectedRange}
+        setSelectedRange={setSelectedRange} // TODO!!! Delete! Or not? now handled by applyInlineEdit
         onClose={handleCloseTextFormatter}
+        applyInlineEditForSelection={applyInlineEditForSelection}
+        getLiveFormatInputRef={getLiveFormatInputRef}
       />
       {forcedPlaceholder && <span className="forced-placeholder">{renderText(forcedPlaceholder!)}</span>}
     </div>
@@ -784,6 +802,7 @@ export default memo(withGlobal<OwnProps>(
       replyInfo: chatId && threadId ? selectDraft(global, chatId, threadId)?.replyInfo : undefined,
       isSelectModeActive: selectIsInSelectMode(global),
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
+      liveFormat: global.settings.liveFormat,
     };
   },
 )(MessageInput));

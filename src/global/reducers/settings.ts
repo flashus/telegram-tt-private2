@@ -1,5 +1,6 @@
 import type { ApiNotifyPeerType, ApiPeerNotifySettings } from '../../api/types';
 import type {
+  ILiveFormatSettings,
   ISettings, IThemeSettings,
   ThemeKey,
 } from '../../types';
@@ -33,6 +34,21 @@ export function replaceThemeSettings<T extends GlobalState>(
           ...(global.settings.themes[theme] || {}),
           ...newSettings,
         },
+      },
+    },
+  };
+}
+
+export function replaceLiveFormatSettings<T extends GlobalState>(
+  global: T, newSettings?: Partial<ILiveFormatSettings>,
+): T {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      liveFormat: {
+        ...global.settings.liveFormat,
+        ...newSettings,
       },
     },
   };

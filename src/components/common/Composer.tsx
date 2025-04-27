@@ -34,9 +34,9 @@ import type {
 } from '../../global/types';
 import type {
   IAnchorPosition,
+  ILiveFormatSettings,
   InlineBotSettings,
   ISettings,
-  LiveFormat,
   MessageList,
   MessageListType,
   ThreadId,
@@ -154,7 +154,6 @@ import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import usePaidMessageConfirmation from '../middle/composer/hooks/usePaidMessageConfirmation';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
 import useVoiceRecording from '../middle/composer/hooks/useVoiceRecording';
-import useLiveFormatting from './hooks/useLiveFormatting';
 import { useUndoRedo } from './hooks/useUndoRedo';
 
 import AttachmentModal from '../middle/composer/AttachmentModal.async';
@@ -296,8 +295,7 @@ type StateProps =
     isPaymentMessageConfirmDialogOpen: boolean;
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
-    liveFormat: LiveFormat;
-    isComposerLiveFormatConfigButtonShown?: boolean;
+    liveFormat: ILiveFormatSettings;
   };
 
 enum MainButtonState {
@@ -421,7 +419,6 @@ const Composer: FC<OwnProps & StateProps> = ({
   starsBalance,
   isStarsBalanceModalOpen,
   liveFormat,
-  isComposerLiveFormatConfigButtonShown,
 }) => {
   const {
     sendMessage,
@@ -842,6 +839,12 @@ const Composer: FC<OwnProps & StateProps> = ({
     }
   });
 
+  const {
+    mode: liveFormatMode,
+    composerButtonShown: liveFormatComposerButtonShown,
+    keepMarkerWidth: liveFormatKeepMarkerWidth,
+  } = liveFormat;
+
   const [handleEditComplete, handleEditCancel, shouldForceShowEditing] = useEditing(
     getHtml,
     setHtml,
@@ -850,17 +853,10 @@ const Composer: FC<OwnProps & StateProps> = ({
     chatId,
     threadId,
     messageListType,
-    liveFormat,
+    liveFormatMode,
     draft,
     editingDraft,
   );
-
-  useLiveFormatting({
-    getHtml,
-    setHtml,
-    editableInputId,
-    liveFormat,
-  });
 
   // Handle chat change (should be placed after `useDraft` and `useEditing`)
   const resetComposerRef = useStateRef(resetComposer);
@@ -1186,14 +1182,6 @@ const Composer: FC<OwnProps & StateProps> = ({
           isForwarding,
         });
       }
-
-      // TODO: Check if this is needed!
-      // if (isForwarding) {
-      //   forwardMessages({
-      //     scheduledAt,
-      //     isSilent,
-      //   });
-      // }
 
       lastMessageSendTimeSeconds.current = getServerTime();
       clearDraft({
@@ -2160,9 +2148,10 @@ const Composer: FC<OwnProps & StateProps> = ({
               {formatVoiceRecordDuration(currentRecordTime - startRecordTimeRef.current!)}
             </span>
           )}
-          {isComposerLiveFormatConfigButtonShown && (
+          {liveFormatComposerButtonShown && (
             <LiveFormatMenu
-              liveFormat={liveFormat}
+              liveFormatMode={liveFormatMode}
+              keepMarkerWidth={liveFormatKeepMarkerWidth}
               isButtonVisible={!activeVoiceRecording}
               onMenuOpen={handleLiveFormatMenuOpen}
               onMenuClose={handleLiveFormatMenuClose}
@@ -2395,8 +2384,9 @@ export default memo(withGlobal<OwnProps>(
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove, liveFormat, isComposerLiveFormatConfigButtonShown,
+      shouldPaidMessageAutoApprove,
     } = global.settings.byKey;
+    const { liveFormat } = global.settings;
     const {
       forwardMessages: { messageIds: forwardMessageIds },
     } = selectTabState(global);
@@ -2552,7 +2542,6 @@ export default memo(withGlobal<OwnProps>(
       starsBalance,
       isStarsBalanceModalOpen,
       liveFormat,
-      isComposerLiveFormatConfigButtonShown,
     };
   },
 )(Composer));

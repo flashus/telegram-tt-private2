@@ -209,6 +209,15 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
     ...cached.settings.performance,
   };
 
+  if (!cached.settings.liveFormat) {
+    cached.settings.liveFormat = initialState.settings.liveFormat;
+  }
+
+  cached.settings.liveFormat = {
+    ...initialState.settings.liveFormat,
+    ...cached.settings.liveFormat,
+  };
+
   if (cached.appConfig && !cached.appConfig.limits) {
     cached.appConfig.limits = DEFAULT_LIMITS;
   }
@@ -659,11 +668,19 @@ function omitLocalMedia(message: ApiMessage): ApiMessage {
 
 function reduceSettings<T extends GlobalState>(global: T): GlobalState['settings'] {
   const {
-    byKey, themes, performance, botVerificationShownPeerIds, miniAppsCachedPosition, miniAppsCachedSize, notifyDefaults,
+    byKey,
+    liveFormat,
+    themes,
+    performance,
+    botVerificationShownPeerIds,
+    miniAppsCachedPosition,
+    miniAppsCachedSize,
+    notifyDefaults,
   } = global.settings;
 
   return {
     byKey,
+    liveFormat,
     themes,
     performance,
     privacy: {},
