@@ -21,6 +21,7 @@ const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, care
   // 2. Advance only the cleanedHtml if chars don't match.
   // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
   //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 3.1. If img is encountered - check if that is an emoji - if so, increment i by its length
   // 4. Remove 1 from the result if the char is an edit key.
   let resultOffset = caretOffset;
   let i = 0;
@@ -31,6 +32,17 @@ const getNewCaretOffset = (cleanedHtml: string, plainFormattedText: string, care
       j++;
     } else {
       if (cleanedHtml[j] === '<') {
+        // Check if this is an img tag
+        const isImg = cleanedHtml[j + 1] === 'i' && cleanedHtml[j + 2] === 'm' && cleanedHtml[j + 3] === 'g';
+        if (isImg) {
+          // Find the alt attribute value which contains the emoji
+          const altMatch = cleanedHtml.slice(j).match(/alt="([^"]+)"/);
+          if (altMatch && altMatch[1]) {
+            // If we found an emoji in alt, increment i to skip over it in plainFormattedText
+            i += altMatch[1].length;
+          }
+        }
+        // Skip to the end of the tag
         while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
           j++;
         }
@@ -53,6 +65,7 @@ const getNewSelectionOffsets = (
   // 2. Advance only the cleanedHtml if chars don't match.
   // 3. If they do not match - check if cleanedHtml char is "<" key - at this point, it does not appear in plain text (would be 1 - match)
   //    If so, advance cleanedHtml until it is ">". So, effectively this means - skip all html tags that do not appear in plain text.
+  // 3.1. If img is encountered - check if that is an emoji - if so, increment i by its length
   // 4. Remove 1 from the result if the char is an edit key.
   // 5. Keep track of startFinished flag.
   const resultOffsets = { ...selectionOffsets };
@@ -76,6 +89,17 @@ const getNewSelectionOffsets = (
       i++;
       j++;
     } else {
+      // Check if this is an img tag
+      const isImg = cleanedHtml[j + 1] === 'i' && cleanedHtml[j + 2] === 'm' && cleanedHtml[j + 3] === 'g';
+      if (isImg) {
+        // Find the alt attribute value which contains the emoji
+        const altMatch = cleanedHtml.slice(j).match(/alt="([^"]+)"/);
+        if (altMatch && altMatch[1]) {
+          // If we found an emoji in alt, increment i to skip over it in plainFormattedText
+          i += altMatch[1].length;
+        }
+      }
+      // Skip to the end of the tag
       if (cleanedHtml[j] === '<') {
         while (cleanedHtml[j] !== '>' && j < cleanedHtml.length) {
           j++;
@@ -129,10 +153,147 @@ export function cleanHtml(html: string) {
   return cleanedHtml;
 }
 
+export function cleanHtmlForLiveFormat(html: string) {
+  let cleanedHtml = html.slice(0);
+
+  // Replace marker spans with their raw text content before lexing
+  cleanedHtml = cleanedHtml.replace(/<span[^>]*class="[^\"]*\bmd-marker\b[^\"]*"[^>]*>([\s\S]*?)<\/span>/g,
+    (_match, markerText) => {
+      // Replace the span entirely with its text content (the raw marker)
+      // Decode potential HTML entities in markerText just in case
+      const decodedMarkerText = markerText.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+      return decodedMarkerText;
+    });
+
+  // Replace backticked code tags with just their content in backticks
+  // cleanedHtml = cleanedHtml.replace(/`<code[^>]*>([\s\S]*?)<\/code>`/g, '`$1`');
+
+  // Replace backticked pre tags with just their content in backticks
+  // cleanedHtml = cleanedHtml.replace(/```<pre[^>]*>([\s\S]*?)<\/pre>```/g, '```$1```');
+
+  // Replace blockquote tags wrapped in '>' with just their content in '>'
+  cleanedHtml = cleanedHtml.replace(/><blockquote[^>]*>([\s\S]*?)<\/blockquote>>/g, '>$1');
+
+  // Strip redundant nbsp's
+  cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
+
+  // Replace <div><br></div> with newline (new line in Safari)
+  // cleanedHtml = cleanedHtml.replace(/<div><br([^>]*)?><\/div>/g, '\n');
+  // Replace <br> with newline
+  cleanedHtml = cleanedHtml.replace(/<br([^>]*)?>/g, '\n');
+
+  // // Strip redundant <div> tags
+  // cleanedHtml = cleanedHtml.replace(/<\/div>(\s*)<div>/g, '\n');
+  // cleanedHtml = cleanedHtml.replace(/<div>/g, '\n');
+  // cleanedHtml = cleanedHtml.replace(/<\/div>/g, '');
+
+  cleanedHtml = cleanedHtml.replace(/&gt;/g, '>');
+  cleanedHtml = cleanedHtml.replace(/&lt;/g, '<');
+  cleanedHtml = cleanedHtml.replace(/&amp;/g, '&');
+
+  return cleanedHtml;
+}
+
+/**
+ * Cleans editor HTML by removing <code class="text-entity-code">...</code> tags
+ * that are inside code regions, leaving only the code content.
+ */
+export function cleanEditorHtml(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  // // Remove <code class="text-entity-code">...</code> tags
+  const codeElems = container.querySelectorAll('code.text-entity-code');
+  codeElems.forEach((codeElem) => {
+    // Replace <code>...</code> with just its text content
+    const text = `\`${codeElem.textContent}\`` || '';
+    codeElem.replaceWith(document.createTextNode(text));
+  });
+
+  // // Handle <div class="CodeBlock"> sections
+  const codeBlockDivs = container.querySelectorAll('div.CodeBlock');
+  codeBlockDivs.forEach((block) => {
+    let language = '';
+    const p = block.querySelector('p.code-title');
+    if (p) {
+      language = p.textContent || '';
+    }
+    const pre = block.querySelector('pre.code-block');
+    if (pre) {
+      // Extract renderedContent and wrap in markdown code block
+      const content = pre.textContent || '';
+      const text = `\`\`\`${language}\n${content}\n\`\`\``;
+      block.replaceWith(document.createTextNode(text));
+    }
+  });
+
+  // Remove any <span class="md-marker md-code-marker">...</span>
+  const markerElems = container.querySelectorAll('span.md-marker.md-code-marker, span.md-marker.md-pre-marker');
+  markerElems.forEach((marker) => marker.remove());
+
+  // Return cleaned text for markdown/AST parsing
+  return container.innerHTML || '';
+}
+
+/**
+ * Cleans editor HTML by removing <code class="text-entity-code">...</code> tags
+ * that are inside code regions, leaving only the code content.
+ */
+function cleanEditorHtmlSender(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  // // Remove <code class="text-entity-code">...</code> tags
+  const codeElems = container.querySelectorAll('code.text-entity-code');
+  codeElems.forEach((codeElem) => {
+    // Replace <code>...</code> with just its text content
+    const text = `${codeElem.textContent}` || '';
+    codeElem.replaceWith(document.createTextNode(text));
+  });
+
+  // // Handle <div class="CodeBlock"> sections
+  const codeBlockDivs = container.querySelectorAll('div.CodeBlock');
+  codeBlockDivs.forEach((block) => {
+    let language = '';
+    const p = block.querySelector('p.code-title');
+    if (p) {
+      language = p.textContent || '';
+    }
+    const pre = block.querySelector('pre.code-block');
+    if (pre) {
+      // Extract renderedContent and wrap in markdown code block
+      const content = pre.textContent || '';
+      const text = `${language}\n${content}\n`;
+      block.replaceWith(document.createTextNode(text));
+    }
+  });
+
+  // Remove any <span class="md-marker md-code-marker">...</span>
+  const markerElems = container.querySelectorAll('span.md-marker.md-code-marker, span.md-marker.md-pre-marker');
+  markerElems.forEach((marker) => marker.remove());
+
+  // Return cleaned text for markdown/AST parsing
+  return container.innerHTML || '';
+}
+
+const cleanHtmlSender = (html: string) => {
+  // Regex to match full CodeBlock container with optional title and inner <pre>
+  // const codeBlockRegex = /<div\b[^>]*class="[^"]*CodeBlock[^"]*"[^>]*>[\s\S]*?<\/div>/g;
+
+  // Triple backtick's insides!!!
+  const codeBlockRegex = /`[\s\S]*?`/g;
+
+  // Replace each matched CodeBlock section by passing it to cleanEditorHtml
+  return html.replace(codeBlockRegex, (fullMatch) => {
+    return cleanEditorHtmlSender(fullMatch);
+  });
+};
+
 export function parseMarkdownToAST(inputText: string, isCleaned = false): DocumentNode | undefined {
   let cleanedHtml = inputText;
   if (!isCleaned) {
-    cleanedHtml = cleanHtml(inputText);
+    cleanedHtml = cleanHtml(cleanedHtml);
+    cleanedHtml = cleanHtmlSender(cleanedHtml);
   }
   const lexer = new Lexer(cleanedHtml);
   const tokens = lexer.tokenize();
@@ -179,6 +340,10 @@ export function renderASTToEntities(ast: DocumentNode): ApiFormattedText {
 
 export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText {
   const ast = parseMarkdownToAST(inputText);
+
+  if (inputText.includes('```')) {
+    console.log('ast', ast);
+  }
   if (!ast) {
     return { text: inputText, entities: [] };
   }
@@ -194,7 +359,8 @@ export function parseMarkdownHtmlToEntitiesWithCaret(
     focusedEntityIndexes: number[];
     plainTextCaretOffset: number;
   } {
-  const cleanedHtml = cleanHtml(inputText);
+  let cleanedHtml = cleanEditorHtml(inputText);
+  cleanedHtml = cleanHtmlForLiveFormat(cleanedHtml);
   const ast = parseMarkdownToAST(cleanedHtml, true);
   if (!ast) {
     return {
@@ -286,6 +452,16 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
     // Remove entities of types that should not be part of selection
     entitiesList = entitiesList.filter((e, idx) => {
       if (!focusedEntityIndexes.includes(idx)) {
+        return true;
+      }
+      // Check if entity overlaps with selection range - no valid offsets allowed
+      if (
+        validOffsetMargin
+        && !(
+          newPlainTextSelectionOffsets.start <= e.offset + e.length
+          && newPlainTextSelectionOffsets.end >= e.offset
+        )
+      ) {
         return true;
       }
       if (!entityTypesToRemoveFromSelection.includes(e.type)) {

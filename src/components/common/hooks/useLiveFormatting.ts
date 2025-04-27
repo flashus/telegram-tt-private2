@@ -418,7 +418,6 @@ const useLiveFormatting = ({
     );
 
     const htmlChanged = newHtml !== currentHtml;
-
     if (htmlChanged) {
       // Update the state/DOM
       setHtml(newHtml); // Use the provided state setter

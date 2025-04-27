@@ -79,6 +79,10 @@ export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarker
         plainText += textToAdd;
       }
     } else if (currentNode instanceof HTMLElement) {
+      if (currentNode.tagName === 'BLOCKQUOTE') {
+        // Blockquotes are not accounted as anything in plain text
+        continue;
+      }
       if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
         plainText += '\n';
       } else if (currentNode.classList.contains('emoji') || currentNode.classList.contains('custom-emoji')) {
@@ -197,6 +201,10 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
         plainTextEnd += textToAdd;
       }
     } else if (currentNode instanceof HTMLElement) {
+      if (currentNode.tagName === 'BLOCKQUOTE') {
+        // Blockquotes are not accounted as anything in plain text
+        continue;
+      }
       if (currentNode.tagName === 'BR' || getComputedStyle(currentNode).display === 'block') {
         plainTextStart += '\n';
         plainTextEnd += '\n';

@@ -244,7 +244,7 @@ const HTML_TAG_MATCH_REGEXPS: { [key: string] : RegExp } = {
   del: /<del\b[^>]*>([\s\S]*?)<\/del>/g,
   'span-spoiler': /<span\b[^>]*class="spoiler"[^>]*>[\s\S]*?<\/span>/g,
   code: /<code\b[^>]*>([\s\S]*?)<\/code>/g,
-  pre: /<pre\b[^>]*>([\s\S]*?)<\/pre>/g,
+  pre: /<div\b[^>]*class="[^"]*CodeBlock"[^>]*>\s*<pre\b[^>]*>([\s\S]*?)<\/pre>\s*<\/div>/g,
   blockquote: /<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/g,
 };
 
@@ -346,7 +346,11 @@ function wrapRawMarkers(
       `<span class="md-marker ${wrapperClass}" `
         + `data-pos="end" data-entity-index="${entityIndex}">${markerString}</span>`
     );
-      // Return: start_marker + original_semantic_tag + end_marker
+    // debugger;
+    // if (marker === '```') {
+    //   return `${startMarkerSpan}<pre>${match}</pre>${endMarkerSpan}`;
+    // }
+    // Return: start_marker + original_semantic_tag + end_marker
     return `${startMarkerSpan}${match}${endMarkerSpan}`;
   });
 }
@@ -865,7 +869,12 @@ function processEntityAsHtml(
     case ApiMessageEntityTypes.Code:
       return `<code class="text-entity-code">${renderedContent}</code>`;
     case ApiMessageEntityTypes.Pre:
-      return `\`\`\`${renderText(entity.language || '', ['escape_html'])}<br/>${renderedContent}<br/>\`\`\`<br/>`;
+      return '<div class="PeerColorWrapper-module__root CodeBlock">'
+      + `${(entity.language ? `<p class="code-title">${(entity.language)}</p>` : '')}`
+      + `<pre class="code-block" data-entity-type="MessageEntityPre" data-language="${entity.language || ''}">`
+      + `${renderedContent}<div class="CodeOverlay-module__overlay code-overlay">`
+      + '<div class="CodeOverlay-module__content"></div></div></pre>'
+      + '</div>';
     case ApiMessageEntityTypes.Strike:
       return `<del>${renderedContent}</del>`;
     case ApiMessageEntityTypes.MentionName:
