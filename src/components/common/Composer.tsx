@@ -859,7 +859,10 @@ const Composer: FC<OwnProps & StateProps> = ({
     editingDraft,
   );
 
-  const { applyInlineEditForSelection } = useLiveFormatting({
+  const {
+    applyInlineEditForSelection,
+    getLiveFormatInputRef,
+  } = useLiveFormatting({
     getHtml,
     setHtml,
     editableInputId,
@@ -2093,6 +2096,7 @@ const Composer: FC<OwnProps & StateProps> = ({
             isNeedPremium={isNeedPremium}
             messageListType={messageListType}
             applyInlineEditForSelection={applyInlineEditForSelection}
+            getLiveFormatInputRef={getLiveFormatInputRef}
           />
           {isInMessageList && (
             <>

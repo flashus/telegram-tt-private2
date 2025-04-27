@@ -11,7 +11,7 @@ import type {
   IAnchorPosition, ISettings, MessageListType, ThreadId,
 } from '../../../types';
 import type { Signal } from '../../../util/signals';
-import type { ApplyInlineEditFn } from '../../common/hooks/useLiveFormatting';
+import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { type ApiInputMessageReplyInfo, ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
@@ -81,7 +81,8 @@ type OwnProps = {
   onBlur?: NoneToVoidFunction;
   isNeedPremium?: boolean;
   messageListType?: MessageListType;
-  applyInlineEditForSelection: ApplyInlineEditFn;
+  applyInlineEditForSelection: ApplyInlineEditForSelectionFn;
+  getLiveFormatInputRef: () => HTMLElement | null;
 };
 
 type StateProps = {
@@ -150,6 +151,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
   isNeedPremium,
   messageListType,
   applyInlineEditForSelection,
+  getLiveFormatInputRef,
 }) => {
   const {
     editLastMessage,
@@ -773,6 +775,7 @@ const MessageInput: FC<OwnProps & StateProps> = ({
         setSelectedRange={setSelectedRange} // TODO!!! Delete! Or not? now handled by applyInlineEdit
         onClose={handleCloseTextFormatter}
         applyInlineEditForSelection={applyInlineEditForSelection}
+        getLiveFormatInputRef={getLiveFormatInputRef}
       />
       {forcedPlaceholder && <span className="forced-placeholder">{renderText(forcedPlaceholder!)}</span>}
     </div>

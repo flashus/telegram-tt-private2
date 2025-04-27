@@ -4,11 +4,12 @@ import React, {
 } from '../../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../../types';
-import type { ApplyInlineEditFn } from '../../common/hooks/useLiveFormatting';
+import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { ApiMessageEntityTypes } from '../../../api/types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
 import { TokenType } from '../../../util/ast/astEnums';
+import { getPlainTextOffsetsFromRange } from '../../../util/ast/plainTextOffset';
 import { TOKEN_PATTERNS } from '../../../util/ast/token';
 import { ensureProtocol } from '../../../util/browser/url';
 import buildClassName from '../../../util/buildClassName';
@@ -36,7 +37,8 @@ export type OwnProps = {
   selectedRange?: Range;
   setSelectedRange: (range: Range) => void; // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose: () => void;
-  applyInlineEditForSelection: ApplyInlineEditFn;
+  applyInlineEditForSelection: ApplyInlineEditForSelectionFn;
+  getLiveFormatInputRef: () => HTMLElement | null;
 };
 
 interface ISelectedTextFormats {
@@ -79,6 +81,7 @@ const TextFormatter: FC<OwnProps> = ({
   setSelectedRange, // TODO!!! Delete! Or not? now handled by applyInlineEditForSelection
   onClose,
   applyInlineEditForSelection,
+  getLiveFormatInputRef,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -251,9 +254,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -261,36 +266,18 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
-
+    requestAnimationFrame(() => updateSelectedRange());
     onClose();
-    // if (selectedTextFormats.spoiler) {
-    //   const element = getExpectedParentElementRecursive('SPAN', getSelectedElement());
-    //   if (
-    //     !selectedRange
-    //     || !element
-    //     || element.dataset.entityType !== ApiMessageEntityTypes.Spoiler
-    //     || !element.textContent
-    //   ) {
-    //     return;
-    //   }
-
-    //   element.replaceWith(element.textContent);
-    //   setSelectedTextFormats((selectedFormats) => ({
-    //     ...selectedFormats,
-    //     spoiler: false,
-    //   }));
-
-    //   return;
-    // }
-
-    // const text = getSelectedText();
-    // document.execCommand(
-    //   'insertHTML', false, `<span class="spoiler" data-entity-type="${ApiMessageEntityTypes.Spoiler}">${text}</span>`,
-    // );
-    // onClose();
   });
 
   const handleBoldText = useLastCallback(() => {
@@ -311,9 +298,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -321,9 +310,17 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
+    requestAnimationFrame(() => updateSelectedRange());
   });
 
   const handleItalicText = useLastCallback(() => {
@@ -344,9 +341,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -354,9 +353,17 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
+    requestAnimationFrame(() => updateSelectedRange());
   });
 
   const handleUnderlineText = useLastCallback(() => {
@@ -377,9 +384,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -387,9 +396,17 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
+    requestAnimationFrame(() => updateSelectedRange());
   });
 
   const handleStrikethroughText = useLastCallback(() => {
@@ -410,9 +427,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -420,9 +439,17 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
+    requestAnimationFrame(() => updateSelectedRange());
   });
 
   const handleMonospaceText = useLastCallback(() => {
@@ -443,9 +470,11 @@ const TextFormatter: FC<OwnProps> = ({
       }
 
       flushSurroundingMarkers(element, marker);
-
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true);
+      applyInlineEditForSelection(true, selectionOffsets);
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
@@ -453,14 +482,22 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       const text = getSelectedText();
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection();
+      applyInlineEditForSelection(false, {
+        // By adding just once for both, we must get the selection inside of new tag
+        start: selectionOffsets.start + marker.length,
+        end: selectionOffsets.end + marker.length,
+      });
     }
-
+    requestAnimationFrame(() => updateSelectedRange());
     onClose();
   });
 
   const handleBlockquoteText = useLastCallback(() => {
+    // TODO!!! Handle blockquotes
     if (selectedTextFormats.blockquote) {
       const element = getExpectedParentElementRecursive('BLOCKQUOTE', getSelectedElement());
       if (
@@ -478,6 +515,7 @@ const TextFormatter: FC<OwnProps> = ({
       }));
 
       applyInlineEditForSelection();
+      requestAnimationFrame(() => updateSelectedRange());
       onClose();
       return;
     }
@@ -508,6 +546,7 @@ const TextFormatter: FC<OwnProps> = ({
       );
     }
     applyInlineEditForSelection();
+    requestAnimationFrame(() => updateSelectedRange());
     onClose();
   });
 
