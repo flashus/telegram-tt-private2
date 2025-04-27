@@ -853,7 +853,6 @@ const Composer: FC<OwnProps & StateProps> = ({
     chatId,
     threadId,
     messageListType,
-    liveFormatMode,
     draft,
     editingDraft,
   );
