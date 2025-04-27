@@ -312,6 +312,16 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
       if (!focusedEntityIndexes.includes(idx)) {
         return true;
       }
+      // Check if entity overlaps with selection range - no valid offsets allowed
+      if (
+        validOffsetMargin
+        && !(
+          newPlainTextSelectionOffsets.start <= e.offset + e.length
+          && newPlainTextSelectionOffsets.end >= e.offset
+        )
+      ) {
+        return true;
+      }
       if (!entityTypesToRemoveFromSelection.includes(e.type)) {
         return true;
       }
