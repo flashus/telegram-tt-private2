@@ -96,7 +96,7 @@ export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarker
 
   // console.log('Preceding plain text:', JSON.stringify(plainText));
   // Calculate length based on Unicode code points, not UTF-16 units.
-  return Array.from(plainText).length;
+  return plainText.length;
 }
 
 export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarkers: boolean = true): SelectionOffsets {
@@ -226,8 +226,8 @@ export function getPlainTextOffsetsFromRange(container: HTMLElement, ignoreMarke
   }
 
   return {
-    start: Array.from(plainTextStart).length,
-    end: Array.from(plainTextEnd).length,
+    start: plainTextStart.length,
+    end: plainTextEnd.length,
   };
 }
 
