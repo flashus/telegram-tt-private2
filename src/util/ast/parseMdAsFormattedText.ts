@@ -121,8 +121,32 @@ const getNewSelectionOffsets = (
   return resultOffsets;
 };
 
+/**
+ * Cleans editor HTML by removing <code class="text-entity-code">...</code> tags
+ * that are inside code regions, leaving only the code content.
+ */
+export function cleanEditorHtml(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  // Remove <code class="text-entity-code">...</code> tags
+  const codeElems = container.querySelectorAll('code.text-entity-code');
+  codeElems.forEach((codeElem) => {
+    // Replace <code>...</code> with just its text content
+    const text = `\`${codeElem.textContent}\`` || '';
+    codeElem.replaceWith(document.createTextNode(text));
+  });
+
+  // Remove any <span class="md-marker md-code-marker">...</span>
+  const markerElems = container.querySelectorAll('span.md-marker.md-code-marker');
+  markerElems.forEach((marker) => marker.remove());
+
+  // Return cleaned text for markdown/AST parsing
+  return container.textContent || '';
+}
+
 export function cleanHtml(html: string) {
-  let cleanedHtml = html.slice(0);
+  let cleanedHtml = cleanEditorHtml(html.slice(0));
 
   // Replace marker spans with their raw text content before lexing
   cleanedHtml = cleanedHtml.replace(/<span[^>]*class="[^\"]*\bmd-marker\b[^\"]*"[^>]*>([\s\S]*?)<\/span>/g,
