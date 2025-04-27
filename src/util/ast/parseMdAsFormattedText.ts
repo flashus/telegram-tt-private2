@@ -340,10 +340,6 @@ export function renderASTToEntities(ast: DocumentNode): ApiFormattedText {
 
 export function parseMarkdownHtmlToEntities(inputText: string): ApiFormattedText {
   const ast = parseMarkdownToAST(inputText);
-
-  if (inputText.includes('```')) {
-    console.log('ast', ast);
-  }
   if (!ast) {
     return { text: inputText, entities: [] };
   }
