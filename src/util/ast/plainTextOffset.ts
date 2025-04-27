@@ -1,4 +1,5 @@
 export type SelectionOffsets = { start: number; end: number };
+export type CaretOffset = number;
 
 // --- More robust version attempt using Range ---
 export function getPlainTextOffsetFromRange(container: HTMLElement, ignoreMarkers: boolean = true): number {
