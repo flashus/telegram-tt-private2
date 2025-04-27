@@ -3,7 +3,7 @@ import React, {
   memo, useEffect, useRef, useState,
 } from '../../../lib/teact/teact';
 
-import type { ApiMessageEntityDefault } from '../../../api/types';
+import type { ApiMessageEntityBlockquote, ApiMessageEntityDefault } from '../../../api/types';
 import type { IAnchorPosition } from '../../../types';
 import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { ApiMessageEntityTypes } from '../../../api/types';
@@ -52,15 +52,15 @@ interface ISelectedTextFormats {
   blockquote?: boolean;
 }
 
-const SELECTED_TEXT_FORMAT_TO_MARKER: Record<keyof ISelectedTextFormats, string> = {
-  bold: '**',
-  italic: '__',
-  underline: '++',
-  strikethrough: '~~',
-  monospace: '`',
-  spoiler: '||',
-  blockquote: '> ',
-};
+// const SELECTED_TEXT_FORMAT_TO_MARKER: Record<keyof ISelectedTextFormats, string> = {
+//   bold: '**',
+//   italic: '__',
+//   underline: '++',
+//   strikethrough: '~~',
+//   monospace: '`',
+//   spoiler: '||',
+//   blockquote: '> ',
+// };
 
 const TEXT_FORMAT_BY_TAG_NAME: Record<string, keyof ISelectedTextFormats> = {
   B: 'bold',
@@ -286,7 +286,6 @@ const TextFormatter: FC<OwnProps> = ({
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
-    // onClose();
   });
 
   const handleBoldText = useLastCallback(() => {
@@ -542,12 +541,18 @@ const TextFormatter: FC<OwnProps> = ({
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
-    // onClose();
   });
 
   const handleBlockquoteText = useLastCallback(() => {
-    // TODO!!! Handle blockquotes
+    // TODO!!!! Handle creating nested blockquotes!
+
+    const marker = TOKEN_PATTERNS[TokenType.QUOTE_MARKER];
     if (selectedTextFormats.blockquote) {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        blockquote: false,
+      }));
+
       const element = getExpectedParentElementRecursive('BLOCKQUOTE', getSelectedElement());
       if (
         !selectedRange
@@ -557,51 +562,43 @@ const TextFormatter: FC<OwnProps> = ({
         return;
       }
 
-      element.replaceWith(element.textContent ?? '');
-      setSelectedTextFormats((selectedFormats) => ({
-        ...selectedFormats,
-        blockquote: false,
-      }));
-
+      flushSurroundingMarkers(element, marker);
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
       applyInlineEditForSelection({
         isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Blockquote],
+        forceSelectionRestore: true,
       });
-      requestAnimationFrame(() => updateSelectedRange());
-      onClose();
-      return;
+    } else {
+      setSelectedTextFormats((selectedFormats) => ({
+        ...selectedFormats,
+        blockquote: true,
+      }));
+      const container = getLiveFormatInputRef();
+      if (!container) return;
+      const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
+
+      const additionalEntity: ApiMessageEntityBlockquote = {
+        type: ApiMessageEntityTypes.Blockquote,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
+      });
     }
-
-    const text = getSelectedText();
-
-    let leftMarkers: string = '';
-    let rightMarkers: string = '';
-
-    for (const format of Object.keys(selectedTextFormats)) {
-      if (format === 'blockquote') {
-        // Ignore self
-        continue;
-      }
-      const marker = SELECTED_TEXT_FORMAT_TO_MARKER[format as keyof ISelectedTextFormats];
-      if (marker) {
-        leftMarkers += marker;
-        rightMarkers = marker + rightMarkers;
-      }
-    }
-
-    if (text) {
-      document.execCommand(
-        'insertHTML',
-        false,
-        `<blockquote class="blockquote" data-entity-type="${ApiMessageEntityTypes.Blockquote}">`
-        + `${leftMarkers}${text}${rightMarkers}</blockquote>`,
-      );
-    }
-    applyInlineEditForSelection({});
     requestAnimationFrame(() => updateSelectedRange());
-    onClose();
   });
 
   const handleLinkUrlConfirm = useLastCallback(() => {
+    // TODO!!! Handle url links!
+
     const formattedLinkUrl = (ensureProtocol(linkUrl) || '').split('%').map(encodeURI).join('%');
 
     if (isEditingLink) {
