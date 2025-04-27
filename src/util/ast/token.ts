@@ -11,6 +11,7 @@ export const TOKEN_PATTERNS: { [key: string]: string } = {
   URL_START: '(',
   URL_END: ')',
   CODE_BLOCK: '```',
+  DBL_CODE_MARKER: '``',
   CODE_MARKER: '`',
   QUOTEMARK_MARKER: '"',
   NEWLINE: '\n',

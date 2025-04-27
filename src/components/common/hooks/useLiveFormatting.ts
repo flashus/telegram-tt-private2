@@ -368,11 +368,9 @@ const useLiveFormatting = ({
     const sel = window.getSelection();
     // Only proceed if selection is collapsed and within the editor
     if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) return;
-    console.log('ApplyInlineEdit - START ------------------');
     // 1. Get current state
     const caretOffset = getPlainTextOffsetFromRange(el, false);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
-    console.log('ApplyInlineEdit - Initial HTML:', currentHtml); // DEBUG
 
     // 2. Parse the current HTML to get the intended formatted text structure
     // parseMarkdownHtmlToEntities internally cleans HTML and parses raw markdown features
@@ -444,9 +442,6 @@ const useLiveFormatting = ({
           return true;
         }
       });
-
-      console.log('ApplyInlineEdit - Span Status after delete:', Object.fromEntries(spanStatus)); // DEBUG
-      console.log('ApplyInlineEdit - Filtered Entities (new logic):', JSON.stringify(entities)); // DEBUG
     }
 
     // 4. Render the formatted text back to HTML with markers enabled for all entities
@@ -461,10 +456,7 @@ const useLiveFormatting = ({
         keepMarkerWidth,
       },
     );
-    console.log('ApplyInlineEdit - New HTML for setHtml:', newHtml); // DEBUG
     const htmlChanged = newHtml !== currentHtml;
-
-    console.log('ApplyInlineEdit - END --------------------');
 
     if (htmlChanged) {
       // Update the state/DOM
