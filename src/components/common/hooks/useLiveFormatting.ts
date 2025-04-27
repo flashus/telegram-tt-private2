@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from '../../../lib/teact/teact';
 
+import type { ApiMessageEntity, ApiMessageEntityTypes } from '../../../api/types';
 import type { ILiveFormatSettings } from '../../../types';
 import type { SelectionOffsets } from '../../../util/ast/plainTextOffset';
 import type { Signal } from '../../../util/signals';
@@ -41,7 +42,23 @@ const NAV_KEYS = [
 const COMBO_KEY = 'f';
 
 export type ApplyInlineEditFn = (isDelete?: boolean) => void;
-export type ApplyInlineEditForSelectionFn = (isDelete?: boolean, _selectionOffsets?: SelectionOffsets) => void;
+export type ApplyInlineEditForSelectionFn = (
+  {
+    isDelete,
+    knownSelectionOffsets,
+    additionalEntities,
+    entityTypesToRemoveFromSelection,
+    onSelectionRestore,
+    forceSelectionRestore,
+  } : {
+    isDelete?: boolean;
+    knownSelectionOffsets?: SelectionOffsets;
+    additionalEntities?: ApiMessageEntity[];
+    entityTypesToRemoveFromSelection?: ApiMessageEntityTypes[];
+    onSelectionRestore?: () => void;
+    forceSelectionRestore?: boolean;
+  },
+) => void;
 
 /**
  * Call only for some class list that for sure contains md-marker class
@@ -110,42 +127,60 @@ class SelectionRestorerSingleton {
   }
 
   /** Call this to restore caret position */
-  public restoreCaretOffset(el: HTMLElement, caretOffset: number, ignoreMarkers = false) {
+  public restoreCaretOffset(
+    el: HTMLElement,
+    caretOffset: number,
+    ignoreMarkers = false,
+    cb?: () => void,
+  ) {
     // Bump the request counter
     const localRequestId = ++this.lastRequestId;
 
     // Flickering seems fixed by calling setCaretCharacterOffsets in three frames in a row
     setCaretByPlainTextOffset(el, caretOffset, ignoreMarkers);
+    cb?.();
 
     requestAnimationFrame(() => {
       // If there was a new call for restoreCaretOffset - previous calls must be superseded
       if (this.lastRequestId !== localRequestId) return;
       setCaretByPlainTextOffset(el, caretOffset, ignoreMarkers);
+      cb?.();
 
       requestAnimationFrame(() => {
         // If there was a new call for restoreCaretOffset - previous calls must be superseded
         if (this.lastRequestId !== localRequestId) return;
         setCaretByPlainTextOffset(el, caretOffset, ignoreMarkers);
+        cb?.();
+
         this.lastRequestId = 0;
       });
     });
   }
 
-  public restoreSelectionOffsets(el: HTMLElement, offsets: SelectionOffsets, ignoreMarkers = false) {
+  public restoreSelectionOffsets(
+    el: HTMLElement,
+    offsets: SelectionOffsets,
+    ignoreMarkers = false,
+    cb?: () => void,
+  ) {
     // Bump the request counter
     const localRequestId = ++this.lastRequestId;
 
     setSelectionByPlainTextOffsets(el, offsets, ignoreMarkers);
+    cb?.();
 
     requestAnimationFrame(() => {
       // If there was a new call for restoreSelectionOffsets - previous calls must be superseded
       if (this.lastRequestId !== localRequestId) return;
       setSelectionByPlainTextOffsets(el, offsets, ignoreMarkers);
+      cb?.();
 
       requestAnimationFrame(() => {
         // If there was a new call for restoreSelectionOffsets - previous calls must be superseded
         if (this.lastRequestId !== localRequestId) return;
         setSelectionByPlainTextOffsets(el, offsets, ignoreMarkers);
+        cb?.();
+
         this.lastRequestId = 0;
       });
     });
@@ -326,7 +361,7 @@ const useLiveFormatting = ({
     }
   }, []);
 
-  const applyInlineEdit: ApplyInlineEditForSelectionFn = useCallback((isDelete?: boolean) => {
+  const applyInlineEdit: ApplyInlineEditFn = useCallback((isDelete?: boolean) => {
     const el = inputRef.current;
     if (!el) return;
 
@@ -449,7 +484,21 @@ const useLiveFormatting = ({
   }, [setHtml, showRawMarkers, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
 
   const applyInlineEditForSelection: ApplyInlineEditForSelectionFn = useCallback((
-    isDelete?: boolean, _selectionOffsets?: SelectionOffsets,
+    {
+      isDelete,
+      knownSelectionOffsets,
+      additionalEntities,
+      entityTypesToRemoveFromSelection,
+      onSelectionRestore,
+      forceSelectionRestore,
+    } : {
+      isDelete?: boolean;
+      knownSelectionOffsets?: SelectionOffsets;
+      additionalEntities?: ApiMessageEntity[];
+      entityTypesToRemoveFromSelection?: ApiMessageEntityTypes[];
+      onSelectionRestore?: () => void;
+      forceSelectionRestore?: boolean;
+    } = {},
   ) => {
     const el = inputRef.current;
     if (!el) return;
@@ -459,7 +508,7 @@ const useLiveFormatting = ({
     if (!sel || !el.contains(sel.anchorNode)) return;
 
     // 1. Get current state
-    const selectionOffsets = _selectionOffsets ?? getPlainTextOffsetsFromRange(el, false);
+    const selectionOffsets = knownSelectionOffsets ?? getPlainTextOffsetsFromRange(el, false);
     const currentHtml = el.innerHTML; // Use innerHTML directly for comparison later
 
     // 2. Parse the current HTML to get the intended formatted text structure
@@ -469,7 +518,7 @@ const useLiveFormatting = ({
       focusedEntityIndexes,
       plainTextSelectionOffsets,
     } = parseMarkdownHtmlToEntitiesWithSelection(
-      currentHtml, selectionOffsets, validOffsetMargin,
+      currentHtml, selectionOffsets, validOffsetMargin, additionalEntities, entityTypesToRemoveFromSelection,
     );
     let entities = formattedText.entities;
 
@@ -554,7 +603,7 @@ const useLiveFormatting = ({
 
       // Restore selection using the cursor position captured *before* parsing/rendering
       const caretRestorer = SelectionRestorerSingleton.getInstance();
-      caretRestorer.restoreSelectionOffsets(el, plainTextSelectionOffsets, true); // Ignore markers here!
+      caretRestorer.restoreSelectionOffsets(el, plainTextSelectionOffsets, true, onSelectionRestore); // Ignore markers here!
 
       // Show raw markers is not needed here - it is now handled
       // in getTextWithEntitiesAsHtml that gets the visible entity indexes from parseMarkdownHtmlToEntitiesWithCursorSelection
@@ -562,6 +611,11 @@ const useLiveFormatting = ({
       // Even if HTML didn't change, marker visibility might need update based on cursor move
       // We do not use requestAnimationFrame here because DOM is not updated here
       showRawMarkersSelection(plainTextSelectionOffsets);
+
+      if (forceSelectionRestore) {
+        const caretRestorer = SelectionRestorerSingleton.getInstance();
+        caretRestorer.restoreSelectionOffsets(el, plainTextSelectionOffsets, true, onSelectionRestore); // Ignore markers here!
+      }
     }
   }, [setHtml, showRawMarkersSelection, liveFormatMode, validOffsetMargin, keepMarkerWidth]); // Removed getHtml dependency as we use el.innerHTML
 

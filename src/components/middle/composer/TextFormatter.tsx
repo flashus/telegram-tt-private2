@@ -3,6 +3,7 @@ import React, {
   memo, useEffect, useRef, useState,
 } from '../../../lib/teact/teact';
 
+import type { ApiMessageEntityDefault } from '../../../api/types';
 import type { IAnchorPosition } from '../../../types';
 import type { ApplyInlineEditForSelectionFn } from '../../common/hooks/useLiveFormatting';
 import { ApiMessageEntityTypes } from '../../../api/types';
@@ -257,27 +258,35 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Spoiler],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         spoiler: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Spoiler,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
-    onClose();
+    // onClose();
   });
 
   const handleBoldText = useLastCallback(() => {
@@ -301,23 +310,31 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Bold],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         bold: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Bold,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
@@ -344,23 +361,31 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Italic],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         italic: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Italic,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
@@ -387,23 +412,31 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Underline],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         underline: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Underline,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
@@ -430,23 +463,31 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Strike],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         strikethrough: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Strike,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
@@ -473,27 +514,35 @@ const TextFormatter: FC<OwnProps> = ({
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      element.replaceWith(element.textContent ?? '');
-      applyInlineEditForSelection(true, selectionOffsets);
+      applyInlineEditForSelection({
+        isDelete: true,
+        knownSelectionOffsets: selectionOffsets,
+        entityTypesToRemoveFromSelection: [ApiMessageEntityTypes.Code],
+        forceSelectionRestore: true,
+      });
     } else {
       setSelectedTextFormats((selectedFormats) => ({
         ...selectedFormats,
         monospace: true,
       }));
-
-      const text = getSelectedText();
       const container = getLiveFormatInputRef();
       if (!container) return;
       const selectionOffsets = getPlainTextOffsetsFromRange(container, true);
-      document.execCommand('insertHTML', false, `${marker}${text}${marker}`);
-      applyInlineEditForSelection(false, {
-        // By adding just once for both, we must get the selection inside of new tag
-        start: selectionOffsets.start + marker.length,
-        end: selectionOffsets.end + marker.length,
+
+      const additionalEntity: ApiMessageEntityDefault = {
+        type: ApiMessageEntityTypes.Code,
+        offset: selectionOffsets.start,
+        length: selectionOffsets.end - selectionOffsets.start,
+      };
+
+      applyInlineEditForSelection({
+        isDelete: false,
+        knownSelectionOffsets: selectionOffsets,
+        additionalEntities: [additionalEntity],
       });
     }
     requestAnimationFrame(() => updateSelectedRange());
-    onClose();
+    // onClose();
   });
 
   const handleBlockquoteText = useLastCallback(() => {
@@ -514,7 +563,9 @@ const TextFormatter: FC<OwnProps> = ({
         blockquote: false,
       }));
 
-      applyInlineEditForSelection();
+      applyInlineEditForSelection({
+        isDelete: true,
+      });
       requestAnimationFrame(() => updateSelectedRange());
       onClose();
       return;
@@ -545,7 +596,7 @@ const TextFormatter: FC<OwnProps> = ({
         + `${leftMarkers}${text}${rightMarkers}</blockquote>`,
       );
     }
-    applyInlineEditForSelection();
+    applyInlineEditForSelection({});
     requestAnimationFrame(() => updateSelectedRange());
     onClose();
   });
