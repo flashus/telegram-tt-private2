@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-escape */
-import type { ApiFormattedText } from '../../api/types';
+import type { ApiFormattedText, ApiMessageEntity } from '../../api/types';
 import type {
   ASTNode, DocumentNode, HtmlTagNode, TextNode,
 } from './node';
@@ -235,6 +235,8 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
   inputText: string,
   selectionOffsets: SelectionOffsets,
   validOffsetMargin: number = 0,
+  additionalEntities?: ApiMessageEntity[],
+  entityTypesToRemoveFromSelection?: string[],
 ): {
     formattedText: ApiFormattedText;
     focusedEntityIndexes: number[];
@@ -250,7 +252,15 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
     };
   }
   const formattedText = renderASTToEntities(ast);
-  const entitiesList = formattedText.entities ?? [];
+  let entitiesList = formattedText.entities ?? [];
+
+  // Add additional entities if provided - probably, from TextFormatter
+  if (additionalEntities) {
+    entitiesList = [...entitiesList, ...additionalEntities];
+    entitiesList.sort((a, b) => a.offset - b.offset);
+
+    formattedText.entities = entitiesList;
+  }
 
   // Caret offset that must be handled here - must be adjusted by the difference between pattern
   // occurencies in input and output text.
@@ -260,7 +270,7 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
     selectionOffsets,
   );
 
-  const focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
+  let focusedEntityIndexes = entitiesList.reduce<number[]>((acc, e, idx) => {
     if (
       // Check if entity overlaps with selection range
       newPlainTextSelectionOffsets.start - validOffsetMargin <= e.offset + e.length
@@ -270,6 +280,28 @@ export function parseMarkdownHtmlToEntitiesWithSelection(
     }
     return acc;
   }, []);
+
+  if (entityTypesToRemoveFromSelection) {
+    const focusedEntityIndexesToRemove: number[] = [];
+    // Remove entities of types that should not be part of selection
+    entitiesList = entitiesList.filter((e, idx) => {
+      if (!focusedEntityIndexes.includes(idx)) {
+        return true;
+      }
+      if (!entityTypesToRemoveFromSelection.includes(e.type)) {
+        return true;
+      }
+      focusedEntityIndexesToRemove.push(idx);
+      return false;
+    });
+
+    // Update focusedEntityIndexes
+    focusedEntityIndexes = focusedEntityIndexes.filter(
+      (i) => !focusedEntityIndexesToRemove.includes(i),
+    );
+
+    formattedText.entities = entitiesList;
+  }
 
   return {
     formattedText,
